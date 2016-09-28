@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <div>
+        <label>Name:</label>
+        <input value="{{spider.name}}" />
+    </div>
+    <div>
+        <label>Triggers:</label>
+        <table>
+            {% for trigger in spider.triggers %}
+                <tr>
+                    <td>{{trigger.cron_pattern}}</td>
+                </tr>
+            {% end %}
+        </table>
+    </div>
+</body>
+</html>

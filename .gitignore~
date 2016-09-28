@@ -1,0 +1,4 @@
+*.db
+dbs
+eggs
+.idea

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <div>
+        <a href="/uploadproject">Upload</a>
+    </div>
+    <table>
+        <tr>
+            <th>Project</th>
+            <th>Spider</th>
+        </tr>
+       {% for spider in spiders %}
+        <tr>
+            <td>
+                <a href="/spiders/{{spider.id}}">{{spider.name}}</a>
+            </td>
+            <td>
+                {{spider.project.name}}
+            </td>
+        </tr>
+       {% end %}
+    </table>
+</body>
+</html>
