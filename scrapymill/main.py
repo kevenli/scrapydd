@@ -1,15 +1,12 @@
 import tornado.ioloop
 import tornado.web
 import tornado.template
-import os.path
 from scrapyd.eggstorage import FilesystemEggStorage
 from scrapyd.config import Config
 from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger
-from apscheduler.schedulers.tornado import TornadoScheduler
-from apscheduler.triggers.cron import CronTrigger
-import json
+from schedule import SchedulerManager
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -35,11 +32,6 @@ class UploadProject(tornado.web.RequestHandler):
             session.commit()
             session.refresh(project)
         session.close()
-        #eggs_dir = 'eggs'
-        #if not os.path.exists(eggs_dir):
-        #    os.mkdir(eggs_dir)
-        #with open(os.path.join(eggs_dir, eggfilename), 'wb') as f:
-        #    f.write(eggfile['body'])
         spiders = get_spider_list(project_name, runner='scrapyd.runner')
         for spider_name in spiders:
             spider = session.query(Spider).filter_by(project_id = project.id, name=spider_name).first()
@@ -84,8 +76,9 @@ class SpiderListHandler(tornado.web.RequestHandler):
 
 
 class SpiderTriggersHandler(tornado.web.RequestHandler):
-    def initialize(self, scheduler):
-        self.scheduler = scheduler
+    def initialize(self, scheduler_manager):
+        self.scheduler=scheduler_manager.scheduler
+        self.scheduler_manager = scheduler_manager
 
     def get(self, id):
         session = Session()
@@ -100,48 +93,31 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
         session = Session()
         spider = session.query(Spider).filter_by(id=id).first()
         cron = self.request.arguments['cron'][0]
-        cron_parts = cron.split(' ')
-
-        crontrigger = CronTrigger(minute=cron_parts[0],
-                                  hour=cron_parts[1],
-                                  day=cron_parts[2],
-                                  month=cron_parts[3],
-                                  day_of_week=cron_parts[4])
-        self.scheduler.add_job(func=job_execute, trigger=crontrigger)
-
         trigger = Trigger()
         trigger.spider_id = spider.id
         trigger.cron_pattern = cron
 
         session.add(trigger)
         session.commit()
+        session.refresh(trigger)
+
+        self.scheduler_manager.add_job(trigger.id, trigger.cron_pattern)
         session.close()
         self.redirect('/spiders/%d'%id)
-        #loader = tornado.template.Loader("scrapymill/templates")
-        #self.write(loader.load("spidercreatetrigger.html").generate(spider=spider))
 
-def job_execute():
-    print 'job trigger fired'
-
-
-
-def make_app(scheduler):
+def make_app(scheduler_manager):
     return tornado.web.Application([
         (r"/", MainHandler),
         (r'/uploadproject', UploadProject),
         (r'/projects', ProjectList),
         (r'/spiders', SpiderListHandler),
         (r'/spiders/(\d+)', SpiderInstanceHandler),
-        (r'/spiders/(\d+)/triggers', SpiderTriggersHandler, {'scheduler': scheduler}),
+        (r'/spiders/(\d+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
     ])
 
 if __name__ == "__main__":
-    scheduler = TornadoScheduler()
-    app = make_app(scheduler)
+    scheduler_manager = SchedulerManager()
+    scheduler_manager.init()
+    app = make_app(scheduler_manager)
     app.listen(8888)
-
-    url = 'sqlite:///database.db'
-    scheduler.add_jobstore('sqlalchemy', url=url)
-    scheduler.start()
-
     tornado.ioloop.IOLoop.current().start()
