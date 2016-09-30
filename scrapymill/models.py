@@ -33,6 +33,18 @@ class Trigger(Base):
     spider_id = Column(Integer, ForeignKey('spiders.id'))
     cron_pattern = Column(String(length=50))
 
+class SpiderExecutionQueue(Base):
+    __tablename__ = 'spider_execution_queue'
+
+    id = Column(Integer, primary_key=True)
+    spider_id = Column(Integer, unique=True)
+    project_name = Column(String(length=50))
+    spider_name = Column(String(length=50))
+    fire_time = Column(DateTime)
+    start_time = Column(DateTime)
+    status = Column(Integer, default=0)
+    update_time = Column(DateTime)
+
 
 Spider.triggers = relationship("Trigger", order_by = Trigger.id)
 

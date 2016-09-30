@@ -3,3 +3,4 @@ dbs
 eggs
 .idea
 *.pyc
+executor_eggs

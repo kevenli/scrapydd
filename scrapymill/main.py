@@ -5,8 +5,10 @@ from scrapyd.eggstorage import FilesystemEggStorage
 from scrapyd.config import Config
 from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
-from models import Session, Project, Spider, Trigger
+from models import Session, Project, Spider, Trigger, SpiderExecutionQueue
 from schedule import SchedulerManager
+import datetime
+import json
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -31,7 +33,7 @@ class UploadProject(tornado.web.RequestHandler):
             session.add(project)
             session.commit()
             session.refresh(project)
-        session.close()
+
         spiders = get_spider_list(project_name, runner='scrapyd.runner')
         for spider_name in spiders:
             spider = session.query(Spider).filter_by(project_id = project.id, name=spider_name).first()
@@ -45,6 +47,7 @@ class UploadProject(tornado.web.RequestHandler):
         self.write(eggfilename)
         loader = tornado.template.Loader("scrapymill/templates")
         self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
+        session.close()
 
     def get(self):
         loader = tornado.template.Loader("scrapymill/templates")
@@ -65,6 +68,17 @@ class SpiderInstanceHandler(tornado.web.RequestHandler):
         spider = session.query(Spider).filter_by(id=id).first()
         loader = tornado.template.Loader("scrapymill/templates")
         self.write(loader.load("spider.html").generate(spider=spider))
+        session.close()
+
+class SpiderEggHandler(tornado.web.RequestHandler):
+    def get(self, id):
+        session = Session()
+        spider = session.query(Spider).filter_by(id=id).first()
+        egg_storage = FilesystemEggStorage(Config())
+        version, f = egg_storage.get(spider.project.name)
+        self.write(f.read())
+        session.close()
+
 
 class SpiderListHandler(tornado.web.RequestHandler):
     def get(self):
@@ -77,7 +91,6 @@ class SpiderListHandler(tornado.web.RequestHandler):
 
 class SpiderTriggersHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):
-        self.scheduler=scheduler_manager.scheduler
         self.scheduler_manager = scheduler_manager
 
     def get(self, id):
@@ -105,6 +118,37 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
         session.close()
         self.redirect('/spiders/%d'%id)
 
+class  ExecuteNextHandler(tornado.web.RequestHandler):
+    def post(self):
+        session = Session()
+        next_task = session.query(SpiderExecutionQueue).filter_by(status=0).order_by(SpiderExecutionQueue.update_time).first()
+        if next_task is None:
+            self.write(json.dumps({}))
+            return
+
+        next_task.start_time = datetime.datetime.now()
+        next_task.update_time = datetime.datetime.now()
+        next_task.status = 1
+        session.add(next_task)
+        session.commit()
+        self.write(json.dumps({
+            'task_id': next_task.id,
+            'spider_id':  next_task.spider_id,
+            'spider_name': next_task.spider_name,
+            'project_name': next_task.project_name,
+        }))
+        session.close()
+
+class ExecuteCompleteHandler(tornado.web.RequestHandler):
+    def post(self):
+        session = Session()
+        task_id = self.get_argument('task_id')
+        session.query(SpiderExecutionQueue).filter_by(id = task_id).delete()
+        session.commit()
+        session.close()
+
+
+
 def make_app(scheduler_manager):
     return tornado.web.Application([
         (r"/", MainHandler),
@@ -112,7 +156,10 @@ def make_app(scheduler_manager):
         (r'/projects', ProjectList),
         (r'/spiders', SpiderListHandler),
         (r'/spiders/(\d+)', SpiderInstanceHandler),
+        (r'/spiders/(\d+)/egg', SpiderEggHandler),
         (r'/spiders/(\d+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/executing/next_task', ExecuteNextHandler),
+        (r'/executing/complete', ExecuteCompleteHandler),
     ])
 
 if __name__ == "__main__":
