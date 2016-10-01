@@ -9,7 +9,8 @@ import sys
 import os
 
 
-egg_storage = FilesystemEggStorage(Config({'eggs_dir':'executor_eggs'}))
+#egg_storage = FilesystemEggStorage(Config({'eggs_dir':'executor_eggs'}))
+egg_storage = FilesystemEggStorage(Config())
 
 def poll():
     url = 'http://localhost:8888/executing/next_task'
@@ -21,14 +22,16 @@ def poll():
         spider_id = response_data['spider_id']
         project_name = response_data['project_name']
         spider_name = response_data['spider_name']
+        version = response_data['version']
 
-        egg_request_url = 'http://localhost:8888/spiders/%d/egg' % spider_id
-        print egg_request_url
-        egg_request=urllib2.Request(egg_request_url)
-        res = urllib2.urlopen(request)
-        egg = StringIO(res.read())
+        if not version in egg_storage.list(project_name):
+            egg_request_url = 'http://localhost:8888/spiders/%d/egg' % spider_id
+            print egg_request_url
+            egg_request=urllib2.Request(egg_request_url)
+            res = urllib2.urlopen(egg_request)
+            egg = StringIO(res.read())
 
-        egg_storage.put(egg, project_name, '1')
+            egg_storage.put(egg, project_name, version)
 
         runner = 'scrapyd.runner'
         pargs = [sys.executable, '-m', runner, 'crawl', spider_name]

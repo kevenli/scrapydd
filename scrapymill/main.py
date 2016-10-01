@@ -30,6 +30,7 @@ class UploadProject(tornado.web.RequestHandler):
         if project is None:
             project = Project()
             project.name = project_name
+            project.version = version
             session.add(project)
             session.commit()
             session.refresh(project)
@@ -126,6 +127,8 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
             self.write(json.dumps({}))
             return
 
+        spider = session.query(Spider).filter_by(id=next_task.spider_id).first()
+        project = session.query(Project).filter_by(id=spider.project_id).first()
         next_task.start_time = datetime.datetime.now()
         next_task.update_time = datetime.datetime.now()
         next_task.status = 1
@@ -136,6 +139,7 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
             'spider_id':  next_task.spider_id,
             'spider_name': next_task.spider_name,
             'project_name': next_task.project_name,
+            'version': project.version,
         }))
         session.close()
 
