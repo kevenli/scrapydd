@@ -43,8 +43,17 @@ class SpiderExecutionQueue(Base):
     spider_name = Column(String(length=50))
     fire_time = Column(DateTime)
     start_time = Column(DateTime)
+    node_id = Column(Integer)
     status = Column(Integer, default=0)
     update_time = Column(DateTime)
+
+class Node(Base):
+    __tablename__ = 'nodes'
+
+    id = Column(Integer, primary_key=True)
+    client_ip = Column(String(length=50))
+    create_time = Column(DateTime)
+    last_heartbeat = Column(DateTime)
 
 
 Spider.triggers = relationship("Trigger", order_by = Trigger.id)

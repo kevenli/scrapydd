@@ -5,8 +5,9 @@ from scrapyd.eggstorage import FilesystemEggStorage
 from scrapyd.config import Config
 from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
-from models import Session, Project, Spider, Trigger, SpiderExecutionQueue
+from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node
 from schedule import SchedulerManager
+from .nodes import NodeManager
 import datetime
 import json
 
@@ -122,25 +123,30 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
 class  ExecuteNextHandler(tornado.web.RequestHandler):
     def post(self):
         session = Session()
+        node_id = int(self.request.arguments['node_id'][0])
         next_task = session.query(SpiderExecutionQueue).filter_by(status=0).order_by(SpiderExecutionQueue.update_time).first()
-        if next_task is None:
-            self.write(json.dumps({}))
-            return
 
-        spider = session.query(Spider).filter_by(id=next_task.spider_id).first()
-        project = session.query(Project).filter_by(id=spider.project_id).first()
-        next_task.start_time = datetime.datetime.now()
-        next_task.update_time = datetime.datetime.now()
-        next_task.status = 1
-        session.add(next_task)
-        session.commit()
-        self.write(json.dumps({
-            'task_id': next_task.id,
-            'spider_id':  next_task.spider_id,
-            'spider_name': next_task.spider_name,
-            'project_name': next_task.project_name,
-            'version': project.version,
-        }))
+        response_data = {'data': None}
+
+        if next_task is not None:
+            spider = session.query(Spider).filter_by(id=next_task.spider_id).first()
+            project = session.query(Project).filter_by(id=spider.project_id).first()
+            next_task.start_time = datetime.datetime.now()
+            next_task.update_time = datetime.datetime.now()
+            next_task.node_id = node_id
+            next_task.status = 1
+            session.add(next_task)
+            session.commit()
+            response_data['data'] = {'task':{
+                'task_id': next_task.id,
+                'spider_id':  next_task.spider_id,
+                'spider_name': next_task.spider_name,
+                'project_name': next_task.project_name,
+                'version': project.version,
+            }}
+
+
+        self.write(json.dumps(response_data))
         session.close()
 
 class ExecuteCompleteHandler(tornado.web.RequestHandler):
@@ -151,9 +157,27 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         session.commit()
         session.close()
 
+class NodesHandler(tornado.web.RequestHandler):
+    def initialize(self, node_manager):
+        self.node_manager = node_manager
+
+    def post(self):
+        node = self.node_manager.create_node(self.request.remote_ip)
+        self.write(json.dumps({'id': node.id}))
 
 
-def make_app(scheduler_manager):
+class NodeHeartbeatHandler(tornado.web.RequestHandler):
+    def initialize(self, node_manager):
+        self.node_manager = node_manager
+
+    def post(self, id):
+        session = Session()
+        node = session.query(Node).filter_by(id=id).first()
+        node.last_heartbeat = datetime.datetime.now()
+        session.add(node)
+        session.commit()
+
+def make_app(scheduler_manager, node_manager):
     return tornado.web.Application([
         (r"/", MainHandler),
         (r'/uploadproject', UploadProject),
@@ -164,11 +188,17 @@ def make_app(scheduler_manager):
         (r'/spiders/(\d+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/next_task', ExecuteNextHandler),
         (r'/executing/complete', ExecuteCompleteHandler),
+        (r'/nodes', NodesHandler, {'node_manager': node_manager}),
+        (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager}),
     ])
 
 if __name__ == "__main__":
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
-    app = make_app(scheduler_manager)
+
+    node_manager = NodeManager()
+    node_manager.init()
+
+    app = make_app(scheduler_manager, node_manager)
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()
