@@ -2,5 +2,7 @@
 dbs
 eggs
 .idea
+build
+dist
 *.pyc
 executor_eggs
