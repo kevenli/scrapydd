@@ -12,9 +12,8 @@ import os
 import urlparse
 import logging
 
-
-
 egg_storage = FilesystemEggStorage(Config())
+
 
 class SpiderTask():
     id = None
@@ -38,12 +37,13 @@ class Executor():
     def start(self):
         self.register_node()
         ioloop = IOLoop.current()
-        heartbeat_callback = PeriodicCallback(self.send_heartbeat, self.heartbeat_interval*1000, ioloop)
+        #init heartbeat period callback
+        heartbeat_callback = PeriodicCallback(self.send_heartbeat, self.heartbeat_interval*1000)
         heartbeat_callback.start()
 
-        checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval*1000, ioloop )
+        #init checktask period callback
+        checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval*1000)
         checktask_callback.start()
-        #ioloop.call_later(delay=1, callback=poll, node_id = self.node_id)
 
         ioloop.start()
 
@@ -66,8 +66,10 @@ class Executor():
         post_data = urllib.urlencode({'node_id': self.node_id})
         request = urllib2.Request(url=url, data=post_data)
         res = urllib2.urlopen(request)
-        response_data = json.loads(res.read())
-        print response_data
+        response_content = res.read()
+        response_data = json.loads(response_content)
+        logging.debug(url)
+        logging.debug(response_content)
         if response_data['data'] is not None:
             task = SpiderTask()
             task.id = response_data['data']['task']['task_id']
@@ -78,9 +80,11 @@ class Executor():
             return task
 
     def execute_task(self, task):
+        logging.debug(task.project_version)
+        logging.debug(egg_storage.list(task.project_name))
         if not task.project_version in egg_storage.list(task.project_name):
             egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % task.spider_id)
-            print egg_request_url
+            logging.debug(egg_request_url)
             egg_request=urllib2.Request(egg_request_url)
             res = urllib2.urlopen(egg_request)
             egg = StringIO(res.read())
@@ -96,7 +100,7 @@ class Executor():
         task = self.task_queue.get_nowait()
         print task
         url = urlparse.urljoin(self.service_base, '/executing/complete')
-        post_data = urllib.urlencode({'task_id': task.id})
+        post_data = urllib.urlencode({'task_id': task.id, 'log': task.executor.p.stdout.read()})
         request = urllib2.Request(url, post_data)
         urllib2.urlopen(request)
         print 'task finished'
@@ -118,8 +122,9 @@ class TaskExecutor():
         pargs = [sys.executable, '-m', runner, 'crawl', self.task.spider_name]
         #pargs = [sys.executable, '-m', runner, 'list']
         env = os.environ.copy()
+        logging.debug(env)
         env['SCRAPY_PROJECT'] = str(self.task.project_name)
-        self.p = subprocess.Popen(pargs, env=env)
+        self.p = subprocess.Popen(pargs, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         self.future = Future()
         self.check_process_callback = PeriodicCallback(self.check_process, 1000)
         self.check_process_callback.start()
@@ -128,10 +133,8 @@ class TaskExecutor():
     def check_process(self):
         execute_result = self.p.poll()
         if execute_result is not None:
-            print execute_result
             self.check_process_callback.stop()
-            self.future.set_result(execute_result)
-
+            self.future.set_result(self.task)
 
 def get_next_task(node_id):
     url = 'http://localhost:8888/executing/next_task'
@@ -174,6 +177,6 @@ def poll(node_id):
     ioloop.call_later(1, poll)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     executor = Executor()
     executor.start()

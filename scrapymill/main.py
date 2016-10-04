@@ -153,6 +153,8 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
     def post(self):
         session = Session()
         task_id = self.get_argument('task_id')
+        log = self.get_argument('log')
+        #print log
         session.query(SpiderExecutionQueue).filter_by(id = task_id).delete()
         session.commit()
         session.close()
