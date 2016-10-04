@@ -83,3 +83,8 @@ class SchedulerManager:
 
 
         print 'trigger fired %s ' % trigger_id
+
+    def on_node_expired(self, node_id):
+        session = Session()
+        session.query(SpiderExecutionQueue).filter_by(node_id=node_id).delete()
+        session.commit()

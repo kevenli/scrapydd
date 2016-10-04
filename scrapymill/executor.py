@@ -15,6 +15,7 @@ import logging
 egg_storage = FilesystemEggStorage(Config())
 
 class SpiderTask():
+    id = None
     spider_id = None
     project_name = None
     spider_name = None
@@ -65,6 +66,7 @@ class Executor():
         print response_data
         if response_data['data'] is not None:
             task = SpiderTask()
+            task.id = response_data['data']['task']['task_id']
             task.spider_id = response_data['data']['task']['spider_id']
             task.project_name = response_data['data']['task']['project_name']
             task.project_version = response_data['data']['task']['version']

@@ -5,6 +5,10 @@ import datetime
 class NodeManager():
     interval = 10
     node_timeout = 60
+
+    def __init__(self, scheduler_manager):
+        self.scheduler_manager = scheduler_manager
+
     def init(self):
         self.ioloop = IOLoop.current()
         self.peroid_callback = PeriodicCallback(self._poll, self.interval*1000, self.ioloop)
@@ -15,6 +19,7 @@ class NodeManager():
         session = Session()
         for node in session.query(Node).filter(Node.last_heartbeat<last_heartbeat_lessthan):
             print 'node %d expired' % node.id
+            self.scheduler_manager.on_node_expired(node.id)
             session.delete(node)
         session.commit()
         session.close()

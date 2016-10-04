@@ -196,7 +196,7 @@ if __name__ == "__main__":
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
 
-    node_manager = NodeManager()
+    node_manager = NodeManager(scheduler_manager)
     node_manager.init()
 
     app = make_app(scheduler_manager, node_manager)
