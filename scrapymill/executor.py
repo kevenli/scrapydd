@@ -1,5 +1,6 @@
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.queues import Queue
+from tornado.concurrent import Future
 import urllib2, urllib
 import json
 from scrapyd.eggstorage import FilesystemEggStorage
@@ -12,6 +13,7 @@ import urlparse
 import logging
 
 
+
 egg_storage = FilesystemEggStorage(Config())
 
 class SpiderTask():
@@ -20,15 +22,17 @@ class SpiderTask():
     project_name = None
     spider_name = None
     project_version = None
+    executor = None
 
 
 class Executor():
     heartbeat_interval = 10
     checktask_interval = 10
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger('scrapymill.executor')
     task_queue = Queue()
 
     def __init__(self):
+        self.ioloop = IOLoop.current()
         self.service_base = 'http://localhost:8888'
 
     def start(self):
@@ -73,12 +77,61 @@ class Executor():
             task.spider_name = response_data['data']['task']['spider_name']
             return task
 
+    def execute_task(self, task):
+        if not task.project_version in egg_storage.list(task.project_name):
+            egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % task.spider_id)
+            print egg_request_url
+            egg_request=urllib2.Request(egg_request_url)
+            res = urllib2.urlopen(egg_request)
+            egg = StringIO(res.read())
+
+            egg_storage.put(egg, task.project_name, task.project_version)
+
+        executor = TaskExecutor(task)
+        task.executor = executor
+        future = executor.begin_execute()
+        self.ioloop.add_future(future, self.task_finished)
+
+    def task_finished(self, future):
+        task = self.task_queue.get_nowait()
+        print task
+        url = urlparse.urljoin(self.service_base, '/executing/complete')
+        post_data = urllib.urlencode({'task_id': task.id})
+        request = urllib2.Request(url, post_data)
+        urllib2.urlopen(request)
+        print 'task finished'
 
     def check_task(self):
         if self.task_queue.empty():
             task = self.get_next_task()
             if task is not None:
                 self.task_queue.put(task)
+                self.execute_task(task)
+
+
+class TaskExecutor():
+    def __init__(self, task):
+        self.task = task
+
+    def begin_execute(self):
+        runner = 'scrapyd.runner'
+        pargs = [sys.executable, '-m', runner, 'crawl', self.task.spider_name]
+        #pargs = [sys.executable, '-m', runner, 'list']
+        env = os.environ.copy()
+        env['SCRAPY_PROJECT'] = str(self.task.project_name)
+        self.p = subprocess.Popen(pargs, env=env)
+        self.future = Future()
+        self.check_process_callback = PeriodicCallback(self.check_process, 1000)
+        self.check_process_callback.start()
+        return self.future
+
+    def check_process(self):
+        execute_result = self.p.poll()
+        if execute_result is not None:
+            print execute_result
+            self.check_process_callback.stop()
+            self.future.set_result(execute_result)
+
 
 def get_next_task(node_id):
     url = 'http://localhost:8888/executing/next_task'
