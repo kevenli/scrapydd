@@ -201,7 +201,7 @@ def make_app(scheduler_manager, node_manager):
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager}),
     ])
 
-if __name__ == "__main__":
+def run():
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
 
@@ -211,3 +211,6 @@ if __name__ == "__main__":
     app = make_app(scheduler_manager, node_manager)
     app.listen(6800)
     tornado.ioloop.IOLoop.current().start()
+
+if __name__ == "__main__":
+    run()
