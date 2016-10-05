@@ -2,7 +2,7 @@ import tornado.ioloop
 import tornado.web
 import tornado.template
 from scrapyd.eggstorage import FilesystemEggStorage
-from scrapyd.config import Config
+import scrapyd.config
 from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node
@@ -10,10 +10,18 @@ from schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
 import json
+from .config import Config
+import pkgutil
+import os.path
+import logging
+
 
 def get_template_loader():
-    loader = tornado.template.Loader("scrapydd/templates")
+    loader = tornado.template.Loader(os.path.join(os.path.dirname(__file__), "templates"))
     return loader
+
+def get_egg_storage():
+    return FilesystemEggStorage(scrapyd.config.Config())
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -21,7 +29,7 @@ class MainHandler(tornado.web.RequestHandler):
 
 class UploadProject(tornado.web.RequestHandler):
     def post(self):
-        egg_storage = FilesystemEggStorage(Config())
+        egg_storage = get_egg_storage()
         project_name = self.request.arguments['project'][0]
         version = self.request.arguments['version'][0]
 
@@ -82,7 +90,7 @@ class SpiderEggHandler(tornado.web.RequestHandler):
     def get(self, id):
         session = Session()
         spider = session.query(Spider).filter_by(id=id).first()
-        egg_storage = FilesystemEggStorage(Config())
+        egg_storage = get_egg_storage()
         version, f = egg_storage.get(spider.project.name)
         self.write(f.read())
         session.close()
@@ -202,6 +210,7 @@ def make_app(scheduler_manager, node_manager):
     ])
 
 def run():
+    config = Config()
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
 
@@ -209,7 +218,11 @@ def run():
     node_manager.init()
 
     app = make_app(scheduler_manager, node_manager)
-    app.listen(6800)
+
+    bind_address = config.get('bind_address')
+    bind_port = config.getint('bind_port')
+    print 'Starting server on %s:%d' % (bind_address, bind_port)
+    app.listen(bind_port, bind_address)
     tornado.ioloop.IOLoop.current().start()
 
 if __name__ == "__main__":
