@@ -7,6 +7,7 @@ setup(
     version      = '0.1',
     packages     = find_packages(),
     entry_points = {'console_scripts': [
-    'scrapydd = scrapydd.scripts.scrapydd_run:main'
+    'scrapydd = scrapydd.scripts.scrapydd_run:main',
+    'scrapyddagent = scrapydd.scripts.scrapyddagent:main',
     ]}
 )

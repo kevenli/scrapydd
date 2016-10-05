@@ -32,7 +32,7 @@ class Executor():
 
     def __init__(self):
         self.ioloop = IOLoop.current()
-        self.service_base = 'http://localhost:8888'
+        self.service_base = 'http://localhost:6800'
 
     def start(self):
         self.register_node()
@@ -62,7 +62,7 @@ class Executor():
 
 
     def get_next_task(self):
-        url = 'http://localhost:8888/executing/next_task'
+        url = urlparse.urljoin(self.service_base, '/executing/next_task')
         post_data = urllib.urlencode({'node_id': self.node_id})
         request = urllib2.Request(url=url, data=post_data)
         res = urllib2.urlopen(request)
@@ -144,39 +144,11 @@ def get_next_task(node_id):
     response_data = json.loads(res.read())
     return response_data
 
-def poll(node_id):
-    response_data = get_next_task(node_id)
-    if 'spider_id' in response_data:
-        task_id = response_data['task_id']
-        spider_id = response_data['spider_id']
-        project_name = response_data['project_name']
-        spider_name = response_data['spider_name']
-        version = response_data['version']
 
-        if not version in egg_storage.list(project_name):
-            egg_request_url = 'http://localhost:8888/spiders/%d/egg' % spider_id
-            print egg_request_url
-            egg_request=urllib2.Request(egg_request_url)
-            res = urllib2.urlopen(egg_request)
-            egg = StringIO(res.read())
-
-            egg_storage.put(egg, project_name, version)
-
-        runner = 'scrapyd.runner'
-        pargs = [sys.executable, '-m', runner, 'crawl', spider_name]
-        env = os.environ.copy()
-        env['SCRAPY_PROJECT'] = str(project_name)
-        subprocess.call(pargs, env=env)
-
-        task_complete_url = 'http://localhost:8888/executing/complete'
-        task_complete_postdata = urllib.urlencode({'task_id':task_id})
-        task_complete_request = urllib2.Request(task_complete_url, data=task_complete_postdata)
-        urllib2.urlopen(task_complete_request).read()
-
-    ioloop = IOLoop.current()
-    ioloop.call_later(1, poll)
-
-if __name__ == '__main__':
+def run():
     logging.basicConfig(level=logging.DEBUG)
     executor = Executor()
     executor.start()
+
+if __name__ == '__main__':
+    run()
