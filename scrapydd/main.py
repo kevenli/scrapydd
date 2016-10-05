@@ -56,7 +56,7 @@ class UploadProject(tornado.web.RequestHandler):
         session.close()
 
     def get(self):
-        loader = tornado.template.Loader("scrapymill/templates")
+        loader = get_template_loader()
         self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
 
 
@@ -109,7 +109,7 @@ class SpiderInstanceHandler(tornado.web.RequestHandler):
     def get(self, id):
         session = Session()
         spider = session.query(Spider).filter_by(id=id).first()
-        loader = tornado.template.Loader("scrapymill/templates")
+        loader = get_template_loader()
         self.write(loader.load("spider.html").generate(spider=spider))
         session.close()
 
@@ -127,7 +127,7 @@ class SpiderListHandler(tornado.web.RequestHandler):
     def get(self):
         session = Session()
         spiders = session.query(Spider)
-        loader = tornado.template.Loader("scrapymill/templates")
+        loader = get_template_loader()
         self.write(loader.load("spiderlist.html").generate(spiders=spiders))
         session.close()
 
@@ -139,7 +139,7 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
     def get(self, id):
         session = Session()
         spider = session.query(Spider).filter_by(id=id).first()
-        loader = tornado.template.Loader("scrapymill/templates")
+        loader = get_template_loader()
         self.write(loader.load("spidercreatetrigger.html").generate(spider=spider))
 
         session.close()
