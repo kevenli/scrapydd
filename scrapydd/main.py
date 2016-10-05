@@ -49,52 +49,17 @@ class UploadProject(tornado.web.RequestHandler):
                 spider.project_id = project.id
                 session.add(spider)
                 session.commit()
-
-        self.write(eggfilename)
-        loader = get_template_loader()
-        self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
+        if self.request.path.endswith('.json'):
+            self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
+        else:
+            loader = get_template_loader()
+            self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
         session.close()
 
     def get(self):
         loader = get_template_loader()
         self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
 
-
-class AddVersionHandler(tornado.web.RequestHandler):
-    def post(self):
-        egg_storage = FilesystemEggStorage(Config())
-        project_name = self.request.arguments['project'][0]
-        version = self.request.arguments['version'][0]
-
-        eggfile = self.request.files['egg'][0]
-        eggfilename = eggfile['filename']
-        eggf = StringIO(eggfile['body'])
-        egg_storage.put(eggf, project_name, version)
-        session = Session()
-        project = session.query(Project).filter_by(name=project_name).first()
-        if project is None:
-            project = Project()
-            project.name = project_name
-            project.version = version
-            session.add(project)
-            session.commit()
-            session.refresh(project)
-
-        spiders = get_spider_list(project_name, runner='scrapyd.runner')
-        for spider_name in spiders:
-            spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
-            if spider is None:
-                spider = Spider()
-                spider.name = spider_name
-                spider.project_id = project.id
-                session.add(spider)
-                session.commit()
-
-        self.write(json.dumps({'status':'ok', 'spiders':len(spiders)}))
-        session.close()
-
-
-        {"status": "ok", "spiders": 3}
 
 class ProjectList(tornado.web.RequestHandler):
     def get(self):
@@ -224,7 +189,7 @@ def make_app(scheduler_manager, node_manager):
     return tornado.web.Application([
         (r"/", MainHandler),
         (r'/uploadproject', UploadProject),
-        (r'/addversion.json', AddVersionHandler),
+        (r'/addversion.json', UploadProject),
         (r'/projects', ProjectList),
         (r'/spiders', SpiderListHandler),
         (r'/spiders/(\d+)', SpiderInstanceHandler),
