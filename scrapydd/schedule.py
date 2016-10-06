@@ -3,11 +3,8 @@ from models import Session, Trigger, Spider, Project, SpiderExecutionQueue
 from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
-import sys,os
-import subprocess
-from tornado.process import Subprocess
 from sqlite3 import IntegrityError
-
+import uuid
 import logging
 import datetime
 
@@ -70,19 +67,26 @@ class SchedulerManager:
             self.logger.warning(e)
         session.close()
         return
-        runner = 'scrapyd.runner'
-        pargs = [sys.executable, '-m', runner, 'list']
-        env = os.environ.copy()
-        env['SCRAPY_PROJECT'] = str(project.name)
-        subprocess.check_call(pargs, env=env)
-        #subprocess = Subprocess(pargs, env=env)
-        #subprocess.set_exit_callback(self.process_exit_callback)
-        #subprocess.wait_for_exit()
 
+    def add_task(self, project_name, spider_name):
+        session = Session()
+        project = session.query(Project).filter(Project.name==project_name).first()
+        spider = session.query(Spider).filter(Spider.name==spider_name, Spider.project_id==project.id).first()
 
+        executing = SpiderExecutionQueue()
+        executing.spider_id = spider.id
+        executing.project_name = project.name
+        executing.spider_name = spider.name
+        executing.fire_time = datetime.datetime.now()
+        executing.update_time = datetime.datetime.now()
+        session.add(executing)
+        session.commit()
+        session.close()
 
+        jobid = str(uuid.uuid1()).replace('-','')
 
-        print 'trigger fired %s ' % trigger_id
+        return jobid
+
 
     def on_node_expired(self, node_id):
         session = Session()

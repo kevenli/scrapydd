@@ -68,6 +68,21 @@ class UploadProject(tornado.web.RequestHandler):
         loader = get_template_loader()
         self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
 
+class ScheduleHandler(tornado.web.RequestHandler):
+    def initialize(self, scheduler_manager):
+        self.scheduler_manager = scheduler_manager
+
+    def post(self):
+        project = self.get_argument('project')
+        spider = self.get_argument('spider')
+
+        jobid = self.scheduler_manager.add_task(project, spider)
+        response_data = {
+            'status':'ok',
+            'jobid': jobid
+        }
+        self.write(json.dumps(response_data))
+
 
 class ProjectList(tornado.web.RequestHandler):
     def get(self):
@@ -198,6 +213,7 @@ def make_app(scheduler_manager, node_manager):
         (r"/", MainHandler),
         (r'/uploadproject', UploadProject),
         (r'/addversion.json', UploadProject),
+        (r'/schedule.json', ScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects', ProjectList),
         (r'/spiders', SpiderListHandler),
         (r'/spiders/(\d+)', SpiderInstanceHandler),

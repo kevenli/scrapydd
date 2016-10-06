@@ -38,7 +38,7 @@ class SpiderExecutionQueue(Base):
     __tablename__ = 'spider_execution_queue'
 
     id = Column(Integer, primary_key=True)
-    spider_id = Column(Integer, unique=True)
+    spider_id = Column(Integer)
     project_name = Column(String(length=50))
     spider_name = Column(String(length=50))
     fire_time = Column(DateTime)

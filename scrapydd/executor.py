@@ -169,14 +169,6 @@ class TaskExecutor():
             self.check_process_callback.stop()
             self.future.set_result(self.task)
 
-def get_next_task(node_id):
-    url = 'http://localhost:8888/executing/next_task'
-    post_data = urllib.urlencode({'node_id':node_id})
-    request = urllib2.Request(url=url, data=post_data)
-    res = urllib2.urlopen(request)
-    response_data = json.loads(res.read())
-    return response_data
-
 
 def run():
     logging.basicConfig(level=logging.DEBUG)
