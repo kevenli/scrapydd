@@ -4,6 +4,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
+from migrate.versioning.api import version_control, upgrade
+from migrate.exceptions import DatabaseAlreadyControlledError
+import os
+
 metadata = schema.MetaData()
 Base = declarative_base(metadata=metadata)
 
@@ -57,3 +61,13 @@ class Node(Base):
 
 
 Spider.triggers = relationship("Trigger", order_by = Trigger.id)
+
+def init_database():
+    db_url = 'sqlite:///database.db'
+    db_repository = os.path.join(os.path.dirname(__file__), '..', 'migrates')
+    print db_repository
+    try:
+        version_control(url=db_url, repository=db_repository)
+    except DatabaseAlreadyControlledError:
+        pass
+    upgrade(db_url, db_repository)

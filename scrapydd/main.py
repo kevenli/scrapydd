@@ -5,7 +5,7 @@ from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
 from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
-from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node
+from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database
 from schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
@@ -13,8 +13,6 @@ import json
 from .config import Config
 import os.path
 import logging
-from migrate.versioning.api import version_control, upgrade
-from migrate.exceptions import DatabaseAlreadyControlledError
 
 
 def get_template_loader():
@@ -228,6 +226,8 @@ def make_app(scheduler_manager, node_manager):
 
 def run():
     config = Config()
+    init_database()
+
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
 
@@ -243,12 +243,4 @@ def run():
     tornado.ioloop.IOLoop.current().start()
 
 if __name__ == "__main__":
-    db_url = 'sqlite:///database.db'
-    db_repository = 'migrates'
-    try:
-        version_control(url=db_url, repository=db_repository)
-    except DatabaseAlreadyControlledError:
-        pass
-    upgrade(db_url, db_repository)
-    #main(url=, debug='False', repository='migrates')
     run()

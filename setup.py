@@ -11,6 +11,9 @@ setup(
             'scrapydd.default.conf',
             'templates/*.html'
         ],
+        'migrates': [
+            'migrate.cfg',
+        ]
     },
     entry_points = {
         'console_scripts': [
