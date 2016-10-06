@@ -11,6 +11,9 @@ import sys
 import os
 import urlparse
 import logging
+import tempfile
+import shutil
+import pkg_resources
 
 egg_storage = FilesystemEggStorage(Config())
 
@@ -79,6 +82,34 @@ class Executor():
             task.spider_name = response_data['data']['task']['spider_name']
             return task
 
+    def test_egg_requirements(self, project):
+        logging.debug('enter test_egg')
+        version, eggfile = egg_storage.get(project)
+        logging.debug(version)
+        if eggfile:
+            prefix = '%s-%s-' % (project, version)
+            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
+
+            lf = os.fdopen(fd, 'wb')
+            shutil.copyfileobj(eggfile, lf)
+            lf.close()
+        logging.debug(eggpath)
+        try:
+            d = pkg_resources.find_distributions(eggpath).next()
+        except StopIteration:
+            raise ValueError("Unknown or corrupt egg")
+        else:
+            eggpath = None
+        logging.debug(d.requires())
+        for require in d.requires():
+            subprocess.check_call(['pip', 'install', str(require)])
+
+        try:
+            assert 'scrapy.conf' not in sys.modules, "Scrapy settings already loaded"
+        finally:
+            if eggpath:
+                os.remove(eggpath)
+
     def execute_task(self, task):
         logging.debug(task.project_version)
         logging.debug(egg_storage.list(task.project_name))
@@ -90,6 +121,8 @@ class Executor():
             egg = StringIO(res.read())
 
             egg_storage.put(egg, task.project_name, task.project_version)
+
+        self.test_egg_requirements(task.project_name)
 
         executor = TaskExecutor(task)
         task.executor = executor
