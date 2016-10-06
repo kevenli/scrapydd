@@ -11,9 +11,10 @@ from .nodes import NodeManager
 import datetime
 import json
 from .config import Config
-import pkgutil
 import os.path
 import logging
+from migrate.versioning.api import version_control, upgrade
+from migrate.exceptions import DatabaseAlreadyControlledError
 
 
 def get_template_loader():
@@ -242,4 +243,12 @@ def run():
     tornado.ioloop.IOLoop.current().start()
 
 if __name__ == "__main__":
+    db_url = 'sqlite:///database.db'
+    db_repository = 'migrates'
+    try:
+        version_control(url=db_url, repository=db_repository)
+    except DatabaseAlreadyControlledError:
+        pass
+    upgrade(db_url, db_repository)
+    #main(url=, debug='False', repository='migrates')
     run()

@@ -57,5 +57,3 @@ class Node(Base):
 
 
 Spider.triggers = relationship("Trigger", order_by = Trigger.id)
-
-Base.metadata.create_all(engine)
