@@ -8,10 +8,12 @@ import uuid
 import logging
 import datetime
 
+def generate_jobid():
+    jobid = str(uuid.uuid1()).replace('-', '')
+    return jobid
+
+
 class SchedulerManager:
-
-
-
     def __init__(self):
         executors = {
             'default': ThreadPoolExecutor(20),
@@ -43,6 +45,7 @@ class SchedulerManager:
     def process_exit_callback(self):
         print 'process finished'
 
+
     def trigger_fired(self, trigger_id):
         session = Session()
         trigger = session.query(Trigger).filter_by(id=trigger_id).first()
@@ -55,6 +58,7 @@ class SchedulerManager:
             return
 
         executing = SpiderExecutionQueue()
+        executing.id = generate_jobid()
         executing.spider_id = spider.id
         executing.project_name = project.name
         executing.spider_name = spider.name
@@ -74,6 +78,8 @@ class SchedulerManager:
         spider = session.query(Spider).filter(Spider.name==spider_name, Spider.project_id==project.id).first()
 
         executing = SpiderExecutionQueue()
+        jobid = generate_jobid()
+        executing.id = jobid
         executing.spider_id = spider.id
         executing.project_name = project.name
         executing.spider_name = spider.name
@@ -82,8 +88,6 @@ class SchedulerManager:
         session.add(executing)
         session.commit()
         session.close()
-
-        jobid = str(uuid.uuid1()).replace('-','')
 
         return jobid
 

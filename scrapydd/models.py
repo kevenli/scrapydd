@@ -37,7 +37,7 @@ class Trigger(Base):
 class SpiderExecutionQueue(Base):
     __tablename__ = 'spider_execution_queue'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(length=50), primary_key=True)
     spider_id = Column(Integer)
     project_name = Column(String(length=50))
     spider_name = Column(String(length=50))
