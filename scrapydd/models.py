@@ -65,7 +65,6 @@ Spider.triggers = relationship("Trigger", order_by = Trigger.id)
 def init_database():
     db_url = 'sqlite:///database.db'
     db_repository = os.path.join(os.path.dirname(__file__), '..', 'migrates')
-    print db_repository
     try:
         version_control(url=db_url, repository=db_repository)
     except DatabaseAlreadyControlledError:
