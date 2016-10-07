@@ -9,6 +9,7 @@ setup(
     package_data = {
         'scrapydd': [
             'scrapydd.default.conf',
+            'scrapyddagent.default.conf',
             'templates/*.html'
         ],
         'migrates': [

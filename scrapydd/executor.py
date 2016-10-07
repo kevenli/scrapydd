@@ -4,7 +4,7 @@ from tornado.concurrent import Future
 import urllib2, urllib
 import json
 from scrapyd.eggstorage import FilesystemEggStorage
-from scrapyd.config import Config
+import scrapyd.config
 from StringIO import StringIO
 import subprocess
 import sys
@@ -14,8 +14,9 @@ import logging
 import tempfile
 import shutil
 import pkg_resources
+from config import AgentConfig
 
-egg_storage = FilesystemEggStorage(Config())
+egg_storage = FilesystemEggStorage(scrapyd.config.Config())
 
 
 class SpiderTask():
@@ -33,9 +34,13 @@ class Executor():
     logger = logging.getLogger('scrapymill.executor')
     task_queue = Queue()
 
-    def __init__(self):
+    def __init__(self, config=None):
         self.ioloop = IOLoop.current()
-        self.service_base = 'http://localhost:6800'
+        #self.service_base = 'http://localhost:6800'
+        if config is None:
+            config =AgentConfig()
+        self.config = config
+        self.service_base = 'http://%s:%d' % (config.get('server_address'), config.getint('server_http_port'))
 
     def start(self):
         self.register_node()
