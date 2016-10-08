@@ -1,10 +1,13 @@
 from setuptools import setup, find_packages
 import os
+import scrapydd
+
+version = scrapydd.__version__
 
 os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 setup(
     name         = 'scrapydd',
-    version      = '0.1',
+    version      = version,
     packages     = find_packages(),
     package_data = {
         'scrapydd': [
