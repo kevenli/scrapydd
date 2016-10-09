@@ -7,6 +7,7 @@ from sqlite3 import IntegrityError
 import uuid
 import logging
 import datetime
+from .exceptions import *
 
 def generate_jobid():
     jobid = str(uuid.uuid1()).replace('-', '')
@@ -71,6 +72,32 @@ class SchedulerManager:
             self.logger.warning(e)
         session.close()
         return
+
+    def add_schedule(self, project, spider, cron):
+        session = Session()
+        project = session.query(Project).filter(Project.name == project).first()
+        if project is None:
+            raise ProjectNotFound()
+
+        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
+        if spider is None:
+            raise SpiderNotFound()
+
+        triggers = session.query(Trigger).filter(Trigger.spider_id==spider.id)
+        found = False
+        for trigger in triggers:
+            if trigger.cron_pattern == cron:
+                found = True
+                break
+
+        if not found:
+            trigger = Trigger()
+            trigger.spider_id = spider.id
+            trigger.cron_pattern = cron
+            session.add(trigger)
+            session.commit()
+            self.add_job(trigger.id, cron)
+        session.close()
 
     def add_task(self, project_name, spider_name):
         session = Session()

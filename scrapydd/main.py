@@ -82,6 +82,23 @@ class ScheduleHandler(tornado.web.RequestHandler):
         }
         self.write(json.dumps(response_data))
 
+class AddScheduleHandler(tornado.web.RequestHandler):
+    def initialize(self, scheduler_manager):
+        self.scheduler_manager = scheduler_manager
+
+    def post(self):
+        project = self.get_argument('project')
+        spider = self.get_argument('spider')
+        cron = self.get_argument('cron')
+
+        self.scheduler_manager.add_schedule(project, spider, cron)
+        response_data = {
+            'status':'ok',
+        }
+        self.write(json.dumps(response_data))
+
+
+
 
 class ProjectList(tornado.web.RequestHandler):
     def get(self):
@@ -213,6 +230,7 @@ def make_app(scheduler_manager, node_manager):
         (r'/uploadproject', UploadProject),
         (r'/addversion.json', UploadProject),
         (r'/schedule.json', ScheduleHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/add_schedule.json', AddScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects', ProjectList),
         (r'/spiders', SpiderListHandler),
         (r'/spiders/(\d+)', SpiderInstanceHandler),
