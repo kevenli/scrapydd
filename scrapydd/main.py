@@ -12,6 +12,7 @@ import datetime
 import json
 from .config import Config
 import os.path
+import sys
 import logging
 
 
@@ -242,8 +243,14 @@ def make_app(scheduler_manager, node_manager):
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager}),
     ])
 
-def run():
+def run(argv=None):
     config = Config()
+    if config.getboolean('debug'):
+        logging.basicConfig(level=logging.DEBUG)
+    if argv is None:
+        argv = sys.argv
+    logging.debug('starting server with argv : %s' % str(argv))
+
     init_database()
 
     scheduler_manager = SchedulerManager()

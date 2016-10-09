@@ -175,8 +175,10 @@ class TaskExecutor():
             self.future.set_result(self.task)
 
 
-def run():
+def run(argv=None):
     logging.basicConfig(level=logging.DEBUG)
+    if argv is None:
+        argv = sys.argv
     executor = Executor()
     executor.start()
 

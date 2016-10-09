@@ -19,8 +19,7 @@ setup(
     },
     entry_points = {
         'console_scripts': [
-            'scrapydd = scrapydd.scripts.scrapydd_run:main',
-            'scrapyddagent = scrapydd.scripts.scrapyddagent:main',
+            'scrapydd = scrapydd.scripts.cmdline:main',
         ]
     },
 )
