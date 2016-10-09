@@ -32,8 +32,6 @@ class UploadProject(tornado.web.RequestHandler):
         egg_storage = get_egg_storage()
         project_name = self.request.arguments['project'][0]
         version = self.request.arguments['version'][0]
-
-        print version
         eggfile = self.request.files['egg'][0]
         eggfilename = eggfile['filename']
         eggf = StringIO(eggfile['body'])
@@ -201,7 +199,17 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         task_id = self.get_argument('task_id')
         log = self.get_argument('log')
         #print log
-        session.query(SpiderExecutionQueue).filter_by(id = task_id).delete()
+        job = session.query(SpiderExecutionQueue).filter_by(id = task_id).first()
+        spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
+        if not os.path.exists(spider_log_folder):
+            os.makedirs(spider_log_folder)
+        log_file = os.path.join(spider_log_folder, job.id + '.log')
+        logging.debug(log_file)
+        with open(log_file, 'w') as f:
+            f.write(log)
+        job.status = 2
+        job.update_time = datetime.datetime.now()
+        session.add(job)
         session.commit()
         session.close()
 

@@ -1,6 +1,7 @@
 from models import Node, Session
 from tornado.ioloop import IOLoop, PeriodicCallback
 import datetime
+import logging
 
 class NodeManager():
     interval = 10
@@ -18,13 +19,13 @@ class NodeManager():
         last_heartbeat_lessthan = datetime.datetime.now() - datetime.timedelta(seconds=self.node_timeout)
         session = Session()
         for node in session.query(Node).filter(Node.last_heartbeat<last_heartbeat_lessthan):
-            print 'node %d expired' % node.id
+            logging.info('node %d expired' % node.id)
             self.scheduler_manager.on_node_expired(node.id)
             session.delete(node)
         session.commit()
         session.close()
 
-        print 'node manager poll'
+        logging.debug('node manager poll')
 
     def create_node(self, remote_ip):
         session = Session()

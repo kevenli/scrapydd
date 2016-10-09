@@ -170,7 +170,9 @@ class TaskExecutor():
 
     def check_process(self):
         execute_result = self.p.poll()
+        logging.debug('check process')
         if execute_result is not None:
+            logging.info('task complete')
             self.check_process_callback.stop()
             self.future.set_result(self.task)
 

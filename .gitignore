@@ -4,6 +4,7 @@ eggs
 .idea
 build
 dist
+logs
 *.egg-info
 *.pyc
 executor_eggs

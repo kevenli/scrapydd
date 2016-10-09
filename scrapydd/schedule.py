@@ -10,7 +10,7 @@ import datetime
 from .exceptions import *
 
 def generate_jobid():
-    jobid = str(uuid.uuid1()).replace('-', '')
+    jobid = str(uuid.uuid4()).replace('-', '')
     return jobid
 
 
@@ -52,7 +52,7 @@ class SchedulerManager:
         trigger = session.query(Trigger).filter_by(id=trigger_id).first()
         spider = session.query(Spider).filter_by(id=trigger.spider_id).first()
         project = session.query(Project).filter_by(id=spider.project_id).first()
-        executing = session.query(SpiderExecutionQueue).filter_by(spider_id = spider.id).first()
+        executing = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id == spider.id, SpiderExecutionQueue.status.in_([0,1])).first()
         if executing:
             self.logger.warning('spider %s-%s is still running or in queue, skipping' % (project.name, spider.name))
             session.close()
@@ -121,5 +121,9 @@ class SchedulerManager:
 
     def on_node_expired(self, node_id):
         session = Session()
-        session.query(SpiderExecutionQueue).filter_by(node_id=node_id).delete()
+        for job in session.query(SpiderExecutionQueue).filter_by(node_id=node_id):
+            job.status = 0
+            job.update_time = datetime.datetime.now()
+            session.add(job)
         session.commit()
+        session.close()
