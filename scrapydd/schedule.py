@@ -127,3 +127,11 @@ class SchedulerManager:
             session.add(job)
         session.commit()
         session.close()
+
+    def jobs(self):
+        session = Session()
+        pending = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==0))
+        running = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==1))
+        finished = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==2))
+        session.close()
+        return pending, running, finished

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Jobs</title>
+</head>
+<body>
+    <table border='1'>
+        <tr>
+            <th>Project</th>
+            <th>Spider</th>
+            <th>Job</th>
+            <th>Runtime</th>
+            <th>Log</th>
+        </tr>
+        <tr>
+            <th colspan="5" style='background-color: #ddd'>Pending</th>
+        </tr>
+        {% for job in pending %}
+            <tr>
+                <td>{{job.project_name}}</td>
+                <td>{{job.spider_name}}</td>
+                <td>{{job.id}}</td>
+                <td></td>
+                <td></td>
+            </tr>
+        {% end %}
+        <tr>
+            <th colspan="5" style='background-color: #ddd'>Running</th>
+        </tr>
+        {% for job in running %}
+            <tr>
+                <td>{{job.project_name}}</td>
+                <td>{{job.spider_name}}</td>
+                <td>{{job.id}}</td>
+                <td>{{job.update_time-job.start_time}}</td>
+                <td></td>
+            </tr>
+        {% end %}
+
+        <tr>
+            <th colspan="5" style='background-color: #ddd'>Finished</th>
+        </tr>
+        {% for job in finished %}
+            <tr>
+                <td>{{job.project_name}}</td>
+                <td>{{job.spider_name}}</td>
+                <td>{{job.id}}</td>
+                <td>{{job.update_time-job.start_time}}</td>
+                <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
+            </tr>
+        {% end %}
+    </table>
+</body>
+</html>

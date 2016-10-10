@@ -170,6 +170,7 @@ class TaskExecutor():
         logging.debug(env)
         env['SCRAPY_PROJECT'] = str(self.task.project_name)
         self.p = subprocess.Popen(pargs, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        logging.info('job started %d' % self.p.pid)
         self.future = Future()
         self.check_process_callback = PeriodicCallback(self.check_process, 1000)
         self.check_process_callback.start()

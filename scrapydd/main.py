@@ -240,6 +240,28 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
             self.set_status(400, 'Node expired')
         self.write(json.dumps(response_data))
 
+class JobsHandler(tornado.web.RequestHandler):
+    def initialize(self, scheduler_manager):
+        self.scheduler_manager = scheduler_manager
+
+    def get(self):
+        pending, running, finished = self.scheduler_manager.jobs()
+        context = {
+            'pending': pending,
+            'running': running,
+            'finished': finished,
+        }
+        loader = get_template_loader()
+        self.write(loader.load("jobs.html").generate(**context))
+
+class LogsHandler(tornado.web.RequestHandler):
+    def get(self, project, spider, jobid):
+        logfilepath = os.path.join('logs', project, spider, jobid + '.log')
+        with open(logfilepath, 'r') as f:
+        #    self.write(f.read())
+            log = f.read()
+        loader = get_template_loader()
+        self.write(loader.load("log.html").generate(log=log))
 
 
 def make_app(scheduler_manager, node_manager):
@@ -258,6 +280,8 @@ def make_app(scheduler_manager, node_manager):
         (r'/executing/complete', ExecuteCompleteHandler),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager}),
+        (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
     ])
 
 def run(argv=None):
