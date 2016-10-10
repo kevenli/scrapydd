@@ -9,3 +9,9 @@ class SpiderNotFound(Exception):
 
 class NodeExpired(Exception):
     pass
+
+
+class JobRunning(Exception):
+    def __init__(self, jobid):
+        super(JobRunning, self).__init__(self)
+        self.jobid=jobid

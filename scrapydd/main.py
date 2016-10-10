@@ -75,12 +75,20 @@ class ScheduleHandler(tornado.web.RequestHandler):
         project = self.get_argument('project')
         spider = self.get_argument('spider')
 
-        jobid = self.scheduler_manager.add_task(project, spider)
-        response_data = {
-            'status':'ok',
-            'jobid': jobid
-        }
-        self.write(json.dumps(response_data))
+        try:
+            jobid = self.scheduler_manager.add_task(project, spider)
+            response_data = {
+                'status':'ok',
+                'jobid': jobid
+            }
+            self.write(json.dumps(response_data))
+        except JobRunning as e:
+            response_data = {
+                'status':'error',
+                'errormsg': 'job is running with jobid %s' % e.jobid
+            }
+            self.set_status(400, 'job is running')
+            self.write(json.dumps(response_data))
 
 class AddScheduleHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):

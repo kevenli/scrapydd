@@ -104,17 +104,23 @@ class SchedulerManager:
         project = session.query(Project).filter(Project.name==project_name).first()
         spider = session.query(Spider).filter(Spider.name==spider_name, Spider.project_id==project.id).first()
 
-        executing = SpiderExecutionQueue()
-        jobid = generate_jobid()
-        executing.id = jobid
-        executing.spider_id = spider.id
-        executing.project_name = project.name
-        executing.spider_name = spider.name
-        executing.fire_time = datetime.datetime.now()
-        executing.update_time = datetime.datetime.now()
-        session.add(executing)
-        session.commit()
-        session.close()
+        try:
+            existing = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id==spider.id, SpiderExecutionQueue.status.in_([0,1])))
+            if existing:
+                logging.warning('job %s_%s is running, ignoring schedule'%(project.name, spider.name))
+                raise JobRunning(existing[0].id)
+            executing = SpiderExecutionQueue()
+            jobid = generate_jobid()
+            executing.id = jobid
+            executing.spider_id = spider.id
+            executing.project_name = project.name
+            executing.spider_name = spider.name
+            executing.fire_time = datetime.datetime.now()
+            executing.update_time = datetime.datetime.now()
+            session.add(executing)
+        finally:
+            session.commit()
+            session.close()
 
         return jobid
 
