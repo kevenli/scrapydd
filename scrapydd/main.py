@@ -205,7 +205,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         if not os.path.exists(spider_log_folder):
             os.makedirs(spider_log_folder)
         log_file = os.path.join(spider_log_folder, job.id + '.log')
-        logging.debug(log_file)
+
         with open(log_file, 'w') as f:
             f.write(log)
         job.status = 2
@@ -213,6 +213,9 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         session.add(job)
         session.commit()
         session.close()
+        logging.info('Job %s completed.' % task_id)
+        response_data = {'status': 'ok'}
+        self.write(json.dumps(response_data))
 
 class NodesHandler(tornado.web.RequestHandler):
     def initialize(self, node_manager):
