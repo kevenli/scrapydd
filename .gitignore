@@ -8,3 +8,4 @@ logs
 *.egg-info
 *.pyc
 executor_eggs
+scrapydd.conf

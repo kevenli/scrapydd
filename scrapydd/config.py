@@ -12,21 +12,18 @@ class Config(object):
     """A ConfigParser wrapper to support defaults when calling instance
     methods, and also tied to a single section"""
 
-    SECTION = 'scrapydd'
+    SECTION = 'server'
 
     def __init__(self, values=None, extra_sources=()):
         if values is None:
             sources = self._getsources()
             default_config = get_data(__package__, 'scrapydd.default.conf')
             default_config_stream = StringIO()
-            default_config_stream.write('[' + self.SECTION + ']\r\n')
             default_config_stream.write(default_config)
             default_config_stream.seek(0, os.SEEK_SET)
             self.cp = SafeConfigParser()
             self.cp.readfp(default_config_stream)
-            for source in sources:
-                if os.path.exists(source):
-                    self._load_config_file(open(source))
+            self.cp.read(self._getsources())
         else:
             self.cp = SafeConfigParser(values)
             self.cp.add_section(self.SECTION)
@@ -74,29 +71,5 @@ class Config(object):
                 return default
             raise
 
-
 class AgentConfig(Config):
-    SECTION = 'scrapyddagent'
-
-    def __init__(self, values=None, extra_sources=()):
-        if values is None:
-            sources = self._getsources()
-            default_config = get_data(__package__, 'scrapyddagent.default.conf')
-            default_config_stream = StringIO()
-            default_config_stream.write('[' + self.SECTION + ']\r\n')
-            default_config_stream.write(default_config)
-            default_config_stream.seek(0, os.SEEK_SET)
-            self.cp = SafeConfigParser()
-            self.cp.readfp(default_config_stream)
-            for source in sources:
-                if os.path.exists(source):
-                    self._load_config_file(open(source))
-        else:
-            self.cp = SafeConfigParser(values)
-            self.cp.add_section(self.SECTION)
-
-    def _getsources(self):
-        sources = ['/etc/scrapydd/agent.conf', r'c:\scrapydd\agent.conf']
-        sources += ['scrapyddagent.conf']
-        sources += [expanduser('~/.scrapyddagent.conf')]
-        return sources
+    SECTION = 'agent'

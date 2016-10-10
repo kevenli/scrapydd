@@ -40,7 +40,7 @@ class Executor():
         if config is None:
             config =AgentConfig()
         self.config = config
-        self.service_base = 'http://%s:%d' % (config.get('server_address'), config.getint('server_http_port'))
+        self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
 
     def start(self):
         self.register_node()
