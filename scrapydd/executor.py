@@ -185,10 +185,14 @@ class TaskExecutor():
 
 
 def run(argv=None):
-    logging.basicConfig(level=logging.DEBUG)
+    config = AgentConfig()
+    if config.getboolean('debug'):
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     if argv is None:
         argv = sys.argv
-    executor = Executor()
+    executor = Executor(config)
     executor.start()
 
 if __name__ == '__main__':
