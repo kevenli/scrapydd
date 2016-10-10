@@ -33,12 +33,18 @@ class SchedulerManager:
 
     def add_job(self, trigger_id, cron):
         cron_parts = cron.split(' ')
-        crontrigger = CronTrigger(minute=cron_parts[0],
-                                  hour=cron_parts[1],
-                                  day=cron_parts[2],
-                                  month=cron_parts[3],
-                                  day_of_week=cron_parts[4],
-                                  )
+        if len(cron_parts) != 5:
+            raise InvalidCronExpression()
+
+        try:
+            crontrigger = CronTrigger(minute=cron_parts[0],
+                                      hour=cron_parts[1],
+                                      day=cron_parts[2],
+                                      month=cron_parts[3],
+                                      day_of_week=cron_parts[4],
+                                      )
+        except ValueError:
+            raise InvalidCronExpression()
 
         self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger, kwargs={'trigger_id': trigger_id},
                                id=str(trigger_id))
@@ -91,12 +97,13 @@ class SchedulerManager:
                 break
 
         if not found:
+            self.add_job(trigger.id, cron)
             trigger = Trigger()
             trigger.spider_id = spider.id
             trigger.cron_pattern = cron
             session.add(trigger)
             session.commit()
-            self.add_job(trigger.id, cron)
+
         session.close()
 
     def add_task(self, project_name, spider_name):

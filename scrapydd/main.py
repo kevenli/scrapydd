@@ -98,12 +98,30 @@ class AddScheduleHandler(tornado.web.RequestHandler):
         project = self.get_argument('project')
         spider = self.get_argument('spider')
         cron = self.get_argument('cron')
-
-        self.scheduler_manager.add_schedule(project, spider, cron)
-        response_data = {
-            'status':'ok',
-        }
-        self.write(json.dumps(response_data))
+        try:
+            self.scheduler_manager.add_schedule(project, spider, cron)
+            response_data = {
+                'status':'ok',
+            }
+            self.write(json.dumps(response_data))
+        except SpiderNotFound:
+            response_data = {
+                'status':'error',
+                'errormsg': 'spider not found',
+            }
+            self.write(json.dumps(response_data))
+        except ProjectNotFound:
+            response_data = {
+                'status':'error',
+                'errormsg': 'project not found',
+            }
+            self.write(json.dumps(response_data))
+        except InvalidCronExpression:
+            response_data = {
+                'status':'error',
+                'errormsg': 'invalid cron expression.',
+            }
+            self.write(json.dumps(response_data))
 
 
 
