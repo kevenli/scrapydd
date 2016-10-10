@@ -58,6 +58,7 @@ class Node(Base):
     client_ip = Column(String(length=50))
     create_time = Column(DateTime)
     last_heartbeat = Column(DateTime)
+    isalive = Column(Integer)
 
 
 Spider.triggers = relationship("Trigger", order_by = Trigger.id)

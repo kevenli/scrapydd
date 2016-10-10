@@ -21,7 +21,8 @@ class NodeManager():
         for node in session.query(Node).filter(Node.last_heartbeat<last_heartbeat_lessthan):
             logging.info('node %d expired' % node.id)
             self.scheduler_manager.on_node_expired(node.id)
-            session.delete(node)
+            node.isalive = 0
+            session.add(node)
         session.commit()
         session.close()
 
@@ -33,6 +34,7 @@ class NodeManager():
         node.client_ip = remote_ip
         node.create_time = datetime.datetime.now()
         node.last_heartbeat = datetime.datetime.now()
+        node.isalive = 1
         session.add(node)
         session.commit()
         session.refresh(node)
