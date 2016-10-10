@@ -14,6 +14,7 @@ import logging
 import tempfile
 import shutil
 import pkg_resources
+import time
 from config import AgentConfig
 
 egg_storage = FilesystemEggStorage(scrapyd.config.Config())
@@ -65,34 +66,45 @@ class Executor():
             if e.code == 400:
                 logging.warning('Node expired, register now.')
                 self.register_node()
+        except urllib2.URLError:
+            logging.warning('Cannot connect to server.')
 
 
 
     def register_node(self):
-        url = urlparse.urljoin(self.service_base, '/nodes')
-        request = urllib2.Request(url, data='')
-        res = urllib2.urlopen(request)
-        self.node_id = json.loads(res.read())['id']
-        self.logger.info('node %d registered' % self.node_id)
+        while True:
+            try:
+                url = urlparse.urljoin(self.service_base, '/nodes')
+                request = urllib2.Request(url, data='')
+                res = urllib2.urlopen(request)
+                self.node_id = json.loads(res.read())['id']
+                self.logger.info('node %d registered' % self.node_id)
+                return
+            except urllib2.URLError:
+                logging.warning('Cannot connect to server')
+                time.sleep(10)
 
 
     def get_next_task(self):
         url = urlparse.urljoin(self.service_base, '/executing/next_task')
         post_data = urllib.urlencode({'node_id': self.node_id})
         request = urllib2.Request(url=url, data=post_data)
-        res = urllib2.urlopen(request)
-        response_content = res.read()
-        response_data = json.loads(response_content)
-        logging.debug(url)
-        logging.debug(response_content)
-        if response_data['data'] is not None:
-            task = SpiderTask()
-            task.id = response_data['data']['task']['task_id']
-            task.spider_id = response_data['data']['task']['spider_id']
-            task.project_name = response_data['data']['task']['project_name']
-            task.project_version = response_data['data']['task']['version']
-            task.spider_name = response_data['data']['task']['spider_name']
-            return task
+        try:
+            res = urllib2.urlopen(request)
+            response_content = res.read()
+            response_data = json.loads(response_content)
+            logging.debug(url)
+            logging.debug(response_content)
+            if response_data['data'] is not None:
+                task = SpiderTask()
+                task.id = response_data['data']['task']['task_id']
+                task.spider_id = response_data['data']['task']['spider_id']
+                task.project_name = response_data['data']['task']['project_name']
+                task.project_version = response_data['data']['task']['version']
+                task.spider_name = response_data['data']['task']['spider_name']
+                return task
+        except urllib2.URLError:
+            logging.warning('Cannot connect to server')
 
     def test_egg_requirements(self, project):
         logging.debug('enter test_egg')
@@ -129,7 +141,11 @@ class Executor():
             egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % task.spider_id)
             logging.debug(egg_request_url)
             egg_request=urllib2.Request(egg_request_url)
-            res = urllib2.urlopen(egg_request)
+            try:
+                res = urllib2.urlopen(egg_request)
+            except urllib2.URLError:
+                logging.warning("Cannot retrieve job's egg, removing job")
+                self.task_finished()
             egg = StringIO(res.read())
 
             egg_storage.put(egg, task.project_name, task.project_version)
@@ -143,12 +159,15 @@ class Executor():
 
     def task_finished(self, future):
         task = self.task_queue.get_nowait()
-        print task
-        url = urlparse.urljoin(self.service_base, '/executing/complete')
-        post_data = urllib.urlencode({'task_id': task.id, 'log': task.executor.p.stdout.read()})
-        request = urllib2.Request(url, post_data)
-        urllib2.urlopen(request)
-        print 'task finished'
+        try:
+            url = urlparse.urljoin(self.service_base, '/executing/complete')
+            post_data = urllib.urlencode({'task_id': task.id, 'log': task.executor.p.stdout.read()})
+            request = urllib2.Request(url, post_data)
+            urllib2.urlopen(request)
+            logging.info('task %s finished' % task.id)
+        except urllib2.URLError:
+            logging.warning('Cannot connect to server.')
+
 
     def check_task(self):
         if self.task_queue.empty():
