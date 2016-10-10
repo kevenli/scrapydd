@@ -2,6 +2,7 @@ from models import Node, Session
 from tornado.ioloop import IOLoop, PeriodicCallback
 import datetime
 import logging
+from .exceptions import *
 
 class NodeManager():
     interval = 10
@@ -18,7 +19,7 @@ class NodeManager():
     def _poll(self):
         last_heartbeat_lessthan = datetime.datetime.now() - datetime.timedelta(seconds=self.node_timeout)
         session = Session()
-        for node in session.query(Node).filter(Node.last_heartbeat<last_heartbeat_lessthan):
+        for node in session.query(Node).filter(Node.last_heartbeat<last_heartbeat_lessthan, Node.isalive==1):
             logging.info('node %d expired' % node.id)
             self.scheduler_manager.on_node_expired(node.id)
             node.isalive = 0
@@ -27,6 +28,18 @@ class NodeManager():
         session.close()
 
         logging.debug('node manager poll')
+
+    def heartbeat(self, node_id):
+        try:
+            session = Session()
+            node = session.query(Node).filter_by(id=node_id).first()
+            if node.isalive == 0:
+                raise NodeExpired()
+            node.last_heartbeat = datetime.datetime.now()
+            session.add(node)
+            session.commit()
+        finally:
+            session.close()
 
     def create_node(self, remote_ip):
         session = Session()

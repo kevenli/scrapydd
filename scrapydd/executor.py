@@ -58,8 +58,15 @@ class Executor():
     def send_heartbeat(self):
         url = urlparse.urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
         request = urllib2.Request(url, data='')
-        res = urllib2.urlopen(request)
-        res.read()
+        try:
+            res = urllib2.urlopen(request)
+            response_data = res.read()
+        except urllib2.HTTPError as e:
+            if e.code == 400:
+                logging.warning('Node expired, register now.')
+                self.register_node()
+
+
 
     def register_node(self):
         url = urlparse.urljoin(self.service_base, '/nodes')

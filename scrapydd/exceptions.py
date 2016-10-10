@@ -5,3 +5,7 @@ class ProjectNotFound(Exception):
 
 class SpiderNotFound(Exception):
     pass
+
+
+class NodeExpired(Exception):
+    pass

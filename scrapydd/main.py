@@ -14,6 +14,7 @@ from .config import Config
 import os.path
 import sys
 import logging
+from .exceptions import *
 
 
 def get_template_loader():
@@ -227,11 +228,16 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
         self.node_manager = node_manager
 
     def post(self, id):
-        session = Session()
-        node = session.query(Node).filter_by(id=id).first()
-        node.last_heartbeat = datetime.datetime.now()
-        session.add(node)
-        session.commit()
+        node_id = int(id)
+        try:
+            self.node_manager.heartbeat(node_id)
+            response_data = {'status':'ok'}
+        except NodeExpired:
+            response_data = {'status': 'error', 'errmsg': 'Node expired'}
+            self.set_status(400, 'Node expired')
+        self.write(json.dumps(response_data))
+
+
 
 def make_app(scheduler_manager, node_manager):
     return tornado.web.Application([
