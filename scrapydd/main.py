@@ -271,6 +271,14 @@ class LogsHandler(tornado.web.RequestHandler):
         loader = get_template_loader()
         self.write(loader.load("log.html").generate(log=log))
 
+class JobStartHandler(tornado.web.RequestHandler):
+    def initialize(self, scheduler_manager):
+        self.scheduler_manager = scheduler_manager
+
+    def post(self, jobid):
+        pid = self.get_argument('pid')
+        self.scheduler_manager.job_start(jobid, pid)
+
 
 def make_app(scheduler_manager, node_manager):
     return tornado.web.Application([
@@ -289,6 +297,7 @@ def make_app(scheduler_manager, node_manager):
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager}),
         (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/jobs/(\w+)/start', JobStartHandler, {'scheduler_manager': scheduler_manager}),
         (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
     ])
 

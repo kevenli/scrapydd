@@ -10,6 +10,7 @@
             <th>Project</th>
             <th>Spider</th>
             <th>Job</th>
+            <th>PID</th>
             <th>Runtime</th>
             <th>Log</th>
         </tr>
@@ -23,6 +24,7 @@
                 <td>{{job.id}}</td>
                 <td></td>
                 <td></td>
+                <td></td>
             </tr>
         {% end %}
         <tr>
@@ -33,6 +35,7 @@
                 <td>{{job.project_name}}</td>
                 <td>{{job.spider_name}}</td>
                 <td>{{job.id}}</td>
+                <td>{{job.pid}}</td>
                 <td>{{job.update_time-job.start_time}}</td>
                 <td></td>
             </tr>
@@ -46,6 +49,7 @@
                 <td>{{job.project_name}}</td>
                 <td>{{job.spider_name}}</td>
                 <td>{{job.id}}</td>
+                <td></td>
                 <td>{{job.update_time-job.start_time}}</td>
                 <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
             </tr>

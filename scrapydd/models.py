@@ -50,6 +50,7 @@ class SpiderExecutionQueue(Base):
     node_id = Column(Integer)
     status = Column(Integer, default=0)
     update_time = Column(DateTime)
+    pid = Column(Integer)
 
 class Node(Base):
     __tablename__ = 'nodes'

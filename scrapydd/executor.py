@@ -154,8 +154,16 @@ class Executor():
 
         executor = TaskExecutor(task)
         task.executor = executor
-        future = executor.begin_execute()
+        future, pid = executor.begin_execute()
         self.ioloop.add_future(future, self.task_finished)
+        self.post_start_task(task, pid)
+
+    def post_start_task(self, task, pid):
+        url = urlparse.urljoin(self.service_base, '/jobs/%s/start' % task.id)
+        post_data = urllib.urlencode({'pid':pid})
+        request = urllib2.Request(url, post_data)
+        urllib2.urlopen(request)
+
 
     def task_finished(self, future):
         task = self.task_queue.get_nowait()
@@ -193,7 +201,7 @@ class TaskExecutor():
         self.future = Future()
         self.check_process_callback = PeriodicCallback(self.check_process, 1000)
         self.check_process_callback.start()
-        return self.future
+        return self.future, self.p.pid
 
     def check_process(self):
         execute_result = self.p.poll()
