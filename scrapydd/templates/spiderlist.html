@@ -16,10 +16,10 @@
        {% for spider in spiders %}
         <tr>
             <td>
-                <a href="/spiders/{{spider.id}}">{{spider.name}}</a>
+                {{spider.project.name}}
             </td>
             <td>
-                {{spider.project.name}}
+                <a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
             </td>
         </tr>
        {% end %}

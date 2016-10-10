@@ -125,6 +125,15 @@ class SpiderInstanceHandler(tornado.web.RequestHandler):
         self.write(loader.load("spider.html").generate(spider=spider))
         session.close()
 
+class SpiderInstanceHandler2(tornado.web.RequestHandler):
+    def get(self, project, spider):
+        session = Session()
+        project = session.query(Project).filter(Project.name == project).first()
+        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
+        loader = get_template_loader()
+        self.write(loader.load("spider.html").generate(spider=spider))
+        session.close()
+
 class SpiderEggHandler(tornado.web.RequestHandler):
     def get(self, id):
         session = Session()
@@ -148,30 +157,19 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):
         self.scheduler_manager = scheduler_manager
 
-    def get(self, id):
+    def get(self, project, spider):
         session = Session()
-        spider = session.query(Spider).filter_by(id=id).first()
+        project = session.query(Project).filter(Project.name == project).first()
+        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
         loader = get_template_loader()
         self.write(loader.load("spidercreatetrigger.html").generate(spider=spider))
 
         session.close()
 
-    def post(self, id):
-        id = int(id)
-        session = Session()
-        spider = session.query(Spider).filter_by(id=id).first()
-        cron = self.request.arguments['cron'][0]
-        trigger = Trigger()
-        trigger.spider_id = spider.id
-        trigger.cron_pattern = cron
-
-        session.add(trigger)
-        session.commit()
-        session.refresh(trigger)
-
-        self.scheduler_manager.add_job(trigger.id, trigger.cron_pattern)
-        session.close()
-        self.redirect('/spiders/%d'%id)
+    def post(self, project, spider):
+        cron = self.get_argument('cron')
+        self.scheduler_manager.add_schedule(project, spider, cron)
+        self.redirect('/projects/%s/spiders/%s'% (project, spider))
 
 class  ExecuteNextHandler(tornado.web.RequestHandler):
     def post(self):
@@ -291,7 +289,8 @@ def make_app(scheduler_manager, node_manager):
         (r'/spiders', SpiderListHandler),
         (r'/spiders/(\d+)', SpiderInstanceHandler),
         (r'/spiders/(\d+)/egg', SpiderEggHandler),
-        (r'/spiders/(\d+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/projects/(\w+)/spiders/(\w+)', SpiderInstanceHandler2),
+        (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/next_task', ExecuteNextHandler),
         (r'/executing/complete', ExecuteCompleteHandler),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
