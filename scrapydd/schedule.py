@@ -27,7 +27,10 @@ class SchedulerManager:
         session = Session()
         triggers = session.query(Trigger)
         for trigger in triggers:
-            self.add_job(trigger.id, trigger.cron_pattern)
+            try:
+                self.add_job(trigger.id, trigger.cron_pattern)
+            except InvalidCronExpression:
+                logging.warning('Trigger %d,%s cannot be added ' % (trigger.id, trigger.cron_pattern))
         self.scheduler.start()
         session.close()
 
@@ -97,13 +100,13 @@ class SchedulerManager:
                 break
 
         if not found:
-            self.add_job(trigger.id, cron)
+
             trigger = Trigger()
             trigger.spider_id = spider.id
             trigger.cron_pattern = cron
             session.add(trigger)
             session.commit()
-
+            self.add_job(trigger.id, cron)
         session.close()
 
     def add_task(self, project_name, spider_name):
