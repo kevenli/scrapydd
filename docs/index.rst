@@ -3,20 +3,17 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to scrapydd's documentation!
+Scrapydd
 ====================================
+Scrapydd (Scrapy Distributed Deamon) is a distributed scrapy spiders scheduling system.
+On the scrapydd system, you can hold and control versions of spider project eggs, schedule spiders, watch job history and logs. It can be also scale out easily.
+
 
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
+   install
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
