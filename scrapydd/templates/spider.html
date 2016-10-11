@@ -21,5 +21,24 @@
         <div><a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers">Create Trigger</a>
         <a href="/spiders">Back</a></div>
     </div>
+    <div>
+        <label>Jobs:</label>
+        <table border="1">
+            <tr>
+                <th>JobID</th>
+                <th>Start At</th>
+                <th>Duration</th>
+                <th>Log</th>
+            </tr>
+            {% for job in jobs %}
+                <tr>
+                    <td>{{job.id}}</td>
+                    <td>{{job.start_time}}</td>
+                    <td>{{job.update_time-job.start_time}}</td>
+                    <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
+                </tr>
+            {% end %}
+        </table>
+    </div>
 </body>
 </html>

@@ -15,6 +15,7 @@ import os.path
 import sys
 import logging
 from .exceptions import *
+from sqlalchemy import desc
 
 
 def get_template_loader():
@@ -152,8 +153,12 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         session = Session()
         project = session.query(Project).filter(Project.name == project).first()
         spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
+        jobs = session.query(SpiderExecutionQueue)\
+            .filter(SpiderExecutionQueue.spider_id==spider.id,SpiderExecutionQueue.status==2)\
+            .order_by(desc(SpiderExecutionQueue.start_time))\
+            .slice(0, 100)
         loader = get_template_loader()
-        self.write(loader.load("spider.html").generate(spider=spider))
+        self.write(loader.load("spider.html").generate(spider=spider, jobs=jobs))
         session.close()
 
 class SpiderEggHandler(tornado.web.RequestHandler):

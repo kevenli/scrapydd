@@ -148,7 +148,7 @@ class SchedulerManager:
         session = Session()
         pending = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==0))
         running = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==1))
-        finished = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==2))
+        finished = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==2).slice(0, 100))
         session.close()
         return pending, running, finished
 
