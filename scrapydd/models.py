@@ -30,6 +30,7 @@ class Spider(Base):
     project = relationship('Project')
     name = Column(String(length=50))
 
+Project.spiders = relationship("Spider", order_by = Spider.id)
 
 class Trigger(Base):
     __tablename__ = 'triggers'

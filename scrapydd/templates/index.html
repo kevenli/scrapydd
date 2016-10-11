@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scrapydd</title>
+</head>
+<body>
+    Welcome.
+
+    <ul>
+        <li><a href="/jobs">Jobs</a></li>
+        <li><a href="/spiders">Spiders</a></li>
+    </ul>
+    <table>
+        <tr>
+            <th>Project</th>
+            <th>Spiders</th>
+        </tr>
+        {% for project in projects %}
+            <tr>
+                <td><strong>{{project.name}}</strong></td>
+                <td>
+                    {% for spider in project.spiders %}
+                        <a href="/projects/{{project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
+                    {% end %}
+                </td>
+            </tr>
+        {% end %}
+    </table>
+</body>
+</html>

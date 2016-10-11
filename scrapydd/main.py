@@ -26,7 +26,11 @@ def get_egg_storage():
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.write("Hello, world")
+        session = Session()
+        projects = list(session.query(Project))
+        loader = get_template_loader()
+        self.write(loader.load("index.html").generate(projects=projects))
+        session.close()
 
 class UploadProject(tornado.web.RequestHandler):
     def post(self):
@@ -294,7 +298,6 @@ class JobStartHandler(tornado.web.RequestHandler):
     def post(self, jobid):
         pid = self.get_argument('pid')
         self.scheduler_manager.job_start(jobid, pid)
-
 
 def make_app(scheduler_manager, node_manager):
     return tornado.web.Application([
