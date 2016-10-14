@@ -137,7 +137,7 @@ class SchedulerManager:
 
     def on_node_expired(self, node_id):
         session = Session()
-        for job in session.query(SpiderExecutionQueue).filter_by(node_id=node_id):
+        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.node_id==node_id, SpiderExecutionQueue.status == 1):
             job.status = 0
             job.update_time = datetime.datetime.now()
             session.add(job)
