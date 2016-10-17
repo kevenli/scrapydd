@@ -156,7 +156,6 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         project = session.query(Project).filter(Project.name == project).first()
         spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
         jobs = session.query(HistoricalJob)\
-            .filter(HistoricalJob.spider_id==spider.id,HistoricalJob.status==2)\
             .order_by(desc(HistoricalJob.start_time))\
             .slice(0, 100)
         loader = get_template_loader()
@@ -231,9 +230,18 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
 
 class ExecuteCompleteHandler(tornado.web.RequestHandler):
     def post(self):
-        session = Session()
         task_id = self.get_argument('task_id')
         log = self.get_argument('log')
+        status = self.get_argument('status', 'success')
+        if status == 'success':
+            status_int = 2
+        elif status == 'fail':
+            status_int = 3
+        else:
+            self.write_error(401, 'Invalid argument: status.')
+
+        session = Session()
+
         #print log
         job = session.query(SpiderExecutionQueue).filter_by(id = task_id).first()
         spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
@@ -243,8 +251,9 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
 
         with open(log_file, 'w') as f:
             f.write(log)
-        job.status = 2
+        job.status = status_int
         job.update_time = datetime.datetime.now()
+
 
 
         historical_job = HistoricalJob()
@@ -346,7 +355,9 @@ def make_app(scheduler_manager, node_manager):
 def start_server(argv=None):
     config = Config()
     if config.getboolean('debug'):
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, filename='scrapydd-server.log')
+    else:
+        logging.basicConfig(level=logging.INFO, filename='scrapydd-server.log')
 
     logging.debug('starting server with argv : %s' % str(argv))
 

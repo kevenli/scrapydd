@@ -29,6 +29,7 @@
                 <th>Start At</th>
                 <th>Duration</th>
                 <th>Log</th>
+                <th>Status</th>
             </tr>
             {% for job in jobs %}
                 <tr>
@@ -36,6 +37,11 @@
                     <td>{{job.start_time}}</td>
                     <td>{{job.complete_time-job.start_time}}</td>
                     <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
+                    {% if job.status == 2 %}
+                        <td style="background-color:green; color:#fff">SUCCESS</td>
+                    {% else %}
+                        <td style="background-color:red; color:#fff">FAIL</td>
+                    {% end %}
                 </tr>
             {% end %}
         </table>
