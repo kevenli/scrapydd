@@ -21,6 +21,9 @@ egg_storage = FilesystemEggStorage(scrapyd.config.Config())
 
 TASK_STATUS_SUCCESS = 'success'
 TASK_STATUS_FAIL = 'fail'
+from poster.encode import multipart_encode
+from poster.streaminghttp import register_openers
+register_openers()
 
 class SpiderTask():
     id = None
@@ -30,6 +33,7 @@ class SpiderTask():
     project_version = None
     executor = None
     ret_code = None
+    items_file = None
 
 
 class Executor():
@@ -149,7 +153,7 @@ class Executor():
             except urllib2.URLError:
                 logging.warning("Cannot retrieve job's egg, removing job")
                 task = self.task_queue.get_nowait()  # pop the failed task from queue
-                self.complete_task(task.id, TASK_STATUS_FAIL, "Cannot retrieve job's egg, removing job")
+                self.complete_task(task, TASK_STATUS_FAIL, "Cannot retrieve job's egg, removing job")
                 return
             egg = StringIO(res.read())
 
@@ -159,7 +163,7 @@ class Executor():
             self.test_egg_requirements(task.project_name)
         except ValueError as e:
             task = self.task_queue.get_nowait()    # pop the failed task from queue
-            self.complete_task(task.id, TASK_STATUS_FAIL, e.message)
+            self.complete_task(task, TASK_STATUS_FAIL, e.message)
             return
 
         executor = TaskExecutor(task)
@@ -174,25 +178,27 @@ class Executor():
         request = urllib2.Request(url, post_data)
         urllib2.urlopen(request)
 
-    def complete_task(self, task_id, status, log):
+    def complete_task(self, task, status, log):
         try:
             url = urlparse.urljoin(self.service_base, '/executing/complete')
             post_data = {
-                'task_id': task_id,
+                'task_id': task.id,
                 'log': log,
                 'status':status,
             }
-            post_data_encoded = urllib.urlencode(post_data)
-            request = urllib2.Request(url, post_data_encoded)
+            if task.items_file and os.path.exists(task.items_file):
+                post_data['items'] = open(task.items_file, "rb")
+            datagen, headers = multipart_encode(post_data)
+            request = urllib2.Request(url, datagen, headers)
             urllib2.urlopen(request)
-            logging.info('task %s finished' % task_id)
+            logging.info('task %s finished' % task.id)
         except urllib2.URLError:
             logging.warning('Cannot connect to server.')
 
 
     def task_finished(self, future):
         task = self.task_queue.get_nowait()
-        self.complete_task(task.id, 'success' if task.ret_code == 0 else 'fail', task.executor.p.stdout.read())
+        self.complete_task(task, 'success' if task.ret_code == 0 else 'fail', task.executor.p.stdout.read())
 
     def check_task(self):
         if self.task_queue.empty():
@@ -207,12 +213,17 @@ class TaskExecutor():
         self.task = task
 
     def begin_execute(self):
+        from w3lib.url import path_to_file_uri
         runner = 'scrapyd.runner'
         pargs = [sys.executable, '-m', runner, 'crawl', self.task.spider_name]
         #pargs = [sys.executable, '-m', runner, 'list']
         env = os.environ.copy()
         logging.debug(env)
         env['SCRAPY_PROJECT'] = str(self.task.project_name)
+        env['SCRAPY_JOB'] = self.task.id
+        self.task.items_file = os.path.join('items', self.task.project_name, self.task.spider_name, '%s.%s' % (self.task.id, 'jl'))
+        env['SCRAPY_FEED_URI'] = path_to_file_uri(self.task.items_file)
+
         self.p = subprocess.Popen(pargs, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         logging.info('job started %d' % self.p.pid)
         self.future = Future()

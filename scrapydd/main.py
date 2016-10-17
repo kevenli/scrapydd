@@ -246,6 +246,14 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
 
         with open(log_file, 'w') as f:
             f.write(log)
+
+        if self.request.files['items']:
+            items_file_path = os.path.join('items', job.project_name, job.spider_name)
+            if not os.path.exists(items_file_path):
+                os.makedirs(items_file_path)
+            items_file = os.path.join(items_file_path, '%s.jl' % job.id)
+            with open(items_file, 'wb') as f:
+                f.write(self.request.files['items'][0]['body'])
         job.status = status_int
         job.update_time = datetime.datetime.now()
 
