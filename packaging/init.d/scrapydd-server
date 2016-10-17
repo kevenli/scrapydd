@@ -3,19 +3,16 @@
 PATH=/usr/local/bin:/bin:
 
 APP_PATH="/wis/scrapydd/server"
-PIDFILE="$APP_PATH/server.pid"
+PIDFILE="$APP_PATH/scrapydd-server.pid"
 LOCKFILE=/var/lock/subsys/scrapydd-server
 EXEFILE=/usr/local/bin/python
-prog=ScrapyddServer
+prog=scrapydd-server
 STOP_TIMEOUT=${STOP_TIMEOUT-10}
 
 start(){
-    echo $APP_PATH
   cd $APP_PATH
-  echo $PIDFILE
   echo -n $"Starting $prog: "
   daemon --pidfile=$PIDFILE scrapydd server --pidfile=$PIDFILE --daemon
-  #daemon --pidfile=$PIDFILE
   RETVAL=$?
   echo
   [ $RETVAL = 0 ] && touch $LOCKFILE

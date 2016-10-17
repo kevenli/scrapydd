@@ -374,6 +374,7 @@ class Daemon():
     def __init__(self, pidfile):
         self.pidfile = pidfile
         self.subprocess_p = None
+        self.pid = 0
 
     def start_subprocess(self):
         argv = sys.argv
@@ -383,10 +384,22 @@ class Daemon():
         self.subprocess_p = subprocess.Popen(pargs, env=env)
         self.subprocess_p.wait()
 
+    def read_pidfile(self):
+        try:
+            with open(self.pidfile, 'r') as f:
+                return int(f.readline())
+        except IOError:
+            return None
+
+    def try_remove_pidfile(self):
+        if os.path.exists(self.pidfile):
+            os.remove(self.pidfile)
+
     def on_signal(self, signum, frame):
         print 'closing'
         if self.subprocess_p:
             self.subprocess_p.terminate()
+        self.try_remove_pidfile()
         tornado.ioloop.IOLoop.instance().stop()
 
     def start(self):
@@ -396,14 +409,17 @@ class Daemon():
             pid = os.fork()
             if pid > 0:
                 print 'Daemon PID % d' % pid
+                self.pid = pid
                 with open(self.pidfile, 'w+') as f_pidfile:
                     f_pidfile.write(str(pid))
+
                 os._exit(0)
         except OSError, error:
             print 'fork  # 2 failed: %d (%s)' % (error.errno, error.strerror)
             os._exit(1)
 
-        self.start_subprocess()  # function demo
+        self.start_subprocess()
+        self.try_remove_pidfile()
 
 if __name__ == "__main__":
     run()
