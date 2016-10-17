@@ -353,8 +353,6 @@ def start_server(argv=None):
     app.listen(bind_port, bind_address)
     tornado.ioloop.IOLoop.current().start()
 
-
-subprocess_p = None
 def run(argv=None):
     if argv is None:
         argv = sys.argv
@@ -363,27 +361,27 @@ def run(argv=None):
     parser.add_option('--pidfile', help='pid file will be created when daemon started')
     opts, args = parser.parse_args(argv)
     pidfile = opts.pidfile or 'scrapydd-server.pid'
-    def start_subprocess():
-        global subprocess_p
-        argv = sys.argv
-        argv.remove('--daemon')
-        pargs = argv
-        env = os.environ.copy()
-        subprocess_p = subprocess.Popen(pargs, env=env)
-        subprocess_p.wait()
 
     if opts.daemon:
         print 'starting daemon.'
-        createDaemon(start_subprocess, pidfile=pidfile)
+        daemon = Daemon(pidfile=pidfile)
+        daemon.start()
         sys.exit(0)
     else:
         start_server()
 
 class Daemon():
-    def __init__(self, process, pidfile):
-        self.process = process
+    def __init__(self, pidfile):
         self.pidfile = pidfile
         self.subprocess_p = None
+
+    def start_subprocess(self):
+        argv = sys.argv
+        argv.remove('--daemon')
+        pargs = argv
+        env = os.environ.copy()
+        self.subprocess_p = subprocess.Popen(pargs, env=env)
+        self.subprocess_p.wait()
 
     def on_signal(self, signum, frame):
         print 'closing'
@@ -392,8 +390,8 @@ class Daemon():
         tornado.ioloop.IOLoop.instance().stop()
 
     def start(self):
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, self.on_signal)
+        signal.signal(signal.SIGTERM, self.on_signal)
         try:
             pid = os.fork()
             if pid > 0:
@@ -405,32 +403,7 @@ class Daemon():
             print 'fork  # 2 failed: %d (%s)' % (error.errno, error.strerror)
             os._exit(1)
 
-        self.process()  # function demo
-
-def signal_handler(signum, frame):
-    print 'closing'
-    global subprocess_p
-    if subprocess_p:
-        subprocess_p.terminate()
-    tornado.ioloop.IOLoop.instance().stop()
-
-
-def createDaemon(process, pidfile):
-    import os
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    try:
-        pid = os.fork()
-        if pid > 0:
-            print 'Daemon PID % d' % pid
-            with open(pidfile, 'w+') as f_pidfile:
-                f_pidfile.write(str(pid))
-            os._exit(0)
-    except OSError, error:
-        print 'fork  # 2 failed: %d (%s)' % (error.errno, error.strerror)
-        os._exit(1)
-
-    process()  # function demo
+        self.start_subprocess()  # function demo
 
 if __name__ == "__main__":
     run()
