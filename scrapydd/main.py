@@ -239,26 +239,31 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
 
         #print log
         job = session.query(SpiderExecutionQueue).filter_by(id = task_id).first()
-        spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
-        if not os.path.exists(spider_log_folder):
-            os.makedirs(spider_log_folder)
-        log_file = os.path.join(spider_log_folder, job.id + '.log')
 
-        with open(log_file, 'w') as f:
-            f.write(log)
 
-        if self.request.files['items']:
-            items_file_path = os.path.join('items', job.project_name, job.spider_name)
-            if not os.path.exists(items_file_path):
-                os.makedirs(items_file_path)
-            items_file = os.path.join(items_file_path, '%s.jl' % job.id)
-            with open(items_file, 'wb') as f:
-                f.write(self.request.files['items'][0]['body'])
+        try:
+            spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
+            if not os.path.exists(spider_log_folder):
+                os.makedirs(spider_log_folder)
+            log_file = os.path.join(spider_log_folder, job.id + '.log')
+            with open(log_file, 'w') as f:
+                f.write(log)
+        except Exception as e:
+            logging.error('Error when writing task log file, %s' % e)
+
+        try:
+            if self.request.files['items']:
+                items_file_path = os.path.join('items', job.project_name, job.spider_name)
+                if not os.path.exists(items_file_path):
+                    os.makedirs(items_file_path)
+                items_file = os.path.join(items_file_path, '%s.jl' % job.id)
+                with open(items_file, 'wb') as f:
+                    f.write(self.request.files['items'][0]['body'])
+        except Exception as e:
+            logging.error('Error when writing items file, %s' % e)
+
         job.status = status_int
         job.update_time = datetime.datetime.now()
-
-
-
         historical_job = HistoricalJob()
         historical_job.id = job.id
         historical_job.spider_id = job.spider_id
@@ -272,7 +277,6 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         session.delete(job)
         session.add(historical_job)
 
-        #session.add(job)
         session.commit()
         session.close()
         logging.info('Job %s completed.' % task_id)
@@ -358,9 +362,9 @@ def make_app(scheduler_manager, node_manager):
 def start_server(argv=None):
     config = Config()
     if config.getboolean('debug'):
-        logging.basicConfig(level=logging.DEBUG, filename='scrapydd-server.log')
+        logging.basicConfig(level=logging.DEBUG, filename='scrapydd-server.log', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     else:
-        logging.basicConfig(level=logging.INFO, filename='scrapydd-server.log')
+        logging.basicConfig(level=logging.INFO, filename='scrapydd-server.log', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     logging.debug('starting server with argv : %s' % str(argv))
 
