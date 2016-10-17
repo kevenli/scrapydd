@@ -4,10 +4,12 @@ from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
 from sqlite3 import IntegrityError
+from tornado.ioloop import IOLoop, PeriodicCallback
 import uuid
 import logging
 import datetime
 from .exceptions import *
+from Queue import Queue
 
 def generate_jobid():
     jobid = str(uuid.uuid4()).replace('-', '')
@@ -21,6 +23,10 @@ class SchedulerManager:
             'processpool': ProcessPoolExecutor(5)
         }
         self.scheduler = TornadoScheduler(executors=executors)
+        self.task_queue = Queue()
+        self.poll_task_queue_callback = None
+        self.pool_task_queue_interval = 10
+        self.ioloop = IOLoop.instance()
 
     def init(self):
         self.logger = logging.getLogger(__name__)
@@ -50,7 +56,20 @@ class SchedulerManager:
                 logging.warning('Trigger %d,%s cannot be added ' % (trigger.id, trigger.cron_pattern))
         self.scheduler.start()
 
+        self.poll_task_queue_callback = PeriodicCallback(self.poll_task_queue, self.pool_task_queue_interval * 1000)
+        self.poll_task_queue_callback.start()
+
         session.close()
+
+    def poll_task_queue(self):
+        if self.task_queue.empty():
+            session = Session()
+            tasks_to_run = session.query(SpiderExecutionQueue).filter_by(status=0).order_by(
+                SpiderExecutionQueue.update_time).slice(0, 10)
+            for task in tasks_to_run:
+                self.task_queue.put(task)
+            session.close()
+
 
     def add_job(self, trigger_id, cron):
         cron_parts = cron.split(' ')
@@ -178,3 +197,19 @@ class SchedulerManager:
         session.add(job)
         session.commit()
         session.close()
+
+    def get_next_task(self, node_id):
+        if not self.task_queue.empty():
+            session = Session()
+            next_task = self.task_queue.get_nowait()
+            next_task = session.query(SpiderExecutionQueue).filter_by(id=next_task.id).first()
+            next_task.start_time = datetime.datetime.now()
+            next_task.update_time = datetime.datetime.now()
+            next_task.node_id = node_id
+            next_task.status = 1
+            session.add(next_task)
+            session.commit()
+            session.refresh(next_task)
+            session.close()
+            return next_task
+        return None

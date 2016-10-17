@@ -33,6 +33,8 @@ class NodeManager():
         try:
             session = Session()
             node = session.query(Node).filter_by(id=node_id).first()
+            if node is None:
+                raise NodeExpired()
             if node.isalive == 0:
                 raise NodeExpired()
             node.last_heartbeat = datetime.datetime.now()

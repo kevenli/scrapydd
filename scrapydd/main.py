@@ -200,22 +200,19 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
         self.redirect('/projects/%s/spiders/%s'% (project, spider))
 
 class  ExecuteNextHandler(tornado.web.RequestHandler):
+    def initialize(self, scheduler_manager):
+        self.scheduler_manager = scheduler_manager
+
     def post(self):
         session = Session()
         node_id = int(self.request.arguments['node_id'][0])
-        next_task = session.query(SpiderExecutionQueue).filter_by(status=0).order_by(SpiderExecutionQueue.update_time).first()
+        next_task = self.scheduler_manager.get_next_task(node_id)
 
         response_data = {'data': None}
 
         if next_task is not None:
             spider = session.query(Spider).filter_by(id=next_task.spider_id).first()
             project = session.query(Project).filter_by(id=spider.project_id).first()
-            next_task.start_time = datetime.datetime.now()
-            next_task.update_time = datetime.datetime.now()
-            next_task.node_id = node_id
-            next_task.status = 1
-            session.add(next_task)
-            session.commit()
             response_data['data'] = {'task':{
                 'task_id': next_task.id,
                 'spider_id':  next_task.spider_id,
@@ -223,8 +220,6 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
                 'project_name': next_task.project_name,
                 'version': project.version,
             }}
-
-
         self.write(json.dumps(response_data))
         session.close()
 
@@ -343,7 +338,7 @@ def make_app(scheduler_manager, node_manager):
         (r'/spiders/(\d+)/egg', SpiderEggHandler),
         (r'/projects/(\w+)/spiders/(\w+)', SpiderInstanceHandler2),
         (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
-        (r'/executing/next_task', ExecuteNextHandler),
+        (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager}),
