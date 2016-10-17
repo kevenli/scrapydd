@@ -1,3 +1,4 @@
+# -*-coding:utf8-*-
 import tornado.ioloop
 import tornado.web
 import tornado.template
@@ -16,6 +17,9 @@ import sys
 import logging
 from .exceptions import *
 from sqlalchemy import desc
+from optparse import OptionParser, OptionValueError
+import subprocess
+import signal
 
 
 def get_template_loader():
@@ -326,12 +330,11 @@ def make_app(scheduler_manager, node_manager):
         (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
     ])
 
-def run(argv=None):
+def start_server(argv=None):
     config = Config()
     if config.getboolean('debug'):
         logging.basicConfig(level=logging.DEBUG)
-    if argv is None:
-        argv = sys.argv
+
     logging.debug('starting server with argv : %s' % str(argv))
 
     init_database()
@@ -349,6 +352,85 @@ def run(argv=None):
     print 'Starting server on %s:%d' % (bind_address, bind_port)
     app.listen(bind_port, bind_address)
     tornado.ioloop.IOLoop.current().start()
+
+
+subprocess_p = None
+def run(argv=None):
+    if argv is None:
+        argv = sys.argv
+    parser = OptionParser(prog  = 'scrapydd server')
+    parser.add_option('--daemon', action='store_true', help='run scrapydd server in daemon mode')
+    parser.add_option('--pidfile', help='pid file will be created when daemon started')
+    opts, args = parser.parse_args(argv)
+    pidfile = opts.pidfile or 'scrapydd-server.pid'
+    def start_subprocess():
+        global subprocess_p
+        argv = sys.argv
+        argv.remove('--daemon')
+        pargs = argv
+        env = os.environ.copy()
+        subprocess_p = subprocess.Popen(pargs, env=env)
+        subprocess_p.wait()
+
+    if opts.daemon:
+        print 'starting daemon.'
+        createDaemon(start_subprocess, pidfile=pidfile)
+        sys.exit(0)
+    else:
+        start_server()
+
+class Daemon():
+    def __init__(self, process, pidfile):
+        self.process = process
+        self.pidfile = pidfile
+        self.subprocess_p = None
+
+    def on_signal(self, signum, frame):
+        print 'closing'
+        if self.subprocess_p:
+            self.subprocess_p.terminate()
+        tornado.ioloop.IOLoop.instance().stop()
+
+    def start(self):
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        try:
+            pid = os.fork()
+            if pid > 0:
+                print 'Daemon PID % d' % pid
+                with open(self.pidfile, 'w+') as f_pidfile:
+                    f_pidfile.write(str(pid))
+                os._exit(0)
+        except OSError, error:
+            print 'fork  # 2 failed: %d (%s)' % (error.errno, error.strerror)
+            os._exit(1)
+
+        self.process()  # function demo
+
+def signal_handler(signum, frame):
+    print 'closing'
+    global subprocess_p
+    if subprocess_p:
+        subprocess_p.terminate()
+    tornado.ioloop.IOLoop.instance().stop()
+
+
+def createDaemon(process, pidfile):
+    import os
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    try:
+        pid = os.fork()
+        if pid > 0:
+            print 'Daemon PID % d' % pid
+            with open(pidfile, 'w+') as f_pidfile:
+                f_pidfile.write(str(pid))
+            os._exit(0)
+    except OSError, error:
+        print 'fork  # 2 failed: %d (%s)' % (error.errno, error.strerror)
+        os._exit(1)
+
+    process()  # function demo
 
 if __name__ == "__main__":
     run()

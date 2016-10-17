@@ -5,7 +5,7 @@ import scrapydd.scheduleutil
 
 def main():
     argv = sys.argv
-    cmd = argv.pop(1)
+    cmd = argv[1]
     if cmd == 'agent':
         scrapydd.executor.run(argv)
     elif cmd == 'server':
