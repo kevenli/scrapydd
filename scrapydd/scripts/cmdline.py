@@ -17,6 +17,8 @@ def main():
         scrapydd.main.run(argv)
     elif cmd == 'add_schedule':
         scrapydd.scheduleutil.add_schedule()
+    elif cmd == '--help':
+        print_commands()
     else:
         print 'Invalid command.'
         print_commands()
