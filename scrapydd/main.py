@@ -6,7 +6,7 @@ from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
 from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
-from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database
+from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob
 from schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
@@ -133,8 +133,6 @@ class AddScheduleHandler(tornado.web.RequestHandler):
             self.write(json.dumps(response_data))
 
 
-
-
 class ProjectList(tornado.web.RequestHandler):
     def get(self):
         session = Session()
@@ -157,9 +155,9 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         session = Session()
         project = session.query(Project).filter(Project.name == project).first()
         spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
-        jobs = session.query(SpiderExecutionQueue)\
-            .filter(SpiderExecutionQueue.spider_id==spider.id,SpiderExecutionQueue.status==2)\
-            .order_by(desc(SpiderExecutionQueue.start_time))\
+        jobs = session.query(HistoricalJob)\
+            .filter(HistoricalJob.spider_id==spider.id,HistoricalJob.status==2)\
+            .order_by(desc(HistoricalJob.start_time))\
             .slice(0, 100)
         loader = get_template_loader()
         self.write(loader.load("spider.html").generate(spider=spider, jobs=jobs))
@@ -247,7 +245,22 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
             f.write(log)
         job.status = 2
         job.update_time = datetime.datetime.now()
-        session.add(job)
+
+
+        historical_job = HistoricalJob()
+        historical_job.id = job.id
+        historical_job.spider_id = job.spider_id
+        historical_job.project_name = job.project_name
+        historical_job.spider_name = job.spider_name
+        historical_job.fire_time = job.fire_time
+        historical_job.start_time = job.start_time
+        historical_job.complete_time = job.update_time
+        historical_job.status = job.status
+
+        session.delete(job)
+        session.add(historical_job)
+
+        #session.add(job)
         session.commit()
         session.close()
         logging.info('Job %s completed.' % task_id)

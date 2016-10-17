@@ -39,6 +39,8 @@ class Trigger(Base):
     spider_id = Column(Integer, ForeignKey('spiders.id'))
     cron_pattern = Column(String(length=50))
 
+Spider.triggers = relationship("Trigger", order_by=Trigger.id)
+
 class SpiderExecutionQueue(Base):
     __tablename__ = 'spider_execution_queue'
 
@@ -63,7 +65,18 @@ class Node(Base):
     isalive = Column(Integer)
 
 
-Spider.triggers = relationship("Trigger", order_by = Trigger.id)
+class HistoricalJob(Base):
+    __tablename__ = 'job_history'
+
+    id = Column(String(length=50), primary_key=True)
+    spider_id = Column(Integer)
+    project_name = Column(String(length=50))
+    spider_name = Column(String(length=50))
+    fire_time = Column(DateTime)
+    start_time = Column(DateTime)
+    complete_time = Column(DateTime)
+    status = Column(Integer, default=0)
+
 
 def init_database():
     db_url = 'sqlite:///database.db'

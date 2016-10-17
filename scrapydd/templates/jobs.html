@@ -50,7 +50,7 @@
                 <td>{{job.spider_name}}</td>
                 <td>{{job.id}}</td>
                 <td></td>
-                <td>{{job.update_time-job.start_time}}</td>
+                <td>{{job.complete_time-job.start_time}}</td>
                 <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
             </tr>
         {% end %}

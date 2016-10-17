@@ -1,5 +1,5 @@
 
-from models import Session, Trigger, Spider, Project, SpiderExecutionQueue
+from models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob
 from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
@@ -25,6 +25,23 @@ class SchedulerManager:
     def init(self):
         self.logger = logging.getLogger(__name__)
         session = Session()
+
+        # move completed jobs into history
+        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==2):
+            historical_job = HistoricalJob()
+            historical_job.id = job.id
+            historical_job.spider_id = job.spider_id
+            historical_job.project_name = job.project_name
+            historical_job.spider_name = job.spider_name
+            historical_job.fire_time = job.fire_time
+            historical_job.start_time = job.start_time
+            historical_job.complete_time = job.update_time
+            historical_job.status = job.status
+            session.delete(job)
+            session.add(historical_job)
+        session.commit()
+
+        # init triggers
         triggers = session.query(Trigger)
         for trigger in triggers:
             try:
@@ -32,6 +49,7 @@ class SchedulerManager:
             except InvalidCronExpression:
                 logging.warning('Trigger %d,%s cannot be added ' % (trigger.id, trigger.cron_pattern))
         self.scheduler.start()
+
         session.close()
 
     def add_job(self, trigger_id, cron):
@@ -148,7 +166,7 @@ class SchedulerManager:
         session = Session()
         pending = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==0))
         running = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==1))
-        finished = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==2).slice(0, 100))
+        finished = list(session.query(HistoricalJob).filter(HistoricalJob.status==2).slice(0, 100))
         session.close()
         return pending, running, finished
 
