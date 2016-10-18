@@ -20,7 +20,7 @@ from sqlalchemy import desc
 from optparse import OptionParser, OptionValueError
 import subprocess
 import signal
-
+from stream import PostDataStreamer
 
 def get_template_loader():
     loader = tornado.template.Loader(os.path.join(os.path.dirname(__file__), "templates"))
@@ -98,6 +98,7 @@ class ScheduleHandler(tornado.web.RequestHandler):
             }
             self.set_status(400, 'job is running')
             self.write(json.dumps(response_data))
+
 
 class AddScheduleHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):
@@ -224,65 +225,116 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
         self.write(json.dumps(response_data))
         session.close()
 
+
+@tornado.web.stream_request_body
 class ExecuteCompleteHandler(tornado.web.RequestHandler):
+    #
+    def prepare(self):
+        MB = 1024 * 1024
+        GB = 1024 * MB
+        TB = 1024 * GB
+        MAX_STREAMED_SIZE = 1 * TB
+        # 如果不设max_body_size, 不能上传>100MB的文件
+        self.request.connection.set_max_body_size(MAX_STREAMED_SIZE)
+    #     self.f = open("upload.tmp", "wb")
+
+        # TODO: get content length here?
+        try:
+            total = int(self.request.headers.get("Content-Length", "0"))
+        except:
+            total = 0
+        self.ps = PostDataStreamer(total)  # ,tmpdir="/tmp"
+
+        # self.fout = open("raw_received.dat","wb+")
+
     def post(self):
-        task_id = self.get_argument('task_id')
-        log = self.get_argument('log')
-        status = self.get_argument('status', 'success')
-        if status == 'success':
-            status_int = 2
-        elif status == 'fail':
-            status_int = 3
-        else:
-            self.write_error(401, 'Invalid argument: status.')
-
-        session = Session()
-
-        #print log
-        job = session.query(SpiderExecutionQueue).filter_by(id = task_id).first()
-
-
         try:
-            spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
-            if not os.path.exists(spider_log_folder):
-                os.makedirs(spider_log_folder)
-            log_file = os.path.join(spider_log_folder, job.id + '.log')
-            with open(log_file, 'w') as f:
-                f.write(log)
-        except Exception as e:
-            logging.error('Error when writing task log file, %s' % e)
+            #self.fout.close()
+            self.ps.finish_receive()
+            # Use parts here!
+            self.set_header("Content-Type","text/plain")
+            #task_id = self.get_argument('task_id')
+            fields = self.ps.get_values(['task_id', 'log', 'status'])
+            logging.debug(self.ps.get_nonfile_names())
+            #task_id = self.ps.get_part_payload('task_id')
+            #log = self.get_argument('log')
+            #status = self.get_argument('status', 'success')
+            task_id = fields['task_id']
+            log = fields['log']
+            status = fields['status']
+            if status == 'success':
+                status_int = 2
+            elif status == 'fail':
+                status_int = 3
+            else:
+                self.write_error(401, 'Invalid argument: status.')
 
-        try:
-            if self.request.files['items']:
+            session = Session()
+
+            #print log
+            job = session.query(SpiderExecutionQueue).filter_by(id = task_id).first()
+
+
+            try:
+                spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
+                if not os.path.exists(spider_log_folder):
+                    os.makedirs(spider_log_folder)
+                log_file = os.path.join(spider_log_folder, job.id + '.log')
+                with open(log_file, 'w') as f:
+                    f.write(log)
+            except Exception as e:
+                logging.error('Error when writing task log file, %s' % e)
+
+            try:
+                part = self.ps.get_parts_by_name('items')[0]
+                tmpfile = part['tmpfile'].name
                 items_file_path = os.path.join('items', job.project_name, job.spider_name)
                 if not os.path.exists(items_file_path):
                     os.makedirs(items_file_path)
                 items_file = os.path.join(items_file_path, '%s.jl' % job.id)
-                with open(items_file, 'wb') as f:
-                    f.write(self.request.files['items'][0]['body'])
-        except Exception as e:
-            logging.error('Error when writing items file, %s' % e)
+                import shutil
+                shutil.copy(tmpfile, items_file)
+                # if self.request.files['items']:
+                #     items_file_path = os.path.join('items', job.project_name, job.spider_name)
+                #     if not os.path.exists(items_file_path):
+                #         os.makedirs(items_file_path)
+                #     items_file = os.path.join(items_file_path, '%s.jl' % job.id)
+                #     with open(items_file, 'wb') as f:
+                #         f.write(self.request.files['items'][0]['body'])
+            except Exception as e:
+                logging.error('Error when writing items file, %s' % e)
 
-        job.status = status_int
-        job.update_time = datetime.datetime.now()
-        historical_job = HistoricalJob()
-        historical_job.id = job.id
-        historical_job.spider_id = job.spider_id
-        historical_job.project_name = job.project_name
-        historical_job.spider_name = job.spider_name
-        historical_job.fire_time = job.fire_time
-        historical_job.start_time = job.start_time
-        historical_job.complete_time = job.update_time
-        historical_job.status = job.status
+            job.status = status_int
+            job.update_time = datetime.datetime.now()
+            historical_job = HistoricalJob()
+            historical_job.id = job.id
+            historical_job.spider_id = job.spider_id
+            historical_job.project_name = job.project_name
+            historical_job.spider_name = job.spider_name
+            historical_job.fire_time = job.fire_time
+            historical_job.start_time = job.start_time
+            historical_job.complete_time = job.update_time
+            historical_job.status = job.status
 
-        session.delete(job)
-        session.add(historical_job)
+            session.delete(job)
+            session.add(historical_job)
 
-        session.commit()
-        session.close()
-        logging.info('Job %s completed.' % task_id)
-        response_data = {'status': 'ok'}
-        self.write(json.dumps(response_data))
+            session.commit()
+            session.close()
+            logging.info('Job %s completed.' % task_id)
+            response_data = {'status': 'ok'}
+            self.write(json.dumps(response_data))
+
+
+        finally:
+            # Don't forget to release temporary files.
+            self.ps.release_parts()
+
+
+    def data_received(self, chunk):
+        # self.fout.write(chunk)
+        self.ps.receive(chunk)
+
 
 class NodesHandler(tornado.web.RequestHandler):
     def initialize(self, node_manager):
