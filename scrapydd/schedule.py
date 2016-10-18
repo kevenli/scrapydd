@@ -9,7 +9,7 @@ import uuid
 import logging
 import datetime
 from .exceptions import *
-from Queue import Queue
+from Queue import Queue, Empty
 
 def generate_jobid():
     jobid = uuid.uuid4().hex
@@ -201,8 +201,13 @@ class SchedulerManager:
     def get_next_task(self, node_id):
         if not self.task_queue.empty():
             session = Session()
-            next_task = self.task_queue.get_nowait()
+            try:
+                next_task = self.task_queue.get_nowait()
+            except Empty:
+                return None
             next_task = session.query(SpiderExecutionQueue).filter_by(id=next_task.id).first()
+            if not next_task:
+                return None
             next_task.start_time = datetime.datetime.now()
             next_task.update_time = datetime.datetime.now()
             next_task.node_id = node_id
