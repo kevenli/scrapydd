@@ -12,7 +12,7 @@ from .exceptions import *
 from Queue import Queue
 
 def generate_jobid():
-    jobid = str(uuid.uuid4()).replace('-', '')
+    jobid = uuid.uuid4().hex
     return jobid
 
 
