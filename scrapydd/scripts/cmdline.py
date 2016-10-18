@@ -19,6 +19,8 @@ def main():
         scrapydd.scheduleutil.add_schedule()
     elif cmd == '--help':
         print_commands()
+    elif cmd == '--version' or cmd == '-v':
+        print_version()
     else:
         print 'Invalid command.'
         print_commands()
@@ -31,5 +33,9 @@ def print_commands():
     print '\tadd_schedule:\tadd a schedule to spider.'
     print ''
     print 'use scrapydd {command} --help for further help.'
+
+def print_version():
+    print 'scrapydd v' + scrapydd.__version__
+
 if __name__ == '__main__':
     main()
