@@ -156,6 +156,7 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         project = session.query(Project).filter(Project.name == project).first()
         spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
         jobs = session.query(HistoricalJob)\
+            .filter(HistoricalJob.spider_id == spider.id)\
             .order_by(desc(HistoricalJob.start_time))\
             .slice(0, 100)
         loader = get_template_loader()

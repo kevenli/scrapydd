@@ -87,7 +87,7 @@ class SchedulerManager:
             raise InvalidCronExpression()
 
         self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger, kwargs={'trigger_id': trigger_id},
-                               id=str(trigger_id))
+                               id=str(trigger_id), replace_existing=True)
 
     def process_exit_callback(self):
         print 'process finished'
