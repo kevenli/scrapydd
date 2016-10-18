@@ -218,3 +218,6 @@ class SchedulerManager:
             session.close()
             return next_task
         return None
+
+    def has_task(self):
+        return not self.task_queue.empty()

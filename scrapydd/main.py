@@ -294,11 +294,13 @@ class NodesHandler(tornado.web.RequestHandler):
 
 
 class NodeHeartbeatHandler(tornado.web.RequestHandler):
-    def initialize(self, node_manager):
+    def initialize(self, node_manager, scheduler_manager):
         self.node_manager = node_manager
+        self.scheduler_manager = scheduler_manager
 
     def post(self, id):
         node_id = int(id)
+        self.set_header('DD-New-Task', self.scheduler_manager.has_task())
         try:
             self.node_manager.heartbeat(node_id)
             response_data = {'status':'ok'}
@@ -354,7 +356,7 @@ def make_app(scheduler_manager, node_manager):
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
-        (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager}),
+        (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager, 'scheduler_manager': scheduler_manager}),
         (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),
         (r'/jobs/(\w+)/start', JobStartHandler, {'scheduler_manager': scheduler_manager}),
         (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),

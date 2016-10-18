@@ -52,22 +52,36 @@ class Executor():
 
     def start(self):
         self.register_node()
-        ioloop = IOLoop.current()
         #init heartbeat period callback
         heartbeat_callback = PeriodicCallback(self.send_heartbeat, self.heartbeat_interval*1000)
         heartbeat_callback.start()
 
         #init checktask period callback
-        checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval*1000)
-        checktask_callback.start()
+        # the new version use HEARTBEAT response to tell client whether there is new task on server queue
+        # so do not start this period method. But if server is an old version without that header info
+        # client sill need to poll GET_TASK.
+        self.checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval*1000)
 
-        ioloop.start()
+        self.ioloop.start()
+
+    def check_header_new_task_on_server(self, headers):
+        try:
+            new_task_on_server = headers['DD-New-Task'] == 'True'
+            if new_task_on_server:
+                self.ioloop.call_later(0, self.check_task)
+        except KeyError:
+            # if response contains no 'DD-New-Task' header, it might be the old version server,
+            # so use the old GET_TASK pool mode
+            if not self.checktask_callback.is_running():
+                self.checktask_callback.start()
+
 
     def send_heartbeat(self):
         url = urlparse.urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
         request = urllib2.Request(url, data='')
         try:
             res = urllib2.urlopen(request)
+            self.check_header_new_task_on_server(res.info())
             response_data = res.read()
         except urllib2.HTTPError as e:
             if e.code == 400:
@@ -75,7 +89,6 @@ class Executor():
                 self.register_node()
         except urllib2.URLError:
             logging.warning('Cannot connect to server.')
-
 
 
     def register_node(self):
