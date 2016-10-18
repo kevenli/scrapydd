@@ -300,7 +300,7 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
 
     def post(self, id):
         node_id = int(id)
-        self.set_header('DD-New-Task', self.scheduler_manager.has_task())
+        self.set_header('X-DD-New-Task', self.scheduler_manager.has_task())
         try:
             self.node_manager.heartbeat(node_id)
             response_data = {'status':'ok'}

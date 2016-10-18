@@ -66,7 +66,7 @@ class Executor():
 
     def check_header_new_task_on_server(self, headers):
         try:
-            new_task_on_server = headers['DD-New-Task'] == 'True'
+            new_task_on_server = headers['X-DD-New-Task'] == 'True'
             if new_task_on_server:
                 self.ioloop.call_later(0, self.check_task)
         except KeyError:
