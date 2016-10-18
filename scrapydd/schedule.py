@@ -205,7 +205,8 @@ class SchedulerManager:
                 next_task = self.task_queue.get_nowait()
             except Empty:
                 return None
-            next_task = session.query(SpiderExecutionQueue).filter_by(id=next_task.id).first()
+            next_task = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == next_task.id,
+                                                                   SpiderExecutionQueue.status == 0).first()
             if not next_task:
                 return None
             next_task.start_time = datetime.datetime.now()
