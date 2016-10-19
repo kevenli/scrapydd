@@ -175,17 +175,12 @@ class Executor():
             d = pkg_resources.find_distributions(eggpath).next()
         except StopIteration:
             raise ValueError("Unknown or corrupt egg")
-        else:
-            eggpath = None
         logging.debug(d.requires())
         for require in d.requires():
             subprocess.check_call(['pip', 'install', str(require)])
-
-        try:
-            assert 'scrapy.conf' not in sys.modules, "Scrapy settings already loaded"
-        finally:
-            if eggpath:
-                os.remove(eggpath)
+        if eggpath:
+            logging.debug('removing: ' + eggpath)
+            os.remove(eggpath)
 
     def execute_task(self, task):
         logging.debug(task.project_version)
@@ -263,6 +258,9 @@ class TaskExecutor():
         self.task = task
         self.task_output_fd = None
         self.task_output_file = None
+        self.future = None
+        self.p = None
+        self.check_process_callback = None
 
     def begin_execute(self):
         from w3lib.url import path_to_file_uri
