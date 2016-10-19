@@ -246,18 +246,11 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
 
     def post(self):
         try:
-            #self.fout.close()
             self.ps.finish_receive()
-            # Use parts here!
-            self.set_header("Content-Type","text/plain")
-            #task_id = self.get_argument('task_id')
             fields = self.ps.get_values(['task_id', 'log', 'status'])
             logging.debug(self.ps.get_nonfile_names())
-            #task_id = self.ps.get_part_payload('task_id')
-            #log = self.get_argument('log')
-            #status = self.get_argument('status', 'success')
             task_id = fields['task_id']
-            log = fields['log']
+            log = fields.get('log', None)
             status = fields['status']
             if status == 'success':
                 status_int = 2
@@ -265,20 +258,29 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
                 status_int = 3
             else:
                 self.write_error(401, 'Invalid argument: status.')
+                return
 
             session = Session()
-
-            #print log
             job = session.query(SpiderExecutionQueue).filter_by(id = task_id).first()
 
+            if job is None:
+                self.write_error(404, 'Job not found.')
+                session.close()
+                return
 
             try:
                 spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
                 if not os.path.exists(spider_log_folder):
                     os.makedirs(spider_log_folder)
                 log_file = os.path.join(spider_log_folder, job.id + '.log')
-                with open(log_file, 'w') as f:
-                    f.write(log)
+                log_part = self.ps.get_parts_by_name('log')[0]
+                if log_part:
+                    import shutil
+                    shutil.copy(log_part['tmpfile'].name, log_file)
+                elif log:
+                    with open(log_file, 'w') as f:
+                        f.write(log)
+
             except Exception as e:
                 logging.error('Error when writing task log file, %s' % e)
 
@@ -291,13 +293,6 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
                 items_file = os.path.join(items_file_path, '%s.jl' % job.id)
                 import shutil
                 shutil.copy(tmpfile, items_file)
-                # if self.request.files['items']:
-                #     items_file_path = os.path.join('items', job.project_name, job.spider_name)
-                #     if not os.path.exists(items_file_path):
-                #         os.makedirs(items_file_path)
-                #     items_file = os.path.join(items_file_path, '%s.jl' % job.id)
-                #     with open(items_file, 'wb') as f:
-                #         f.write(self.request.files['items'][0]['body'])
             except Exception as e:
                 logging.error('Error when writing items file, %s' % e)
 

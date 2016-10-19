@@ -217,23 +217,27 @@ class Executor():
         request = urllib2.Request(url, post_data)
         urllib2.urlopen(request)
 
-    def complete_task(self, task, status, log):
+    def complete_task(self, task, status, log=None):
         url = urlparse.urljoin(self.service_base, '/executing/complete')
-        if log is None:
+        log_file = None
+        if log is not None:
+            log_file = StringIO(log)
+        else:
             try:
-                with open(task.executor.task_output_file, 'r') as f:
-                    log = f.read()
+                log_file = open(task.executor.task_output_file, 'r')
             except Exception as e:
-                log = ""
+                log = "No log file found. " + e.message
+                log_file = StringIO(log)
                 logging.error(e.message)
 
         post_data = {
             'task_id': task.id,
-            'log': log,
             'status':status,
         }
         if task.items_file and os.path.exists(task.items_file):
             post_data['items'] = open(task.items_file, "rb")
+        if log_file:
+            post_data['log'] = log_file
         datagen, headers = multipart_encode(post_data)
         request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
         client = AsyncHTTPClient()
@@ -243,7 +247,7 @@ class Executor():
 
     def task_finished(self, future):
         task = future.result()
-        self.complete_task(task, 'success' if task.ret_code == 0 else 'fail', None)
+        self.complete_task(task, TASK_STATUS_SUCCESS if task.ret_code == 0 else TASK_STATUS_FAIL)
 
     def check_task(self):
         if not self.task_slots.is_full():
