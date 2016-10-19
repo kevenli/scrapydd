@@ -223,31 +223,28 @@ class Executor():
         urllib2.urlopen(request)
 
     def complete_task(self, task, status, log):
-        self.task_slots.remove_task(task)
-        try:
-            url = urlparse.urljoin(self.service_base, '/executing/complete')
-            if log is None:
-                try:
-                    with open(task.executor.task_output_file, 'r') as f:
-                        log = f.read()
-                except Exception as e:
-                    log = ""
-                    logging.error(e.message)
+        url = urlparse.urljoin(self.service_base, '/executing/complete')
+        if log is None:
+            try:
+                with open(task.executor.task_output_file, 'r') as f:
+                    log = f.read()
+            except Exception as e:
+                log = ""
+                logging.error(e.message)
 
-            post_data = {
-                'task_id': task.id,
-                'log': log,
-                'status':status,
-            }
-            if task.items_file and os.path.exists(task.items_file):
-                post_data['items'] = open(task.items_file, "rb")
-            datagen, headers = multipart_encode(post_data)
-            request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
-            client = AsyncHTTPClient()
-            client.fetch(request)
-            logging.info('task %s finished' % task.id)
-        except urllib2.URLError:
-            logging.warning('Cannot connect to server.')
+        post_data = {
+            'task_id': task.id,
+            'log': log,
+            'status':status,
+        }
+        if task.items_file and os.path.exists(task.items_file):
+            post_data['items'] = open(task.items_file, "rb")
+        datagen, headers = multipart_encode(post_data)
+        request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
+        client = AsyncHTTPClient()
+        future = client.fetch(request)
+        logging.info('task %s finished' % task.id)
+        self.task_slots.remove_task(task)
 
     def task_finished(self, future):
         task = future.result()
