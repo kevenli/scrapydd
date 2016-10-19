@@ -348,10 +348,16 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
         self.scheduler_manager = scheduler_manager
 
     def post(self, id):
+
+        logging.debug(self.request.headers)
         node_id = int(id)
         self.set_header('X-DD-New-Task', self.scheduler_manager.has_task())
         try:
             self.node_manager.heartbeat(node_id)
+            running_jobs = self.request.headers.get('X-DD-RunningJobs', None)
+            if running_jobs is not None:
+                for job_id in running_jobs.split(','):
+                    self.scheduler_manager.job_running(job_id)
             response_data = {'status':'ok'}
         except NodeExpired:
             response_data = {'status': 'error', 'errmsg': 'Node expired'}

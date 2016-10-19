@@ -45,10 +45,12 @@ class TaskSlotContainer():
     def is_full(self):
         for slot in self.slots:
             if slot is None:
-                return True
-        return False
+                return False
+        return True
 
     def put_task(self, task):
+        if not isinstance(task, SpiderTask):
+            raise ValueError('Task in TaskSlotContainer must be SpiderTask type.')
         for i in range(len(self.slots)):
             if self.slots[i] is None:
                 self.slots[i] = task
@@ -73,9 +75,10 @@ class Executor():
 
     def __init__(self, config=None):
         self.ioloop = IOLoop.current()
-        self.task_slots = TaskSlotContainer()
+
         if config is None:
             config =AgentConfig()
+        self.task_slots = TaskSlotContainer(config.getint('slots', 1))
         self.config = config
         self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
 
@@ -107,7 +110,8 @@ class Executor():
 
     def send_heartbeat(self):
         url = urlparse.urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
-        request = urllib2.Request(url, data='')
+        running_tasks = ','.join([task.id for task in self.task_slots.tasks()])
+        request = urllib2.Request(url, data='', headers={'X-DD-RunningJobs': running_tasks})
         try:
             res = urllib2.urlopen(request)
             self.check_header_new_task_on_server(res.info())
@@ -194,7 +198,6 @@ class Executor():
                 res = urllib2.urlopen(egg_request)
             except urllib2.URLError:
                 logging.warning("Cannot retrieve job's egg, removing job")
-                task = self.task_queue.get_nowait()  # pop the failed task from queue
                 self.complete_task(task, TASK_STATUS_FAIL, "Cannot retrieve job's egg, removing job")
                 return
             egg = StringIO(res.read())
@@ -204,7 +207,6 @@ class Executor():
         try:
             self.test_egg_requirements(task.project_name)
         except ValueError as e:
-            task = self.task_queue.get_nowait()    # pop the failed task from queue
             self.complete_task(task, TASK_STATUS_FAIL, e.message)
             return
 
@@ -221,6 +223,7 @@ class Executor():
         urllib2.urlopen(request)
 
     def complete_task(self, task, status, log):
+        self.task_slots.remove_task(task)
         try:
             url = urlparse.urljoin(self.service_base, '/executing/complete')
             if log is None:
@@ -247,14 +250,14 @@ class Executor():
             logging.warning('Cannot connect to server.')
 
     def task_finished(self, future):
-        task = self.task_queue.get_nowait()
+        task = future.result()
         self.complete_task(task, 'success' if task.ret_code == 0 else 'fail', None)
 
     def check_task(self):
-        if self.task_queue.empty():
+        if not self.task_slots.is_full():
             task = self.get_next_task()
             if task is not None:
-                self.task_queue.put(task)
+                self.task_slots.put_task(task)
                 self.execute_task(task)
 
 
