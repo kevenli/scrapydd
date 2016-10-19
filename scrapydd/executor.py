@@ -16,6 +16,8 @@ import shutil
 import pkg_resources
 import time
 from config import AgentConfig
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from stream import MultipartRequestBodyProducer
 
 egg_storage = FilesystemEggStorage(scrapyd.config.Config())
 
@@ -36,6 +38,33 @@ class SpiderTask():
     items_file = None
 
 
+class TaskSlotContainer():
+    def __init__(self, max_size=1):
+        self.slots = [None] * max_size
+
+    def is_full(self):
+        for slot in self.slots:
+            if slot is None:
+                return True
+        return False
+
+    def put_task(self, task):
+        for i in range(len(self.slots)):
+            if self.slots[i] is None:
+                self.slots[i] = task
+                break
+
+    def remove_task(self, task):
+        for i in range(len(self.slots)):
+            if self.slots[i] == task:
+                self.slots[i] = None
+                break;
+
+    def tasks(self):
+        for item in self.slots:
+            if item is not None:
+                yield item
+
 class Executor():
     heartbeat_interval = 10
     checktask_interval = 10
@@ -44,7 +73,7 @@ class Executor():
 
     def __init__(self, config=None):
         self.ioloop = IOLoop.current()
-        #self.service_base = 'http://localhost:6800'
+        self.task_slots = TaskSlotContainer()
         if config is None:
             config =AgentConfig()
         self.config = config
@@ -202,12 +231,12 @@ class Executor():
             if task.items_file and os.path.exists(task.items_file):
                 post_data['items'] = open(task.items_file, "rb")
             datagen, headers = multipart_encode(post_data)
-            request = urllib2.Request(url, datagen, headers)
-            urllib2.urlopen(request)
+            request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
+            client = AsyncHTTPClient()
+            client.fetch(request)
             logging.info('task %s finished' % task.id)
         except urllib2.URLError:
             logging.warning('Cannot connect to server.')
-
 
     def task_finished(self, future):
         task = self.task_queue.get_nowait()

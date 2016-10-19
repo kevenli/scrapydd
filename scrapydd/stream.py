@@ -194,7 +194,7 @@ class PostDataStreamer:
                 res.append(part)
         return res
 
-    def get_values(self, fnames, size_limit=10*1024):
+    def get_values(self, fnames, size_limit=100*1024):
         """Return a dictionary of values for the given field names.
 
         @param fnames: A list of field names.
@@ -259,3 +259,12 @@ class PostDataStreamer:
     def on_progress(self):
         """Override this function to handle progress of receiving data."""
         pass # Received <self.received> of <self.total>
+
+
+class MultipartRequestBodyProducer():
+    def __init__(self, datagen):
+        self.datagen = datagen
+
+    def __call__(self, write):
+        for part in self.datagen:
+            write(part)

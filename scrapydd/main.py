@@ -233,12 +233,9 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         MB = 1024 * 1024
         GB = 1024 * MB
         TB = 1024 * GB
-        MAX_STREAMED_SIZE = 1 * TB
-        # 如果不设max_body_size, 不能上传>100MB的文件
+        MAX_STREAMED_SIZE = 1 * GB
+        # set the max size limiation here
         self.request.connection.set_max_body_size(MAX_STREAMED_SIZE)
-    #     self.f = open("upload.tmp", "wb")
-
-        # TODO: get content length here?
         try:
             total = int(self.request.headers.get("Content-Length", "0"))
         except:
