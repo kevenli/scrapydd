@@ -223,6 +223,14 @@ class Executor():
     def complete_task(self, task, status, log):
         try:
             url = urlparse.urljoin(self.service_base, '/executing/complete')
+            if log is None:
+                try:
+                    with open(task.executor.task_output_file, 'r') as f:
+                        log = f.read()
+                except Exception as e:
+                    log = ""
+                    logging.error(e.message)
+
             post_data = {
                 'task_id': task.id,
                 'log': log,
@@ -240,7 +248,7 @@ class Executor():
 
     def task_finished(self, future):
         task = self.task_queue.get_nowait()
-        self.complete_task(task, 'success' if task.ret_code == 0 else 'fail', task.executor.p.stdout.read())
+        self.complete_task(task, 'success' if task.ret_code == 0 else 'fail', None)
 
     def check_task(self):
         if self.task_queue.empty():
@@ -253,11 +261,19 @@ class Executor():
 class TaskExecutor():
     def __init__(self, task):
         self.task = task
+        self.task_output_fd = None
+        self.task_output_file = None
 
     def begin_execute(self):
         from w3lib.url import path_to_file_uri
         runner = 'scrapyd.runner'
         pargs = [sys.executable, '-m', runner, 'crawl', self.task.spider_name]
+
+        task_output_dir = os.path.join('logs', self.task.project_name, self.task.spider_name)
+        if not os.path.exists(task_output_dir):
+            os.makedirs(task_output_dir)
+        self.task_output_file = os.path.join(task_output_dir, '%s.log'%self.task.id)
+        self.task_output_fd = os.open(self.task_output_file, os.O_CREAT | os.O_WRONLY)
         #pargs = [sys.executable, '-m', runner, 'list']
         env = os.environ.copy()
         logging.debug(env)
@@ -266,7 +282,7 @@ class TaskExecutor():
         self.task.items_file = os.path.join('items', self.task.project_name, self.task.spider_name, '%s.%s' % (self.task.id, 'jl'))
         env['SCRAPY_FEED_URI'] = path_to_file_uri(self.task.items_file)
 
-        self.p = subprocess.Popen(pargs, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        self.p = subprocess.Popen(pargs, env=env, stdout=self.task_output_fd, stderr=self.task_output_fd)
         logging.info('job started %d' % self.p.pid)
         self.future = Future()
         self.check_process_callback = PeriodicCallback(self.check_process, 1000)
@@ -278,6 +294,7 @@ class TaskExecutor():
         logging.debug('check process')
         if execute_result is not None:
             logging.info('task complete')
+            os.close(self.task_output_fd)
             self.task.ret_code = execute_result
             self.check_process_callback.stop()
             self.future.set_result(self.task)
