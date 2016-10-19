@@ -223,12 +223,12 @@ class SchedulerManager:
     def has_task(self):
         return not self.task_queue.empty()
 
-    def job_running(self, job_id):
+    def jobs_running(self, node_id, job_ids):
         session = Session()
-        job = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == job_id, SpiderExecutionQueue.status==1).first()
-        if job:
-            job.update_time = datetime.datetime.now()
-            session.add(job)
-            session.commit()
-
+        for job_id in job_ids:
+            job = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == job_id, SpiderExecutionQueue.status==1).first()
+            if job:
+                job.update_time = datetime.datetime.now()
+                session.add(job)
+        session.commit()
         session.close()

@@ -355,9 +355,8 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
         try:
             self.node_manager.heartbeat(node_id)
             running_jobs = self.request.headers.get('X-DD-RunningJobs', None)
-            if running_jobs is not None:
-                for job_id in running_jobs.split(','):
-                    self.scheduler_manager.job_running(job_id)
+            if running_jobs:
+                self.scheduler_manager.jobs_running(node_id, running_jobs.split(','))
             response_data = {'status':'ok'}
         except NodeExpired:
             response_data = {'status': 'error', 'errmsg': 'Node expired'}
