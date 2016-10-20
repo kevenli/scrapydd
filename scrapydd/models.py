@@ -76,6 +76,25 @@ class HistoricalJob(Base):
     start_time = Column(DateTime)
     complete_time = Column(DateTime)
     status = Column(Integer, default=0)
+    log_file = Column(String(500))
+    items_file = Column(String(500))
+
+
+class SpiderWebhook(Base):
+    __tablename__ = 'spider_webhook'
+
+    id = Column(String(length=50), primary_key=True)
+    payload_url = Column(String(length=250))
+
+
+class WebhookJob(Base):
+    __tablename__ = 'webhook_jobs'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(String(length=50))
+    payload_url = Column(String(length=50))
+    items_file = Column(String(length=250))
+    status = Column(Integer)
 
 
 def init_database():

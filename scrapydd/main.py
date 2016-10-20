@@ -6,7 +6,8 @@ from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
 from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
-from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob
+from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
+    SpiderWebhook
 from schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
@@ -21,6 +22,7 @@ from optparse import OptionParser, OptionValueError
 import subprocess
 import signal
 from stream import PostDataStreamer
+from webhook import WebhookDaemon
 
 def get_template_loader():
     loader = tornado.template.Loader(os.path.join(os.path.dirname(__file__), "templates"))
@@ -228,6 +230,14 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
 
 @tornado.web.stream_request_body
 class ExecuteCompleteHandler(tornado.web.RequestHandler):
+    def initialize(self, webhook_daemon):
+        '''
+
+        @type webhook_daemon : WebhookDaemon
+        :return:
+        '''
+        self.webhook_daemon = webhook_daemon
+
     #
     def prepare(self):
         MB = 1024 * 1024
@@ -307,11 +317,18 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
             historical_job.start_time = job.start_time
             historical_job.complete_time = job.update_time
             historical_job.status = job.status
+            if log_file:
+                historical_job.log_file = log_file
+            if items_file:
+                historical_job.items_file = items_file
 
             session.delete(job)
             session.add(historical_job)
-
             session.commit()
+
+            if items_file:
+                self.webhook_daemon.on_spider_complete(job.id, items_file)
+
             session.close()
             logging.info('Job %s completed.' % task_id)
             response_data = {'status': 'ok'}
@@ -389,7 +406,51 @@ class JobStartHandler(tornado.web.RequestHandler):
         pid = self.get_argument('pid')
         self.scheduler_manager.job_start(jobid, pid)
 
-def make_app(scheduler_manager, node_manager):
+
+class SpiderWebhookHandler(tornado.web.RequestHandler):
+    def get(self, project_name, spider_name):
+        session = Session()
+        project = session.query(Project).filter(Project.name == project_name).first()
+        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+
+        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
+        self.write(webhook.payload_url)
+
+    def post(self, project_name, spider_name):
+        payload_url = self.get_argument('payload_url')
+        session = Session()
+        project = session.query(Project).filter(Project.name == project_name).first()
+        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+
+        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
+        if webhook is None:
+            webhook = SpiderWebhook()
+            webhook.payload_url = payload_url
+            webhook.id = spider.id
+        session.add(webhook)
+        session.commit()
+        session.close()
+
+    def put(self, project_name, spider_name):
+        self.post(project_name, spider_name)
+
+    def delete(self, project_name, spider_name):
+        session = Session()
+        project = session.query(Project).filter(Project.name == project_name).first()
+        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+        session.query(SpiderWebhook).filter_by(id=spider.id).delete()
+        session.commit()
+        session.close()
+
+def make_app(scheduler_manager, node_manager, webhook_daemon):
+    '''
+
+    @type scheduler_manager SchedulerManager
+    @type node_manager NodeManager
+    @type webhook_daemon: WebhookDaemon
+
+    :return:
+    '''
     return tornado.web.Application([
         (r"/", MainHandler),
         (r'/uploadproject', UploadProject),
@@ -402,8 +463,9 @@ def make_app(scheduler_manager, node_manager):
         (r'/spiders/(\d+)/egg', SpiderEggHandler),
         (r'/projects/(\w+)/spiders/(\w+)', SpiderInstanceHandler2),
         (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
-        (r'/executing/complete', ExecuteCompleteHandler),
+        (r'/executing/complete', ExecuteCompleteHandler, {'webhook_daemon': webhook_daemon}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager, 'scheduler_manager': scheduler_manager}),
         (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),
@@ -422,19 +484,24 @@ def start_server(argv=None):
 
     init_database()
 
+    ioloop = tornado.ioloop.IOLoop.current()
+
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
 
     node_manager = NodeManager(scheduler_manager)
     node_manager.init()
 
-    app = make_app(scheduler_manager, node_manager)
+    webhook_daemon = WebhookDaemon()
+    webhook_daemon.init()
+
+    app = make_app(scheduler_manager, node_manager, webhook_daemon)
 
     bind_address = config.get('bind_address')
     bind_port = config.getint('bind_port')
     print 'Starting server on %s:%d' % (bind_address, bind_port)
     app.listen(bind_port, bind_address)
-    tornado.ioloop.IOLoop.current().start()
+    ioloop.start()
 
 def run(argv=None):
     if argv is None:

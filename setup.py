@@ -11,8 +11,7 @@ setup(
     author       ='kevenli',
     author_email ='pbleester@gmail.com',
     url          = 'http://github.com/kevenli/scrapydd',
-
-    packages     = find_packages(),
+    packages     = find_packages(exclude=['tests']),
     package_data = {
         'scrapydd': [
             'scrapydd.default.conf',
