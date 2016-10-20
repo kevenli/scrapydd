@@ -6,7 +6,9 @@ from scrapydd.models import WebhookJob
 class DataReceiver(tornado.web.RequestHandler):
     def post(self):
         pass
-        logging.info(self.request.arguments)
+        #logging.info(self.request.arguments)
+        for key, values in self.request.arguments.items():
+            logging.debug('%s:\t%s' % (key, values[0]))
         logging.debug(self.get_argument('text'))
         #logging.debug(self.request.body)
 

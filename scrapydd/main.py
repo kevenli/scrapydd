@@ -325,9 +325,10 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
             session.delete(job)
             session.add(historical_job)
             session.commit()
+            session.refresh(historical_job)
 
             if items_file:
-                self.webhook_daemon.on_spider_complete(job.id, items_file)
+                self.webhook_daemon.on_spider_complete(historical_job, items_file)
 
             session.close()
             logging.info('Job %s completed.' % task_id)

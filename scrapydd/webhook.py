@@ -173,8 +173,9 @@ class WebhookDaemon():
         self.current_job = None
         logging.info('webhook job %s finished', job.id)
 
-    def on_spider_complete(self, job_id, items_file):
+    def on_spider_complete(self, job, items_file):
         session = Session()
-        webhook = session.query(SpiderWebhook).filter_by(id = job_id).first()
+        webhook = session.query(SpiderWebhook).filter_by(id = job.spider_id).first()
         if webhook:
-            self.storage.add_job(job_id, webhook.payload_url, items_file)
+            self.storage.add_job(job.id, webhook.payload_url, items_file)
+        session.close()
