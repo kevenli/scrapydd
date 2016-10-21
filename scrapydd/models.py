@@ -105,4 +105,4 @@ def init_database():
         version_control(url=database_url, repository=db_repository)
     except DatabaseAlreadyControlledError:
         pass
-    upgrade(db_url, db_repository)
+    upgrade(database_url, db_repository)
