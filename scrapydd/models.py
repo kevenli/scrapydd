@@ -11,7 +11,9 @@ import os
 metadata = schema.MetaData()
 Base = declarative_base(metadata=metadata)
 
-engine = create_engine('sqlite:///database.db')
+#database_url = 'mysql://scrapydd:scrapydd@localhost/scrapydd'
+database_url = 'sqlite:///database.db'
+engine = create_engine(database_url)
 Session = sessionmaker(bind=engine)
 
 
@@ -98,10 +100,9 @@ class WebhookJob(Base):
 
 
 def init_database():
-    db_url = 'sqlite:///database.db'
     db_repository = os.path.join(os.path.dirname(__file__), 'migrates')
     try:
-        version_control(url=db_url, repository=db_repository)
+        version_control(url=database_url, repository=db_repository)
     except DatabaseAlreadyControlledError:
         pass
     upgrade(db_url, db_repository)
