@@ -162,8 +162,13 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
             .filter(HistoricalJob.spider_id == spider.id)\
             .order_by(desc(HistoricalJob.start_time))\
             .slice(0, 100)
+        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
+        context = {}
+        context['spider'] = spider
+        context['jobs'] = jobs
+        context['webhook'] = webhook
         loader = get_template_loader()
-        self.write(loader.load("spider.html").generate(spider=spider, jobs=jobs))
+        self.write(loader.load("spider.html").generate(**context))
         session.close()
 
 class SpiderEggHandler(tornado.web.RequestHandler):
