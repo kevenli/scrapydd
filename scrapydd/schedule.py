@@ -10,14 +10,19 @@ import logging
 import datetime
 from .exceptions import *
 from Queue import Queue, Empty
+from config import Config
+from sqlalchemy import distinct, desc
+import os
 
 def generate_jobid():
     jobid = uuid.uuid4().hex
     return jobid
 
+logger = logging.getLogger(__name__)
 
 class SchedulerManager:
     def __init__(self):
+        self.config = Config()
         executors = {
             'default': ThreadPoolExecutor(20),
             'processpool': ProcessPoolExecutor(5)
@@ -27,6 +32,9 @@ class SchedulerManager:
         self.poll_task_queue_callback = None
         self.pool_task_queue_interval = 10
         self.ioloop = IOLoop.instance()
+        self.poll_task_queue_callback = PeriodicCallback(self.poll_task_queue, self.pool_task_queue_interval * 1000)
+        self.clear_finished_jobs_callback = PeriodicCallback(self.clear_finished_jobs, 60*1000)
+        self.reset_timeout_job_callback = PeriodicCallback(self.reset_timeout_job, 60*1000)
 
     def init(self):
         self.logger = logging.getLogger(__name__)
@@ -53,13 +61,14 @@ class SchedulerManager:
             try:
                 self.add_job(trigger.id, trigger.cron_pattern)
             except InvalidCronExpression:
-                logging.warning('Trigger %d,%s cannot be added ' % (trigger.id, trigger.cron_pattern))
+                logger.warning('Trigger %d,%s cannot be added ' % (trigger.id, trigger.cron_pattern))
+        session.close()
+
         self.scheduler.start()
 
-        self.poll_task_queue_callback = PeriodicCallback(self.poll_task_queue, self.pool_task_queue_interval * 1000)
         self.poll_task_queue_callback.start()
-
-        session.close()
+        self.clear_finished_jobs_callback.start()
+        self.reset_timeout_job_callback.start()
 
     def poll_task_queue(self):
         if self.task_queue.empty():
@@ -154,7 +163,7 @@ class SchedulerManager:
         try:
             existing = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id==spider.id, SpiderExecutionQueue.status.in_([0,1])))
             if existing:
-                logging.warning('job %s_%s is running, ignoring schedule'%(project.name, spider.name))
+                logger.warning('job %s_%s is running, ignoring schedule'%(project.name, spider.name))
                 raise JobRunning(existing[0].id)
             executing = SpiderExecutionQueue()
             jobid = generate_jobid()
@@ -165,12 +174,11 @@ class SchedulerManager:
             executing.fire_time = datetime.datetime.now()
             executing.update_time = datetime.datetime.now()
             session.add(executing)
-        finally:
             session.commit()
+            session.refresh(executing)
+            return executing
+        finally:
             session.close()
-
-        return jobid
-
 
     def on_node_expired(self, node_id):
         session = Session()
@@ -192,6 +200,7 @@ class SchedulerManager:
     def job_start(self, jobid, pid):
         session = Session()
         job = session.query(SpiderExecutionQueue).filter_by(id=jobid).first()
+        job.start_time = datetime.datetime.now()
         job.update_time = datetime.datetime.now()
         job.pid = pid
         session.add(job)
@@ -230,5 +239,100 @@ class SchedulerManager:
             if job:
                 job.update_time = datetime.datetime.now()
                 session.add(job)
+        session.commit()
+        session.close()
+
+    def job_finished(self, job, log_file=None, items_file=None):
+        session = Session()
+        if job.status not in (2,3):
+            raise Exception('Invliad status.')
+        job_status = job.status
+        job = session.query(SpiderExecutionQueue).filter_by(id=job.id).first()
+        job.status = job_status
+        job.update_time = datetime.datetime.now()
+
+        historical_job = HistoricalJob()
+        historical_job.id = job.id
+        historical_job.spider_id = job.spider_id
+        historical_job.project_name = job.project_name
+        historical_job.spider_name = job.spider_name
+        historical_job.fire_time = job.fire_time
+        historical_job.start_time = job.start_time
+        historical_job.complete_time = job.update_time
+        historical_job.status = job.status
+        if log_file:
+            historical_job.log_file = log_file
+        if items_file:
+            historical_job.items_file = items_file
+        session.delete(job)
+        session.add(historical_job)
+        session.commit()
+        session.refresh(historical_job)
+        session.close()
+        return historical_job
+
+    def clear_finished_jobs(self):
+        job_history_limit_each_spider = 100
+        session = Session()
+        for row in session.query(distinct(HistoricalJob.spider_id)):
+            spider_id = row[0]
+            for over_limitation_jobs in session.query(HistoricalJob)\
+                    .filter(HistoricalJob.spider_id==spider_id)\
+                    .order_by(desc(HistoricalJob.complete_time))\
+                    .slice(job_history_limit_each_spider, 1000):
+                session.delete(over_limitation_jobs)
+
+        session.commit()
+        session.close()
+
+    def _clear_running_jobs(self):
+        session = Session()
+        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status.in_([0,1])):
+            #logging.info(job)
+            #session.delete(job)
+            self._remove_histical_job(job)
+        session.commit()
+        session.close()
+
+    def reset_timeout_job(self):
+        session = Session()
+        timeout_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
+        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.update_time < timeout_time,
+                                                              SpiderExecutionQueue.status == 1):
+            job.status = 0
+            job.pid = None
+            job.node_id = None
+            job.update_time = datetime.datetime.now()
+            session.add(job)
+        session.commit()
+        session.close()
+
+    def _remove_histical_job(self, job):
+        '''
+        @type job: HistoricalJob
+        '''
+
+        session = Session()
+        job = session.query(HistoricalJob).filter(HistoricalJob.id == job.id).first()
+        if job.items_file:
+            try:
+                os.remove(job.items_file)
+            except Exception as e:
+                logger.warning(e.message)
+
+        if job.log_file:
+            try:
+                os.remove(job.log_file)
+            except Exception as e:
+                logger.warning(e.message)
+
+        original_log_file = os.path.join('log', job.project_name, job.spider_name, '%s.log' % job.id)
+        if os.path.exists(original_log_file):
+            os.remove(original_log_file)
+
+        original_items_file = os.path.join('items', job.project_name, job.spider_name, '%s.jl' % job.id)
+        if os.path.exists(original_items_file):
+            os.remove(original_items_file)
+        session.delete(job)
         session.commit()
         session.close()

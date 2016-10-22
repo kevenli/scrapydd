@@ -24,6 +24,8 @@ import signal
 from stream import PostDataStreamer
 from webhook import WebhookDaemon
 
+logger = logging.getLogger(__name__)
+
 def get_template_loader():
     loader = tornado.template.Loader(os.path.join(os.path.dirname(__file__), "templates"))
     return loader
@@ -87,7 +89,8 @@ class ScheduleHandler(tornado.web.RequestHandler):
         spider = self.get_argument('spider')
 
         try:
-            jobid = self.scheduler_manager.add_task(project, spider)
+            job = self.scheduler_manager.add_task(project, spider)
+            jobid = job.id
             response_data = {
                 'status':'ok',
                 'jobid': jobid
@@ -235,13 +238,14 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
 
 @tornado.web.stream_request_body
 class ExecuteCompleteHandler(tornado.web.RequestHandler):
-    def initialize(self, webhook_daemon):
+    def initialize(self, webhook_daemon, scheduler_manager):
         '''
 
         @type webhook_daemon : WebhookDaemon
         :return:
         '''
         self.webhook_daemon = webhook_daemon
+        self.scheduler_manager = scheduler_manager
 
     #
     def prepare(self):
@@ -263,7 +267,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         try:
             self.ps.finish_receive()
             fields = self.ps.get_values(['task_id', 'log', 'status'])
-            logging.debug(self.ps.get_nonfile_names())
+            logger.debug(self.ps.get_nonfile_names())
             task_id = fields['task_id']
             log = fields.get('log', None)
             status = fields['status']
@@ -282,7 +286,8 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
                 self.write_error(404, 'Job not found.')
                 session.close()
                 return
-
+            log_file = None
+            items_file = None
             try:
                 spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
                 if not os.path.exists(spider_log_folder):
@@ -297,7 +302,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
                         f.write(log)
 
             except Exception as e:
-                logging.error('Error when writing task log file, %s' % e)
+                logger.error('Error when writing task log file, %s' % e)
 
             try:
                 part = self.ps.get_parts_by_name('items')[0]
@@ -309,34 +314,16 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
                 import shutil
                 shutil.copy(tmpfile, items_file)
             except Exception as e:
-                logging.error('Error when writing items file, %s' % e)
+                logger.error('Error when writing items file, %s' % e)
 
             job.status = status_int
             job.update_time = datetime.datetime.now()
-            historical_job = HistoricalJob()
-            historical_job.id = job.id
-            historical_job.spider_id = job.spider_id
-            historical_job.project_name = job.project_name
-            historical_job.spider_name = job.spider_name
-            historical_job.fire_time = job.fire_time
-            historical_job.start_time = job.start_time
-            historical_job.complete_time = job.update_time
-            historical_job.status = job.status
-            if log_file:
-                historical_job.log_file = log_file
-            if items_file:
-                historical_job.items_file = items_file
-
-            session.delete(job)
-            session.add(historical_job)
-            session.commit()
-            session.refresh(historical_job)
-
+            historical_job = self.scheduler_manager.job_finished(job, log_file, items_file)
             if items_file:
                 self.webhook_daemon.on_spider_complete(historical_job, items_file)
 
             session.close()
-            logging.info('Job %s completed.' % task_id)
+            logger.info('Job %s completed.' % task_id)
             response_data = {'status': 'ok'}
             self.write(json.dumps(response_data))
 
@@ -367,7 +354,7 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
 
     def post(self, id):
 
-        logging.debug(self.request.headers)
+        logger.debug(self.request.headers)
         node_id = int(id)
         self.set_header('X-DD-New-Task', self.scheduler_manager.has_task())
         try:
@@ -471,7 +458,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
-        (r'/executing/complete', ExecuteCompleteHandler, {'webhook_daemon': webhook_daemon}),
+        (r'/executing/complete', ExecuteCompleteHandler, {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler, {'node_manager': node_manager, 'scheduler_manager': scheduler_manager}),
         (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),
