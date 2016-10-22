@@ -4,6 +4,8 @@ import datetime
 import logging
 from .exceptions import *
 
+logger = logging.getLogger(__name__)
+
 class NodeManager():
     interval = 10
     node_timeout = 60
@@ -20,14 +22,14 @@ class NodeManager():
         last_heartbeat_lessthan = datetime.datetime.now() - datetime.timedelta(seconds=self.node_timeout)
         session = Session()
         for node in session.query(Node).filter(Node.last_heartbeat<last_heartbeat_lessthan, Node.isalive==1):
-            logging.info('node %d expired' % node.id)
+            logger.info('node %d expired' % node.id)
             self.scheduler_manager.on_node_expired(node.id)
             node.isalive = 0
             session.add(node)
         session.commit()
         session.close()
 
-        logging.debug('node manager poll')
+        logger.debug('node manager poll')
 
     def heartbeat(self, node_id):
         try:

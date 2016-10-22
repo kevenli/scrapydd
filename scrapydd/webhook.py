@@ -6,6 +6,7 @@ import logging
 from tornado.concurrent import Future
 from models import Session, WebhookJob, SpiderWebhook
 
+logger = logging.getLogger(__name__)
 
 def encode_data(data):
     '''
@@ -118,7 +119,6 @@ class WebhookJobExecutor():
         line = self.item_file.readline()
         # if read new line, keep going
         if line:
-            logging.debug(len(line))
             try:
                 line_data = json.loads(line.decode('utf8'))
                 client = AsyncHTTPClient()
@@ -128,7 +128,7 @@ class WebhookJobExecutor():
                 future = client.fetch(request)
                 future.add_done_callback(self.schedule_next_send)
             except ValueError as e:
-                logging.error('Error when docoding jl file.' + e.message)
+                logger.error('Error when docoding jl file.' + e.message)
                 self.ioloop.call_later(1, self.schedule_next_send)
         # no data left in file, complete
         else:
@@ -146,7 +146,7 @@ class WebhookJobExecutor():
 
 class WebhookDaemon():
     def __init__(self):
-        logging.debug('webhookdaemon start')
+        logger.debug('webhookdaemon start')
         self.ioloop = IOLoop.current()
         self.poll_next_job_callback = PeriodicCallback(self.check_job, 10*1000)
         self.current_job = None
@@ -154,7 +154,7 @@ class WebhookDaemon():
         self.poll_next_job_callback.start()
 
     def check_job(self):
-        logging.debug('webhook daemon checkjob.')
+        logger.debug('webhook daemon checkjob.')
         if self.current_job is None:
             next_job = self.storage.get_next_job()
             if next_job:
@@ -171,7 +171,7 @@ class WebhookDaemon():
         job = future.result()
         self.storage.finish_job(job.id)
         self.current_job = None
-        logging.info('webhook job %s finished', job.id)
+        logger.info('webhook job %s finished', job.id)
 
     def on_spider_complete(self, job, items_file):
         session = Session()
