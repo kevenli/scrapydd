@@ -14,11 +14,13 @@ from config import Config
 from sqlalchemy import distinct, desc
 import os
 
-def generate_jobid():
+
+def generate_job_id():
     jobid = uuid.uuid4().hex
     return jobid
 
 logger = logging.getLogger(__name__)
+
 
 class SchedulerManager:
     def __init__(self):
@@ -37,11 +39,10 @@ class SchedulerManager:
         self.reset_timeout_job_callback = PeriodicCallback(self.reset_timeout_job, 60*1000)
 
     def init(self):
-        self.logger = logging.getLogger(__name__)
         session = Session()
 
         # move completed jobs into history
-        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==2 or SpiderExecutionQueue.status==3):
+        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status.in_((2, 3))):
             historical_job = HistoricalJob()
             historical_job.id = job.id
             historical_job.spider_id = job.spider_id
@@ -103,12 +104,12 @@ class SchedulerManager:
         project = session.query(Project).filter_by(id=spider.project_id).first()
         executing = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id == spider.id, SpiderExecutionQueue.status.in_([0,1])).first()
         if executing:
-            self.logger.warning('spider %s-%s is still running or in queue, skipping' % (project.name, spider.name))
+            logger.warning('spider %s-%s is still running or in queue, skipping' % (project.name, spider.name))
             session.close()
             return
 
         executing = SpiderExecutionQueue()
-        executing.id = generate_jobid()
+        executing.id = generate_job_id()
         executing.spider_id = spider.id
         executing.project_name = project.name
         executing.spider_name = spider.name
@@ -118,7 +119,7 @@ class SchedulerManager:
         try:
             session.commit()
         except (Exception, IntegrityError) as e:
-            self.logger.warning(e)
+            logger.warning(e)
         session.close()
         return
 
@@ -160,7 +161,7 @@ class SchedulerManager:
                 logger.warning('job %s_%s is running, ignoring schedule'%(project.name, spider.name))
                 raise JobRunning(existing[0].id)
             executing = SpiderExecutionQueue()
-            jobid = generate_jobid()
+            jobid = generate_job_id()
             executing.id = jobid
             executing.spider_id = spider.id
             executing.project_name = project.name
