@@ -4,7 +4,7 @@ import urllib
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 import logging
 from tornado.concurrent import Future
-from models import Session, WebhookJob, SpiderWebhook
+from models import Session, WebhookJob, SpiderWebhook, session_scope
 import os, os.path, shutil
 
 logger = logging.getLogger(__name__)
@@ -50,44 +50,39 @@ class WebhookJobStateStorage():
 
 class DatabaseWebhookJobStateStorage(WebhookJobStateStorage):
     def __init__(self):
-        session = Session()
-        # reset all running jobs to PENDING status on start
-        for job in session.query(WebhookJob).filter(WebhookJob.status == 1):
-            job.status = 0
-            session.add(job)
-        session.commit()
-        session.close()
+        with session_scope() as session:
+            # reset all running jobs to PENDING status on start
+            for job in session.query(WebhookJob).filter(WebhookJob.status == 1):
+                job.status = 0
+                session.add(job)
+            session.commit()
 
     def start_job(self, job_id):
-        session = Session()
-        job = session.query(WebhookJob).filter_by(id=job_id).first()
-        job.status = 1
-        session.add(job)
-        session.commit()
-        session.close()
+        with session_scope() as session:
+            job = session.query(WebhookJob).filter_by(id=job_id).first()
+            job.status = 1
+            session.add(job)
+            session.commit()
 
     def finish_job(self, job_id):
-        session = Session()
-        job = session.query(WebhookJob).filter_by(id=job_id).first()
-        job.status = 2
-        session.add(job)
-        session.commit()
-        session.close()
+        with session_scope() as session:
+            job = session.query(WebhookJob).filter_by(id=job_id).first()
+            job.status = 2
+            session.add(job)
+            session.commit()
 
     def job_failed(self, job_id):
-        session = Session()
-        job = session.query(WebhookJob).filter_by(id=job_id).first()
-        job.status = 3
-        session.add(job)
-        session.commit()
-        session.close()
+        with session_scope() as session:
+            job = session.query(WebhookJob).filter_by(id=job_id).first()
+            job.status = 3
+            session.add(job)
+            session.commit()
 
     def get_next_job(self):
-        session = Session()
-        next_jobs = list(session.query(WebhookJob).filter(WebhookJob.status == 0).order_by(WebhookJob.id).slice(0, 1))
-        if next_jobs:
-            return next_jobs[0]
-        session.close()
+        with session_scope() as session:
+            next_jobs = list(session.query(WebhookJob).filter(WebhookJob.status == 0).order_by(WebhookJob.id).slice(0, 1))
+            if next_jobs:
+                return next_jobs[0]
 
     def add_job(self, job_id, payload_url, items_file):
         '''
@@ -100,16 +95,14 @@ class DatabaseWebhookJobStateStorage(WebhookJobStateStorage):
         @param items_file : the items jl file path
         :return:
         '''
-        job = WebhookJob()
-        job.job_id = job_id
-        job.payload_url = payload_url
-        job.items_file = items_file
-        job.status = 0
-        session = Session()
-        session.add(job)
-        session.commit()
-        session.refresh(job)
-        session.close()
+        with session_scope() as session:
+            job = WebhookJob()
+            job.job_id = job_id
+            job.payload_url = payload_url
+            job.items_file = items_file
+            job.status = 0
+            session.add(job)
+
 
 
 class WebhookJobExecutor():
@@ -202,10 +195,9 @@ class WebhookDaemon():
         logger.info('webhook job %s failed', job.id)
 
     def on_spider_complete(self, job, items_file):
-        session = Session()
-        webhook = session.query(SpiderWebhook).filter_by(id = job.spider_id).first()
-        task_items_file = os.path.join(self.queue_file_dir, os.path.basename(items_file))
-        shutil.copy(items_file, task_items_file)
-        if webhook:
-            self.storage.add_job(job.id, webhook.payload_url, task_items_file)
-        session.close()
+        with session_scope() as session:
+            webhook = session.query(SpiderWebhook).filter_by(id = job.spider_id).first()
+            task_items_file = os.path.join(self.queue_file_dir, os.path.basename(items_file))
+            shutil.copy(items_file, task_items_file)
+            if webhook:
+                self.storage.add_job(job.id, webhook.payload_url, task_items_file)
