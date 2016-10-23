@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from migrate.versioning.api import version_control, upgrade
 from migrate.exceptions import DatabaseAlreadyControlledError
 import os
+from contextlib import contextmanager
 
 metadata = schema.MetaData()
 Base = declarative_base(metadata=metadata)
@@ -14,7 +15,7 @@ Base = declarative_base(metadata=metadata)
 #database_url = 'mysql://scrapydd:scrapydd@localhost/scrapydd'
 database_url = 'sqlite:///database.db'
 engine = create_engine(database_url)
-Session = sessionmaker(bind=engine)
+Session = sessionmaker(bind=engine, expire_on_commit=False)
 
 
 class Project(Base):
@@ -106,3 +107,17 @@ def init_database():
     except DatabaseAlreadyControlledError:
         pass
     upgrade(database_url, db_repository)
+
+
+@contextmanager
+def session_scope():
+    """Provide a transactional scope around a series of operations."""
+    session = Session()
+    try:
+        yield session
+        session.commit()
+    except:
+        session.rollback()
+        raise
+    finally:
+        session.close()

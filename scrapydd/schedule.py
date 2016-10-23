@@ -1,5 +1,5 @@
 
-from models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob
+from models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope
 from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
@@ -72,13 +72,11 @@ class SchedulerManager:
 
     def poll_task_queue(self):
         if self.task_queue.empty():
-            session = Session()
-            tasks_to_run = session.query(SpiderExecutionQueue).filter_by(status=0).order_by(
-                SpiderExecutionQueue.update_time).slice(0, 10)
-            for task in tasks_to_run:
-                self.task_queue.put(task)
-            session.close()
-
+            with session_scope() as session:
+                tasks_to_run = session.query(SpiderExecutionQueue).filter_by(status=0).order_by(
+                    SpiderExecutionQueue.update_time).slice(0, 10)
+                for task in tasks_to_run:
+                    self.task_queue.put(task)
 
     def add_job(self, trigger_id, cron):
         cron_parts = cron.split(' ')
@@ -97,10 +95,6 @@ class SchedulerManager:
 
         self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger, kwargs={'trigger_id': trigger_id},
                                id=str(trigger_id), replace_existing=True)
-
-    def process_exit_callback(self):
-        print 'process finished'
-
 
     def trigger_fired(self, trigger_id):
         session = Session()
@@ -273,66 +267,62 @@ class SchedulerManager:
 
     def clear_finished_jobs(self):
         job_history_limit_each_spider = 100
-        session = Session()
-        for row in session.query(distinct(HistoricalJob.spider_id)):
+        with session_scope() as session:
+            spiders = list(session.query(distinct(HistoricalJob.spider_id)))
+        for row in spiders:
             spider_id = row[0]
-            for over_limitation_jobs in session.query(HistoricalJob)\
+            with session_scope() as session:
+                over_limitation_jobs = list(session.query(HistoricalJob)\
                     .filter(HistoricalJob.spider_id==spider_id)\
                     .order_by(desc(HistoricalJob.complete_time))\
-                    .slice(job_history_limit_each_spider, 1000):
-                self._remove_histical_job(over_limitation_jobs)
-
-        session.commit()
-        session.close()
+                    .slice(job_history_limit_each_spider, 1000)\
+                    .all())
+            for over_limitation_job in over_limitation_jobs:
+                self._remove_histical_job(over_limitation_job)
 
     def _clear_running_jobs(self):
-        session = Session()
-        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status.in_([0,1])):
-            #logging.info(job)
-            #session.delete(job)
+        with session_scope() as session:
+            jobs = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status.in_([0,1])))
+        for job in jobs:
             self._remove_histical_job(job)
-        session.commit()
-        session.close()
 
     def reset_timeout_job(self):
-        session = Session()
-        timeout_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
-        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.update_time < timeout_time,
-                                                              SpiderExecutionQueue.status == 1):
-            job.status = 0
-            job.pid = None
-            job.node_id = None
-            job.update_time = datetime.datetime.now()
-            session.add(job)
-        session.commit()
-        session.close()
+        with session_scope() as session:
+            timeout_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
+            for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.update_time < timeout_time,
+                                                                  SpiderExecutionQueue.status == 1):
+                job.status = 0
+                job.pid = None
+                job.node_id = None
+                job.update_time = datetime.datetime.now()
+                session.add(job)
+                logging.info('Job %s is timeout, reseting.' % job.id)
+            session.commit()
 
     def _remove_histical_job(self, job):
         '''
         @type job: HistoricalJob
         '''
 
-        session = Session()
-        job = session.query(HistoricalJob).filter(HistoricalJob.id == job.id).first()
-        if job.items_file:
-            try:
-                os.remove(job.items_file)
-            except Exception as e:
-                logger.warning(e.message)
+        with session_scope() as session:
+            job = session.query(HistoricalJob).filter(HistoricalJob.id == job.id).first()
+            if job.items_file:
+                try:
+                    os.remove(job.items_file)
+                except Exception as e:
+                    logger.warning(e.message)
 
-        if job.log_file:
-            try:
-                os.remove(job.log_file)
-            except Exception as e:
-                logger.warning(e.message)
+            if job.log_file:
+                try:
+                    os.remove(job.log_file)
+                except Exception as e:
+                    logger.warning(e.message)
 
-        original_log_file = os.path.join('logs', job.project_name, job.spider_name, '%s.log' % job.id)
-        if os.path.exists(original_log_file):
-            os.remove(original_log_file)
+            original_log_file = os.path.join('logs', job.project_name, job.spider_name, '%s.log' % job.id)
+            if os.path.exists(original_log_file):
+                os.remove(original_log_file)
 
-        original_items_file = os.path.join('items', job.project_name, job.spider_name, '%s.jl' % job.id)
-        if os.path.exists(original_items_file):
-            os.remove(original_items_file)
-        session.delete(job)
-        session.commit()
-        session.close()
+            original_items_file = os.path.join('items', job.project_name, job.spider_name, '%s.jl' % job.id)
+            if os.path.exists(original_items_file):
+                os.remove(original_items_file)
+            session.delete(job)
