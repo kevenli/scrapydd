@@ -280,7 +280,7 @@ class SchedulerManager:
                     .filter(HistoricalJob.spider_id==spider_id)\
                     .order_by(desc(HistoricalJob.complete_time))\
                     .slice(job_history_limit_each_spider, 1000):
-                session.delete(over_limitation_jobs)
+                self._remove_histical_job(over_limitation_jobs)
 
         session.commit()
         session.close()
@@ -326,7 +326,7 @@ class SchedulerManager:
             except Exception as e:
                 logger.warning(e.message)
 
-        original_log_file = os.path.join('log', job.project_name, job.spider_name, '%s.log' % job.id)
+        original_log_file = os.path.join('logs', job.project_name, job.spider_name, '%s.log' % job.id)
         if os.path.exists(original_log_file):
             os.remove(original_log_file)
 
