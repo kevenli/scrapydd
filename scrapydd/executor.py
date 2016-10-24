@@ -18,6 +18,7 @@ import time
 from config import AgentConfig
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from stream import MultipartRequestBodyProducer
+from w3lib.url import path_to_file_uri
 
 egg_storage = FilesystemEggStorage(scrapyd.config.Config())
 
@@ -159,6 +160,147 @@ class Executor():
         except urllib2.URLError:
             logging.warning('Cannot connect to server')
 
+    def execute_task(self, task):
+        executor = TaskExecutor(task)
+        future, pid = executor.begin_execute()
+        self.ioloop.add_future(future, self.task_finished)
+        self.post_start_task(task, pid)
+
+
+
+    def post_start_task(self, task, pid):
+        url = urlparse.urljoin(self.service_base, '/jobs/%s/start' % task.id)
+        post_data = urllib.urlencode({'pid':pid})
+        request = urllib2.Request(url, post_data)
+        urllib2.urlopen(request)
+
+    def complete_task(self, task, status):
+        '''
+        @type task: SpiderTask
+        '''
+        url = urlparse.urljoin(self.service_base, '/executing/complete')
+
+        log_file = open(task.executor.output_file, 'rb')
+
+        post_data = {
+            'task_id': task.id,
+            'status': status,
+            'log': log_file,
+        }
+
+        items_file = None
+        if task.items_file and os.path.exists(task.items_file):
+            post_data['items'] = items_file = open(task.items_file, "rb")
+        logging.debug(post_data)
+        datagen, headers = multipart_encode(post_data)
+        request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
+        client = AsyncHTTPClient()
+        future = client.fetch(request)
+        self.ioloop.add_future(future, self.complete_task_done(task, log_file, items_file))
+        logging.info('task %s finished' % task.id)
+
+
+    def complete_task_done(self, task, log_file, items_file):
+        def complete_task_done_f(future):
+            if log_file:
+                log_file.close()
+                os.remove(log_file.name)
+            if items_file:
+                items_file.close()
+                os.remove(items_file.name)
+            self.task_slots.remove_task(task)
+            logging.debug('complete_task_done')
+        return complete_task_done_f
+
+    def task_finished(self, future):
+        task = future.result()
+        self.complete_task(task, TASK_STATUS_SUCCESS if task.executor.ret_code == 0 else TASK_STATUS_FAIL)
+
+    def check_task(self):
+        if not self.task_slots.is_full():
+            task = self.get_next_task()
+            if task is not None:
+                self.task_slots.put_task(task)
+                self.execute_task(task)
+
+
+class TaskExecutor():
+    def __init__(self, task):
+        '''
+        @type task: SpiderTask
+        '''
+        self.task = task
+        config = AgentConfig()
+        self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
+        self.task.executor = self
+        self._f_output = None
+        self.output_file = None
+        self.future = Future()
+        self.p = None
+        self.check_process_callback = None
+        self.log_file = None
+        self.ret_code = None
+
+    def begin_execute(self):
+        # init log file
+        workspace_dir = os.path.join('workspace', self.task.project_name, self.task.spider_name)
+        if not os.path.exists(workspace_dir):
+            os.makedirs(workspace_dir)
+        self.output_file = os.path.join(workspace_dir, '%s.log' % self.task.id)
+        self._f_output = open(self.output_file, 'w')
+
+        # try download
+        try:
+            self.download_egg()
+        except Exception as e:
+            logging.error(e)
+            return self.complete_with_error(e.message)
+
+        # try install requirements
+        try:
+            self.test_egg_requirements(self.task.project_name)
+        except Exception as e:
+            logging.error(e)
+            return self.complete_with_error(e.message)
+
+        # init items file
+        self.task.items_file = os.path.join(workspace_dir, '%s.%s' % (self.task.id, 'jl'))
+        runner = 'scrapyd.runner'
+        pargs = [sys.executable, '-m', runner, 'crawl', self.task.spider_name]
+
+        env = os.environ.copy()
+        env['SCRAPY_PROJECT'] = str(self.task.project_name)
+        env['SCRAPY_JOB'] = str(self.task.id)
+        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.task.items_file))
+        self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, stderr=self._f_output)
+        logging.info('job started %d' % self.p.pid)
+        self.future = Future()
+        self.check_process_callback = PeriodicCallback(self.check_process, 1000)
+        self.check_process_callback.start()
+        return self.future, self.p.pid
+
+    def check_process(self):
+        execute_result = self.p.poll()
+        logging.debug('check process')
+        if execute_result is not None:
+            logging.info('task complete')
+            self.complete(execute_result)
+
+
+    def download_egg(self):
+        if not self.task.project_version in egg_storage.list(self.task.project_name):
+            egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
+            logging.debug(egg_request_url)
+            egg_request=urllib2.Request(egg_request_url)
+            try:
+                res = urllib2.urlopen(egg_request)
+            except urllib2.URLError:
+                logging.warning("Cannot retrieve job's egg, removing job")
+                raise Exception("Cannot retrieve job's egg, removing job")
+            egg = StringIO(res.read())
+            egg_storage.put(egg, self.task.project_name, self.task.project_version)
+
+
     def test_egg_requirements(self, project):
         logging.debug('enter test_egg')
         version, eggfile = egg_storage.get(project)
@@ -182,124 +324,19 @@ class Executor():
             logging.debug('removing: ' + eggpath)
             os.remove(eggpath)
 
-    def execute_task(self, task):
-        logging.debug(task.project_version)
-        logging.debug(egg_storage.list(task.project_name))
-        if not task.project_version in egg_storage.list(task.project_name):
-            egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % task.spider_id)
-            logging.debug(egg_request_url)
-            egg_request=urllib2.Request(egg_request_url)
-            try:
-                res = urllib2.urlopen(egg_request)
-            except urllib2.URLError:
-                logging.warning("Cannot retrieve job's egg, removing job")
-                self.complete_task(task, TASK_STATUS_FAIL, "Cannot retrieve job's egg, removing job")
-                return
-            egg = StringIO(res.read())
+    def complete(self, ret_code):
+        self._f_output.close()
+        self.ret_code = ret_code
+        self.check_process_callback.stop()
+        self.future.set_result(self.task)
 
-            egg_storage.put(egg, task.project_name, task.project_version)
+    def complete_with_error(self, error_message):
+        self._f_output.write(error_message)
+        self._f_output.close()
+        self.ret_code = 1
+        self.future.set_result(self.task)
+        return self.future, None
 
-        try:
-            self.test_egg_requirements(task.project_name)
-        except ValueError as e:
-            self.complete_task(task, TASK_STATUS_FAIL, e.message)
-            return
-
-        executor = TaskExecutor(task)
-        task.executor = executor
-        future, pid = executor.begin_execute()
-        self.ioloop.add_future(future, self.task_finished)
-        self.post_start_task(task, pid)
-
-    def post_start_task(self, task, pid):
-        url = urlparse.urljoin(self.service_base, '/jobs/%s/start' % task.id)
-        post_data = urllib.urlencode({'pid':pid})
-        request = urllib2.Request(url, post_data)
-        urllib2.urlopen(request)
-
-    def complete_task(self, task, status, log=None):
-        url = urlparse.urljoin(self.service_base, '/executing/complete')
-        log_file = None
-        if log is not None:
-            log_file = StringIO(log)
-        else:
-            try:
-                log_file = open(task.executor.task_output_file, 'r')
-            except Exception as e:
-                log = "No log file found. " + e.message
-                log_file = StringIO(log)
-                logging.error(e.message)
-
-        post_data = {
-            'task_id': task.id,
-            'status':status,
-        }
-        if task.items_file and os.path.exists(task.items_file):
-            post_data['items'] = open(task.items_file, "rb")
-        if log_file:
-            post_data['log'] = log_file
-        datagen, headers = multipart_encode(post_data)
-        request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
-        client = AsyncHTTPClient()
-        future = client.fetch(request)
-        logging.info('task %s finished' % task.id)
-        self.task_slots.remove_task(task)
-
-    def task_finished(self, future):
-        task = future.result()
-        self.complete_task(task, TASK_STATUS_SUCCESS if task.ret_code == 0 else TASK_STATUS_FAIL)
-
-    def check_task(self):
-        if not self.task_slots.is_full():
-            task = self.get_next_task()
-            if task is not None:
-                self.task_slots.put_task(task)
-                self.execute_task(task)
-
-
-class TaskExecutor():
-    def __init__(self, task):
-        self.task = task
-        self.task_output_fd = None
-        self.task_output_file = None
-        self.future = None
-        self.p = None
-        self.check_process_callback = None
-
-    def begin_execute(self):
-        from w3lib.url import path_to_file_uri
-        runner = 'scrapyd.runner'
-        pargs = [sys.executable, '-m', runner, 'crawl', self.task.spider_name]
-
-        task_output_dir = os.path.join('logs', self.task.project_name, self.task.spider_name)
-        if not os.path.exists(task_output_dir):
-            os.makedirs(task_output_dir)
-        self.task_output_file = os.path.join(task_output_dir, '%s.log'%self.task.id)
-        self.task_output_fd = os.open(self.task_output_file, os.O_CREAT | os.O_WRONLY)
-        #pargs = [sys.executable, '-m', runner, 'list']
-        env = os.environ.copy()
-        logging.debug(env)
-        env['SCRAPY_PROJECT'] = str(self.task.project_name)
-        env['SCRAPY_JOB'] = self.task.id
-        self.task.items_file = os.path.join('items', self.task.project_name, self.task.spider_name, '%s.%s' % (self.task.id, 'jl'))
-        env['SCRAPY_FEED_URI'] = path_to_file_uri(self.task.items_file)
-
-        self.p = subprocess.Popen(pargs, env=env, stdout=self.task_output_fd, stderr=self.task_output_fd)
-        logging.info('job started %d' % self.p.pid)
-        self.future = Future()
-        self.check_process_callback = PeriodicCallback(self.check_process, 1000)
-        self.check_process_callback.start()
-        return self.future, self.p.pid
-
-    def check_process(self):
-        execute_result = self.p.poll()
-        logging.debug('check process')
-        if execute_result is not None:
-            logging.info('task complete')
-            os.close(self.task_output_fd)
-            self.task.ret_code = execute_result
-            self.check_process_callback.stop()
-            self.future.set_result(self.task)
 
 
 def run(argv=None):
