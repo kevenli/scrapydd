@@ -280,7 +280,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
                 return
 
             session = Session()
-            job = session.query(SpiderExecutionQueue).filter_by(id = task_id).first()
+            job = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == task_id, SpiderExecutionQueue.status.in_((0,1))).first()
 
             if job is None:
                 self.write_error(404, 'Job not found.')
