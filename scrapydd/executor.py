@@ -23,6 +23,8 @@ import socket
 
 egg_storage = FilesystemEggStorage(scrapyd.config.Config())
 
+logger = logging.getLogger(__name__)
+
 TASK_STATUS_SUCCESS = 'success'
 TASK_STATUS_FAIL = 'fail'
 from poster.encode import multipart_encode
@@ -156,7 +158,7 @@ class Executor():
                 task.spider_name = response_data['data']['task']['spider_name']
                 return task
         except urllib2.URLError:
-            logging.warning('Cannot connect to server')
+            logger.warning('Cannot connect to server')
 
     def execute_task(self, task):
         executor = TaskExecutor(task)
@@ -187,13 +189,13 @@ class Executor():
         items_file = None
         if task_executor.items_file and os.path.exists(task_executor.items_file):
             post_data['items'] = items_file = open(task_executor.items_file, "rb")
-        logging.debug(post_data)
+        logger.debug(post_data)
         datagen, headers = multipart_encode(post_data)
         request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
         client = AsyncHTTPClient()
         future = client.fetch(request, raise_error=False)
         self.ioloop.add_future(future, self.complete_task_done(task_executor, log_file, items_file))
-        logging.info('task %s finished' % task_executor.task.id)
+        logger.info('task %s finished' % task_executor.task.id)
 
 
     def complete_task_done(self, task_executor, log_file, items_file):
@@ -206,21 +208,21 @@ class Executor():
             :return:
             '''
             response = future.result()
-            logging.debug(response)
+            logger.debug(response)
             if log_file:
                 log_file.close()
             if items_file:
                 items_file.close()
             if response.error and isinstance(response.error, socket.error):
                 self.ioloop.call_later(10, self.complete_task, task_executor, TASK_STATUS_SUCCESS if task_executor.ret_code == 0 else TASK_STATUS_FAIL)
-                logging.warning('Socket error when completing job, retry in 10 seconds.')
+                logger.warning('Socket error when completing job, retry in 10 seconds.')
                 return
 
             if response.error:
-                logging.warning('Error when post task complete request: %s' % response.error)
+                logger.warning('Error when post task complete request: %s' % response.error)
             task_executor.clear()
             self.task_slots.remove_task(task_executor.task)
-            logging.debug('complete_task_done')
+            logger.debug('complete_task_done')
         return complete_task_done_f
 
     def task_finished(self, future):
@@ -263,14 +265,14 @@ class TaskExecutor():
         try:
             self.download_egg()
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             return self.complete_with_error(e.message)
 
         # try install requirements
         try:
             self.test_egg_requirements(self.task.project_name)
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             return self.complete_with_error(e.message)
 
         # init items file
@@ -284,7 +286,7 @@ class TaskExecutor():
         env['SCRAPY_JOB'] = str(self.task.id)
         env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.items_file))
         self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, stderr=self._f_output)
-        logging.info('job started %d' % self.p.pid)
+        logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
         self.future = Future()
         self.check_process_callback = PeriodicCallback(self.check_process, 1000)
         self.check_process_callback.start()
@@ -292,30 +294,30 @@ class TaskExecutor():
 
     def check_process(self):
         execute_result = self.p.poll()
-        logging.debug('check process')
+        logger.debug('check process')
         if execute_result is not None:
-            logging.info('task complete')
+            logger.info('task complete')
             self.complete(execute_result)
 
 
     def download_egg(self):
         if not self.task.project_version in egg_storage.list(self.task.project_name):
             egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
-            logging.debug(egg_request_url)
+            logger.debug(egg_request_url)
             egg_request=urllib2.Request(egg_request_url)
             try:
                 res = urllib2.urlopen(egg_request)
             except urllib2.URLError:
-                logging.warning("Cannot retrieve job's egg, removing job")
+                logger.warning("Cannot retrieve job's egg, removing job")
                 raise Exception("Cannot retrieve job's egg, removing job")
             egg = StringIO(res.read())
             egg_storage.put(egg, self.task.project_name, self.task.project_version)
 
 
     def test_egg_requirements(self, project):
-        logging.debug('enter test_egg')
+        logger.debug('enter test_egg')
         version, eggfile = egg_storage.get(project)
-        logging.debug(version)
+        logger.debug(version)
         if eggfile:
             prefix = '%s-%s-' % (project, version)
             fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
@@ -323,16 +325,16 @@ class TaskExecutor():
             lf = os.fdopen(fd, 'wb')
             shutil.copyfileobj(eggfile, lf)
             lf.close()
-        logging.debug(eggpath)
+            logger.debug(eggpath)
         try:
             d = pkg_resources.find_distributions(eggpath).next()
         except StopIteration:
             raise ValueError("Unknown or corrupt egg")
-        logging.debug(d.requires())
+            logger.debug(d.requires())
         for require in d.requires():
             subprocess.check_call(['pip', 'install', str(require)])
         if eggpath:
-            logging.debug('removing: ' + eggpath)
+            logger.debug('removing: ' + eggpath)
             os.remove(eggpath)
 
     def complete(self, ret_code):
@@ -354,17 +356,34 @@ class TaskExecutor():
         if os.path.exists(self.output_file):
             os.remove(self.output_file)
 
+def init_logging(config):
+    import logging.handlers
+    logger = logging.getLogger()
+    fh = logging.handlers.TimedRotatingFileHandler('scrapydd-agent.log', when='D', backupCount=7)
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+
+    if config.getboolean('debug'):
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
 
 def run(argv=None):
     config = AgentConfig()
-    if config.getboolean('debug'):
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    init_logging(config)
+
     if argv is None:
         argv = sys.argv
     executor = Executor(config)
+    logger.info('------------------------')
+    logger.info('Starting scrapydd agent.')
+    logger.info('------------------------')
     executor.start()
 
 if __name__ == '__main__':
