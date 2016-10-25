@@ -34,7 +34,6 @@ class SpiderTask():
     project_name = None
     spider_name = None
     project_version = None
-    executor = None
 
 
 class TaskSlotContainer():
@@ -170,47 +169,46 @@ class Executor():
         request = urllib2.Request(url, post_data)
         urllib2.urlopen(request)
 
-    def complete_task(self, task, status):
+    def complete_task(self, task_executor, status):
         '''
-        @type task: SpiderTask
+        @type task_executor: TaskExecutor
         '''
         url = urlparse.urljoin(self.service_base, '/executing/complete')
 
-        log_file = open(task.executor.output_file, 'rb')
+        log_file = open(task_executor.output_file, 'rb')
 
         post_data = {
-            'task_id': task.id,
+            'task_id': task_executor.task.id,
             'status': status,
             'log': log_file,
         }
 
         items_file = None
-        if task.executor.items_file and os.path.exists(task.executor.items_file):
-            post_data['items'] = items_file = open(task.executor.items_file, "rb")
+        if task_executor.items_file and os.path.exists(task_executor.items_file):
+            post_data['items'] = items_file = open(task_executor.items_file, "rb")
         logging.debug(post_data)
         datagen, headers = multipart_encode(post_data)
         request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
         client = AsyncHTTPClient()
         future = client.fetch(request)
-        self.ioloop.add_future(future, self.complete_task_done(task, log_file, items_file))
-        logging.info('task %s finished' % task.id)
+        self.ioloop.add_future(future, self.complete_task_done(task_executor, log_file, items_file))
+        logging.info('task %s finished' % task_executor.task.id)
 
 
-    def complete_task_done(self, task, log_file, items_file):
+    def complete_task_done(self, task_executor, log_file, items_file):
         def complete_task_done_f(future):
             if log_file:
                 log_file.close()
-                os.remove(log_file.name)
             if items_file:
                 items_file.close()
-                os.remove(items_file.name)
-            self.task_slots.remove_task(task)
+            task_executor.clear()
+            self.task_slots.remove_task(task_executor.task)
             logging.debug('complete_task_done')
         return complete_task_done_f
 
     def task_finished(self, future):
-        task = future.result()
-        self.complete_task(task, TASK_STATUS_SUCCESS if task.executor.ret_code == 0 else TASK_STATUS_FAIL)
+        task_executor = future.result()
+        self.complete_task(task_executor, TASK_STATUS_SUCCESS if task_executor.ret_code == 0 else TASK_STATUS_FAIL)
 
     def check_task(self):
         if not self.task_slots.is_full():
@@ -228,14 +226,12 @@ class TaskExecutor():
         self.task = task
         config = AgentConfig()
         self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
-        self.task.executor = self
         self._f_output = None
         self.output_file = None
         self.future = Future()
         self.p = None
         self.check_process_callback = None
         self.items_file = None
-        self.log_file = None
         self.ret_code = None
 
     def begin_execute(self):
@@ -326,14 +322,20 @@ class TaskExecutor():
         self._f_output.close()
         self.ret_code = ret_code
         self.check_process_callback.stop()
-        self.future.set_result(self.task)
+        self.future.set_result(self)
 
     def complete_with_error(self, error_message):
         self._f_output.write(error_message)
         self._f_output.close()
         self.ret_code = 1
-        self.future.set_result(self.task)
+        self.future.set_result(self)
         return self.future, None
+
+    def clear(self):
+        if os.path.exists(self.items_file):
+            os.remove(self.items_file)
+        if os.path.exists(self.output_file):
+            os.remove(self.output_file)
 
 
 
