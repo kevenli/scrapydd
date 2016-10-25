@@ -19,6 +19,7 @@ from config import AgentConfig
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from stream import MultipartRequestBodyProducer
 from w3lib.url import path_to_file_uri
+import socket
 
 egg_storage = FilesystemEggStorage(scrapyd.config.Config())
 
@@ -190,17 +191,33 @@ class Executor():
         datagen, headers = multipart_encode(post_data)
         request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
         client = AsyncHTTPClient()
-        future = client.fetch(request)
+        future = client.fetch(request, raise_error=False)
         self.ioloop.add_future(future, self.complete_task_done(task_executor, log_file, items_file))
         logging.info('task %s finished' % task_executor.task.id)
 
 
     def complete_task_done(self, task_executor, log_file, items_file):
         def complete_task_done_f(future):
+            '''
+            The callback of complete job request, if socket error occurred, retry commiting complete request in 10 seconds.
+            If request is completed successfully, remove task from slots.
+            Always close stream files.
+            @type future: Future
+            :return:
+            '''
+            response = future.result()
+            logging.debug(response)
             if log_file:
                 log_file.close()
             if items_file:
                 items_file.close()
+            if response.error and isinstance(response.error, socket.error):
+                self.ioloop.call_later(10, self.complete_task, task_executor, TASK_STATUS_SUCCESS if task_executor.ret_code == 0 else TASK_STATUS_FAIL)
+                logging.warning('Socket error when completing job, retry in 10 seconds.')
+                return
+
+            if response.error:
+                logging.warning('Error when post task complete request: %s' % response.error)
             task_executor.clear()
             self.task_slots.remove_task(task_executor.task)
             logging.debug('complete_task_done')
