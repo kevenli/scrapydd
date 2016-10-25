@@ -71,7 +71,6 @@ class TaskSlotContainer():
 class Executor():
     heartbeat_interval = 10
     checktask_interval = 10
-    logger = logging.getLogger('scrapymill.executor')
     task_queue = Queue()
 
     def __init__(self, config=None):
@@ -132,7 +131,7 @@ class Executor():
                 request = urllib2.Request(url, data='')
                 res = urllib2.urlopen(request)
                 self.node_id = json.loads(res.read())['id']
-                self.logger.info('node %d registered' % self.node_id)
+                logger.info('node %d registered' % self.node_id)
                 return
             except urllib2.URLError:
                 logging.warning('Cannot connect to server')
@@ -258,21 +257,21 @@ class TaskExecutor():
         workspace_dir = os.path.join('workspace', self.task.project_name, self.task.spider_name)
         if not os.path.exists(workspace_dir):
             os.makedirs(workspace_dir)
-        self.output_file = os.path.join(workspace_dir, '%s.log' % self.task.id)
+        self.output_file = str(os.path.join(workspace_dir, '%s.log' % self.task.id))
         self._f_output = open(self.output_file, 'w')
 
         # try download
         try:
             self.download_egg()
         except Exception as e:
-            logger.error(e)
+            logger.error('Error when downloading egg file : %s' % e)
             return self.complete_with_error(e.message)
 
         # try install requirements
         try:
             self.test_egg_requirements(self.task.project_name)
         except Exception as e:
-            logger.error(e)
+            logger.error('Error when test egg requirements: %s' % e)
             return self.complete_with_error(e.message)
 
         # init items file
@@ -332,7 +331,7 @@ class TaskExecutor():
             raise ValueError("Unknown or corrupt egg")
             logger.debug(d.requires())
         for require in d.requires():
-            subprocess.check_call(['pip', 'install', str(require)])
+            subprocess.check_call(['pip', 'install', str(require)], stderr=self._f_output)
         if eggpath:
             logger.debug('removing: ' + eggpath)
             os.remove(eggpath)
@@ -351,9 +350,9 @@ class TaskExecutor():
         return self.future, None
 
     def clear(self):
-        if os.path.exists(self.items_file):
+        if self.items_file and os.path.exists(self.items_file):
             os.remove(self.items_file)
-        if os.path.exists(self.output_file):
+        if self.output_file and os.path.exists(self.output_file):
             os.remove(self.output_file)
 
 def init_logging(config):
