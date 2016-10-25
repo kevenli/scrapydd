@@ -35,8 +35,6 @@ class SpiderTask():
     spider_name = None
     project_version = None
     executor = None
-    ret_code = None
-    items_file = None
 
 
 class TaskSlotContainer():
@@ -163,10 +161,8 @@ class Executor():
     def execute_task(self, task):
         executor = TaskExecutor(task)
         future, pid = executor.begin_execute()
-        self.ioloop.add_future(future, self.task_finished)
         self.post_start_task(task, pid)
-
-
+        self.ioloop.add_future(future, self.task_finished)
 
     def post_start_task(self, task, pid):
         url = urlparse.urljoin(self.service_base, '/jobs/%s/start' % task.id)
@@ -189,8 +185,8 @@ class Executor():
         }
 
         items_file = None
-        if task.items_file and os.path.exists(task.items_file):
-            post_data['items'] = items_file = open(task.items_file, "rb")
+        if task.executor.items_file and os.path.exists(task.executor.items_file):
+            post_data['items'] = items_file = open(task.executor.items_file, "rb")
         logging.debug(post_data)
         datagen, headers = multipart_encode(post_data)
         request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
@@ -238,6 +234,7 @@ class TaskExecutor():
         self.future = Future()
         self.p = None
         self.check_process_callback = None
+        self.items_file = None
         self.log_file = None
         self.ret_code = None
 
@@ -264,14 +261,15 @@ class TaskExecutor():
             return self.complete_with_error(e.message)
 
         # init items file
-        self.task.items_file = os.path.join(workspace_dir, '%s.%s' % (self.task.id, 'jl'))
+        self.items_file = os.path.join(workspace_dir, '%s.%s' % (self.task.id, 'jl'))
+
         runner = 'scrapyd.runner'
         pargs = [sys.executable, '-m', runner, 'crawl', self.task.spider_name]
 
         env = os.environ.copy()
         env['SCRAPY_PROJECT'] = str(self.task.project_name)
         env['SCRAPY_JOB'] = str(self.task.id)
-        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.task.items_file))
+        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.items_file))
         self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, stderr=self._f_output)
         logging.info('job started %d' % self.p.pid)
         self.future = Future()
