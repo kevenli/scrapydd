@@ -5,7 +5,6 @@ import urllib2, urllib
 import json
 from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
-from StringIO import StringIO
 import subprocess
 import sys
 import os
@@ -259,45 +258,18 @@ class TaskExecutor():
         self.check_process_callback = None
         self.items_file = None
         self.ret_code = None
+        self.workspace_dir = str(os.path.join('workspace', self.task.project_name))
+        if not os.path.exists(self.workspace_dir):
+            os.makedirs(self.workspace_dir)
+        self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
+        self._f_output = open(self.output_file, 'w')
+        self.p_test_egg_requirements = None
+        self.p_test_egg_requirements_callback = PeriodicCallback(self.test_egg_requirements_check, 1*1000)
+        self.check_process_callback = PeriodicCallback(self.check_process, 1000)
 
     def begin_execute(self):
-        # init log file
-        workspace_dir = os.path.join('workspace', self.task.project_name, self.task.spider_name)
-        if not os.path.exists(workspace_dir):
-            os.makedirs(workspace_dir)
-        self.output_file = str(os.path.join(workspace_dir, '%s.log' % self.task.id))
-        self._f_output = open(self.output_file, 'w')
-
-        # try download
-        try:
-            self.download_egg()
-        except Exception as e:
-            logger.error('Error when downloading egg file : %s' % e)
-            return self.complete_with_error(e.message)
-
-        # try install requirements
-        try:
-            self.test_egg_requirements(self.task.project_name)
-        except Exception as e:
-            logger.error('Error when test egg requirements: %s' % e)
-            return self.complete_with_error(e.message)
-
-        # init items file
-        self.items_file = os.path.join(workspace_dir, '%s.%s' % (self.task.id, 'jl'))
-
-        runner = 'scrapyd.runner'
-        pargs = [sys.executable, '-m', runner, 'crawl', self.task.spider_name]
-
-        env = os.environ.copy()
-        env['SCRAPY_PROJECT'] = str(self.task.project_name)
-        env['SCRAPY_JOB'] = str(self.task.id)
-        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.items_file))
-        self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, stderr=self._f_output)
-        logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
-        self.future = Future()
-        self.check_process_callback = PeriodicCallback(self.check_process, 1000)
-        self.check_process_callback.start()
-        return self.future, self.p.pid
+        self.download_egg()
+        return self.future, None
 
     def check_process(self):
         execute_result = self.p.poll()
@@ -306,20 +278,42 @@ class TaskExecutor():
             logger.info('task complete')
             self.complete(execute_result)
 
-
     def download_egg(self):
-        if not self.task.project_version in egg_storage.list(self.task.project_name):
-            egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
-            logger.debug(egg_request_url)
-            egg_request=urllib2.Request(egg_request_url)
-            try:
-                res = urllib2.urlopen(egg_request)
-            except urllib2.URLError:
-                logger.warning("Cannot retrieve job's egg, removing job")
-                raise Exception("Cannot retrieve job's egg, removing job")
-            egg = StringIO(res.read())
-            egg_storage.put(egg, self.task.project_name, self.task.project_version)
+        logger.debug('begin download egg.')
+        egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
+        request = HTTPRequest(egg_request_url)
+        client = AsyncHTTPClient()
+        client.fetch(request, callback=self.download_egg_done)
 
+    def download_egg_done(self, response):
+        '''
+        :type response: tornado.webclient.HTTPResponse
+        :return:
+        '''
+        if response.error:
+            return self.complete_with_error("Error when retrieving egg : %s" % response.error)
+        egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
+        logger.debug('download egg done.')
+        self.test_egg_requirements(self.task.project_name)
+
+    def execute_subprocess(self):
+        # init items file
+        self.items_file = os.path.join(self.workspace_dir, '%s.%s' % (self.task.id, 'jl'))
+        python = os.path.join(self.workspace_dir, 'bin', 'python')
+        runner = 'scrapyd.runner'
+        pargs = [python, '-m', runner, 'crawl', self.task.spider_name]
+
+        env = os.environ.copy()
+        env['SCRAPY_PROJECT'] = str(self.task.project_name)
+        env['SCRAPY_JOB'] = str(self.task.id)
+        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.items_file))
+        try:
+            self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, stderr=self._f_output)
+        except Exception as e:
+            self.complete_with_error('Error when starting crawl subprocess : %s' % e)
+        logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
+
+        self.check_process_callback.start()
 
     def test_egg_requirements(self, project):
         logger.debug('enter test_egg')
@@ -338,11 +332,32 @@ class TaskExecutor():
         except StopIteration:
             raise ValueError("Unknown or corrupt egg")
             logger.debug(d.requires())
-        for require in d.requires():
-            subprocess.check_call(['pip', 'install', str(require)], stderr=self._f_output)
+        requirements = [str(x) for x in d.requires()]
+        requirements += ['scrapyd']
         if eggpath:
             logger.debug('removing: ' + eggpath)
             os.remove(eggpath)
+
+        pip = os.path.join(self.workspace_dir, 'bin', 'pip')
+        python = os.path.join(self.workspace_dir, 'bin', 'python')
+        try:
+            if not os.path.exists(pip) and not os.path.exists(python):
+                subprocess.check_call(['virtualenv', '--system-site-packages', self.workspace_dir])
+                self.p_test_egg_requirements = subprocess.Popen([pip, 'install'] +requirements, stderr=self._f_output)
+                self.p_test_egg_requirements_callback.start()
+        except Exception as e:
+            self.complete_with_error('Error when creating virtualenv: %s' % e)
+
+    def test_egg_requirements_check(self):
+        ret_code = self.p_test_egg_requirements.poll()
+        logger.debug('check egg requirements process')
+        if ret_code is not None:
+            self.p_test_egg_requirements_callback.stop()
+            if ret_code == 0:
+                logger.info('task complete')
+                self.execute_subprocess()
+            else:
+                self.complete_with_error('Error when install requirements.')
 
     def complete(self, ret_code):
         self._f_output.close()
@@ -351,11 +366,11 @@ class TaskExecutor():
         self.future.set_result(self)
 
     def complete_with_error(self, error_message):
+        logger.error(error_message)
         self._f_output.write(error_message)
         self._f_output.close()
         self.ret_code = 1
         self.future.set_result(self)
-        return self.future, None
 
     def clear(self):
         if self.items_file and os.path.exists(self.items_file):
