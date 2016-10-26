@@ -32,5 +32,6 @@ setup(
         'sqlalchemy',
         'sqlalchemy-migrate',
         'poster>=0.8.1',
+        'service-identity',
     ]
 )
