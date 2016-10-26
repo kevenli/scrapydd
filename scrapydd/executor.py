@@ -169,8 +169,13 @@ class Executor():
     def post_start_task(self, task, pid):
         url = urlparse.urljoin(self.service_base, '/jobs/%s/start' % task.id)
         post_data = urllib.urlencode({'pid':pid})
-        request = urllib2.Request(url, post_data)
-        urllib2.urlopen(request)
+        try:
+            request = urllib2.Request(url, post_data)
+            urllib2.urlopen(request)
+        except urllib2.URLError as e:
+            logger.error('Error when post_task_task: %s' % e)
+        except urllib2.HTTPError as e:
+            logger.error('Error when post_task_task: %s' % e)
 
     def complete_task(self, task_executor, status):
         '''
@@ -189,6 +194,7 @@ class Executor():
         items_file = None
         if task_executor.items_file and os.path.exists(task_executor.items_file):
             post_data['items'] = items_file = open(task_executor.items_file, "rb")
+            logger.debug('item file size : %d' % os.path.getsize(task_executor.items_file))
         logger.debug(post_data)
         datagen, headers = multipart_encode(post_data)
         headers['X-DD-Nodeid'] = str(self.node_id)
