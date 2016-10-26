@@ -268,6 +268,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
             self.ps.finish_receive()
             fields = self.ps.get_values(['task_id', 'log', 'status'])
             logger.debug(self.ps.get_nonfile_names())
+            node_id = self.request.headers.get('X-Dd-Nodeid')
             task_id = fields['task_id']
             log = fields.get('log', None)
             status = fields['status']
@@ -280,7 +281,13 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
                 return
 
             session = Session()
-            job = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == task_id, SpiderExecutionQueue.status.in_((0,1))).first()
+            query = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == task_id, SpiderExecutionQueue.status == 1)
+            # be compatible with old agent version
+            if node_id:
+                query = query.filter(SpiderExecutionQueue.node_id == node_id)
+            else:
+                logger.warning('Agent has not specified node id in complete request, client address: %s.' % self.request.remote_ip)
+            job = query.first()
 
             if job is None:
                 self.write_error(404, 'Job not found.')
@@ -353,7 +360,6 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
         self.scheduler_manager = scheduler_manager
 
     def post(self, id):
-
         logger.debug(self.request.headers)
         node_id = int(id)
         self.set_header('X-DD-New-Task', self.scheduler_manager.has_task())

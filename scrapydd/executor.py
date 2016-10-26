@@ -75,6 +75,7 @@ class Executor():
 
     def __init__(self, config=None):
         self.ioloop = IOLoop.current()
+        self.node_id = None
 
         if config is None:
             config =AgentConfig()
@@ -190,6 +191,7 @@ class Executor():
             post_data['items'] = items_file = open(task_executor.items_file, "rb")
         logger.debug(post_data)
         datagen, headers = multipart_encode(post_data)
+        headers['X-DD-Nodeid'] = str(self.node_id)
         request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
         client = AsyncHTTPClient()
         future = client.fetch(request, raise_error=False)
