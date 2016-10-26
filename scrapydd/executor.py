@@ -360,7 +360,7 @@ class TaskExecutor():
         if ret_code is not None:
             self.p_test_egg_requirements_callback.stop()
             if ret_code == 0:
-                logger.info('task complete')
+                logger.info('requirements satisfied.')
                 self.execute_subprocess()
             else:
                 self.complete_with_error('Error when install requirements.')
