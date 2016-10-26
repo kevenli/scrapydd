@@ -7,7 +7,7 @@ import scrapyd.config
 from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
-    SpiderWebhook
+    SpiderWebhook, session_scope
 from schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
@@ -23,6 +23,9 @@ import subprocess
 import signal
 from stream import PostDataStreamer
 from webhook import WebhookDaemon
+import tempfile
+import pkg_resources
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -50,30 +53,62 @@ class UploadProject(tornado.web.RequestHandler):
         eggfilename = eggfile['filename']
         eggf = StringIO(eggfile['body'])
         egg_storage.put(eggf, project_name, version)
-        session = Session()
-        project = session.query(Project).filter_by(name=project_name).first()
-        if project is None:
-            project = Project()
-            project.name = project_name
-            project.version = version
-            session.add(project)
-            session.commit()
-            session.refresh(project)
 
-        spiders = get_spider_list(project_name, runner='scrapyd.runner')
-        for spider_name in spiders:
-            spider = session.query(Spider).filter_by(project_id = project.id, name=spider_name).first()
-            if spider is None:
-                spider = Spider()
-                spider.name = spider_name
-                spider.project_id = project.id
-                session.add(spider)
+        project_workspace_dir = os.path.abspath(os.path.join('workspace', project_name))
+        pip = os.path.join(project_workspace_dir, 'bin', 'pip')
+        python = os.path.join(project_workspace_dir, 'bin', 'python')
+        if not os.path.exists(pip) or not os.path.exists(python):
+            logger.debug('Virtualenv environment does not exist, creating.')
+            subprocess.check_call(['virtualenv', '--system-site-packages', project_workspace_dir])
+
+        try:
+            prefix = '%s-%s-' % (project_name, version)
+            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
+            logger.debug('tmp egg file saved to %s' % eggpath)
+            lf = os.fdopen(fd, 'wb')
+            eggf.seek(0)
+            shutil.copyfileobj(eggf, lf)
+            lf.close()
+            try:
+                d = pkg_resources.find_distributions(eggpath).next()
+            except StopIteration:
+                raise ValueError("Unknown or corrupt egg")
+            requirements = [str(x) for x in d.requires()]
+        finally:
+            if eggpath:
+                os.remove(eggpath)
+        # install requirements in virtualenv
+        subprocess.check_call([pip, 'install'] + requirements)
+
+        env = os.environ.copy()
+        env['SCRAPY_PROJECT'] = project_name
+        output = subprocess.check_output([python, '-m', 'scrapyd.runner', 'list'], env=env)
+        spiders = output.splitlines()
+        logger.debug('spiders: %s' % spiders)
+
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project_name).first()
+            if project is None:
+                project = Project()
+                project.name = project_name
+                project.version = version
+                session.add(project)
                 session.commit()
-        if self.request.path.endswith('.json'):
-            self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
-        else:
-            loader = get_template_loader()
-            self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
+                session.refresh(project)
+
+            for spider_name in spiders:
+                spider = session.query(Spider).filter_by(project_id = project.id, name=spider_name).first()
+                if spider is None:
+                    spider = Spider()
+                    spider.name = spider_name
+                    spider.project_id = project.id
+                    session.add(spider)
+                    session.commit()
+            if self.request.path.endswith('.json'):
+                self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
+            else:
+                loader = get_template_loader()
+                self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
         session.close()
 
     def get(self):
