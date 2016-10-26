@@ -20,8 +20,6 @@ from stream import MultipartRequestBodyProducer
 from w3lib.url import path_to_file_uri
 import socket
 
-egg_storage = FilesystemEggStorage(scrapyd.config.Config())
-
 logger = logging.getLogger(__name__)
 
 TASK_STATUS_SUCCESS = 'success'
@@ -258,7 +256,7 @@ class TaskExecutor():
         self.check_process_callback = None
         self.items_file = None
         self.ret_code = None
-        self.workspace_dir = str(os.path.join('workspace', self.task.project_name))
+        self.workspace_dir = os.path.abspath(os.path.join('workspace', self.task.project_name))
         if not os.path.exists(self.workspace_dir):
             os.makedirs(self.workspace_dir)
         self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
@@ -266,6 +264,11 @@ class TaskExecutor():
         self.p_test_egg_requirements = None
         self.p_test_egg_requirements_callback = PeriodicCallback(self.test_egg_requirements_check, 1*1000)
         self.check_process_callback = PeriodicCallback(self.check_process, 1000)
+
+        eggs_dir = os.path.join(self.workspace_dir, 'eggs')
+        if not os.path.exists(eggs_dir):
+            os.mkdir(eggs_dir)
+        self.egg_storage = FilesystemEggStorage(scrapyd.config.Config(values={'eggs_dir': eggs_dir}))
 
     def begin_execute(self):
         self.download_egg()
@@ -292,7 +295,8 @@ class TaskExecutor():
         '''
         if response.error:
             return self.complete_with_error("Error when retrieving egg : %s" % response.error)
-        egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
+
+        self.egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
         logger.debug('download egg done.')
         self.test_egg_requirements(self.task.project_name)
 
@@ -308,16 +312,16 @@ class TaskExecutor():
         env['SCRAPY_JOB'] = str(self.task.id)
         env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.items_file))
         try:
-            self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, stderr=self._f_output)
+            self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, cwd=self.workspace_dir, stderr=self._f_output)
         except Exception as e:
-            self.complete_with_error('Error when starting crawl subprocess : %s' % e)
+            return self.complete_with_error('Error when starting crawl subprocess : %s' % e)
         logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
 
         self.check_process_callback.start()
 
     def test_egg_requirements(self, project):
         logger.debug('enter test_egg')
-        version, eggfile = egg_storage.get(project)
+        version, eggfile = self.egg_storage.get(project)
         logger.debug(version)
         if eggfile:
             prefix = '%s-%s-' % (project, version)
@@ -342,9 +346,11 @@ class TaskExecutor():
         python = os.path.join(self.workspace_dir, 'bin', 'python')
         try:
             if not os.path.exists(pip) and not os.path.exists(python):
+                logger.debug('Virtualenv environment does not exist, creating.')
                 subprocess.check_call(['virtualenv', '--system-site-packages', self.workspace_dir])
-                self.p_test_egg_requirements = subprocess.Popen([pip, 'install'] +requirements, stderr=self._f_output)
-                self.p_test_egg_requirements_callback.start()
+            logger.debug('Begin test requirements.')
+            self.p_test_egg_requirements = subprocess.Popen([pip, 'install'] +requirements, stderr=self._f_output)
+            self.p_test_egg_requirements_callback.start()
         except Exception as e:
             self.complete_with_error('Error when creating virtualenv: %s' % e)
 
