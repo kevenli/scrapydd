@@ -314,12 +314,14 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
             try:
                 part = self.ps.get_parts_by_name('items')[0]
                 tmpfile = part['tmpfile'].name
+                logger.debug('tmpfile size: %d' % os.path.getsize(tmpfile))
                 items_file_path = os.path.join('items', job.project_name, job.spider_name)
                 if not os.path.exists(items_file_path):
                     os.makedirs(items_file_path)
                 items_file = os.path.join(items_file_path, '%s.jl' % job.id)
                 import shutil
                 shutil.copy(tmpfile, items_file)
+                logger.debug('item file size: %d' % os.path.getsize(items_file))
             except Exception as e:
                 logger.error('Error when writing items file, %s' % e)
 
@@ -360,7 +362,7 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
         self.scheduler_manager = scheduler_manager
 
     def post(self, id):
-        logger.debug(self.request.headers)
+        #logger.debug(self.request.headers)
         node_id = int(id)
         self.set_header('X-DD-New-Task', self.scheduler_manager.has_task())
         try:

@@ -125,6 +125,7 @@ class PostDataStreamer:
         # Will not close the file here, so we will be able to read later.
         #self.fout.close()            
         #self.fout.flush() This is not needed because we update part["size"]
+        self.fout.flush()
         pass
 
     def finish_receive(self):
