@@ -28,6 +28,8 @@ import shutil
 from daemonize import daemonize
 from tornado.process import Subprocess
 from tornado import gen
+import tornado.httpserver
+import tornado.netutil
 
 logger = logging.getLogger(__name__)
 
@@ -523,15 +525,21 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
 def start_server(argv=None):
     config = Config()
     if config.getboolean('debug'):
-        logging.basicConfig(level=logging.DEBUG, filename='scrapydd-server.log', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        logging.basicConfig(level=logging.DEBUG, filename='scrapydd-server.log',
+                                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     else:
-        logging.basicConfig(level=logging.INFO, filename='scrapydd-server.log', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        logging.basicConfig(level=logging.INFO, filename='scrapydd-server.log',
+                                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     logging.debug('starting server with argv : %s' % str(argv))
 
     init_database()
+    bind_address = config.get('bind_address')
+    bind_port = config.getint('bind_port')
+    print 'Starting server on %s:%d' % (bind_address, bind_port)
 
-    ioloop = tornado.ioloop.IOLoop.current()
+    sockets = tornado.netutil.bind_sockets(bind_port, bind_address)
+    #tornado.process.fork_processes(4)
 
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
@@ -544,10 +552,9 @@ def start_server(argv=None):
 
     app = make_app(scheduler_manager, node_manager, webhook_daemon)
 
-    bind_address = config.get('bind_address')
-    bind_port = config.getint('bind_port')
-    print 'Starting server on %s:%d' % (bind_address, bind_port)
-    app.listen(bind_port, bind_address)
+    server = tornado.httpserver.HTTPServer(app)
+    server.add_sockets(sockets)
+    ioloop = tornado.ioloop.IOLoop.current()
     ioloop.start()
 
 def run(argv=None):
@@ -579,6 +586,8 @@ class Daemon():
         pargs = argv
         env = os.environ.copy()
         self.subprocess_p = subprocess.Popen(pargs, env=env)
+        signal.signal(signal.SIGINT, self.on_signal)
+        signal.signal(signal.SIGTERM, self.on_signal)
         self.subprocess_p.wait()
 
     def read_pidfile(self):
@@ -593,7 +602,7 @@ class Daemon():
             os.remove(self.pidfile)
 
     def on_signal(self, signum, frame):
-        print 'closing'
+        logger.info('receive signal %d closing' % signum)
         if self.subprocess_p:
             self.subprocess_p.terminate()
         self.try_remove_pidfile()
@@ -603,8 +612,8 @@ class Daemon():
         signal.signal(signal.SIGINT, self.on_signal)
         signal.signal(signal.SIGTERM, self.on_signal)
         daemonize(pidfile=self.pidfile)
-        #self.start_subprocess()
-        start_server()
+        self.start_subprocess()
+        #start_server()
         self.try_remove_pidfile()
 
 if __name__ == "__main__":
