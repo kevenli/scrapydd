@@ -158,7 +158,7 @@ class Executor():
             logger.warning('Cannot connect to server')
 
     def execute_task(self, task):
-        executor = TaskExecutor(task)
+        executor = TaskExecutor(task, config=self.config)
         future, pid = executor.begin_execute()
         self.post_start_task(task, pid)
         self.ioloop.add_future(future, self.task_finished)
@@ -242,12 +242,13 @@ class Executor():
 
 
 class TaskExecutor():
-    def __init__(self, task):
+    def __init__(self, task, config=None):
         '''
         @type task: SpiderTask
         '''
         self.task = task
-        config = AgentConfig()
+        if config is None:
+            config = AgentConfig()
         self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
         self._f_output = None
         self.output_file = None
