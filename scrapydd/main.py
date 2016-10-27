@@ -4,7 +4,6 @@ import tornado.web
 import tornado.template
 from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
-from scrapyd.utils import get_spider_list
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
     SpiderWebhook, session_scope
@@ -27,6 +26,8 @@ import tempfile
 import pkg_resources
 import shutil
 from daemonize import daemonize
+from tornado.process import Subprocess
+from tornado import gen
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class MainHandler(tornado.web.RequestHandler):
         session.close()
 
 class UploadProject(tornado.web.RequestHandler):
+    @gen.coroutine
     def post(self):
         egg_storage = get_egg_storage()
         project_name = self.request.arguments['project'][0]
@@ -56,12 +58,20 @@ class UploadProject(tornado.web.RequestHandler):
         egg_storage.put(eggf, project_name, version)
 
         project_workspace_dir = os.path.abspath(os.path.join('workspace', project_name))
-        pip = os.path.join(project_workspace_dir, 'bin', 'pip')
-        python = os.path.join(project_workspace_dir, 'bin', 'python')
+        if sys.platform.startswith('linux'):
+            pip = os.path.join(project_workspace_dir, 'bin', 'pip')
+            python = os.path.join(project_workspace_dir, 'bin', 'python')
+        elif sys.platform.startswith('win'):
+            pip = os.path.join(project_workspace_dir, 'Scripts', 'pip.exe')
+            python = os.path.join(project_workspace_dir, 'Scripts', 'python.exe')
+            # since the tornado.process.Subprocess.wait_for_exit does not support
+            # windows platform now, the windows platform is not supported yet.
+            raise NotImplementedError('Unsupported system %s' % sys.platform)
+        else:
+            raise NotImplementedError('Unsupported system %s' % sys.platform)
         if not os.path.exists(pip) or not os.path.exists(python):
             logger.debug('Virtualenv environment does not exist, creating.')
-            subprocess.check_call(['virtualenv', '--system-site-packages', project_workspace_dir])
-
+            yield Subprocess(['virtualenv', '--system-site-packages', project_workspace_dir]).wait_for_exit()
         try:
             prefix = '%s-%s-' % (project_name, version)
             fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
@@ -79,12 +89,13 @@ class UploadProject(tornado.web.RequestHandler):
             if eggpath:
                 os.remove(eggpath)
         # install requirements in virtualenv
-        subprocess.check_call([pip, 'install'] + requirements)
+        yield Subprocess([pip, 'install'] + requirements).wait_for_exit()
 
         env = os.environ.copy()
         env['SCRAPY_PROJECT'] = project_name
-        output = subprocess.check_output([python, '-m', 'scrapyd.runner', 'list'], env=env)
-        spiders = output.splitlines()
+        spider_list_process = Subprocess([python, '-m', 'scrapyd.runner', 'list'], env=env, stdout=subprocess.PIPE)
+        yield spider_list_process.wait_for_exit()
+        spiders = spider_list_process.stdout.read().splitlines()
         logger.debug('spiders: %s' % spiders)
 
         with session_scope() as session:
@@ -110,7 +121,6 @@ class UploadProject(tornado.web.RequestHandler):
             else:
                 loader = get_template_loader()
                 self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
-        session.close()
 
     def get(self):
         loader = get_template_loader()
