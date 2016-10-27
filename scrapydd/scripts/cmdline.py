@@ -1,7 +1,7 @@
 import sys
 import scrapydd.main
-import scrapydd.executor
 import scrapydd.scheduleutil
+import scrapydd.agent
 
 def main():
     argv = sys.argv
@@ -12,7 +12,7 @@ def main():
         return
     cmd = argv[1]
     if cmd == 'agent':
-        scrapydd.executor.run(argv)
+        scrapydd.agent.run(argv)
     elif cmd == 'server':
         scrapydd.main.run(argv)
     elif cmd == 'add_schedule':

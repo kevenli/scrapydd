@@ -81,6 +81,9 @@ class Executor():
         self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
 
     def start(self):
+        logger.info('------------------------')
+        logger.info('Starting scrapydd agent.')
+        logger.info('------------------------')
         self.register_node()
         #init heartbeat period callback
         heartbeat_callback = PeriodicCallback(self.send_heartbeat, self.heartbeat_interval*1000)
@@ -385,35 +388,4 @@ class TaskExecutor():
         if self.output_file and os.path.exists(self.output_file):
             os.remove(self.output_file)
 
-def init_logging(config):
-    import logging.handlers
-    logger = logging.getLogger()
-    fh = logging.handlers.TimedRotatingFileHandler('scrapydd-agent.log', when='D', backupCount=7)
-    ch = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
 
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-
-    if config.getboolean('debug'):
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-
-
-def run(argv=None):
-    config = AgentConfig()
-    init_logging(config)
-
-    if argv is None:
-        argv = sys.argv
-    executor = Executor(config)
-    logger.info('------------------------')
-    logger.info('Starting scrapydd agent.')
-    logger.info('------------------------')
-    executor.start()
-
-if __name__ == '__main__':
-    run()
