@@ -137,6 +137,9 @@ class Executor():
             except urllib2.URLError:
                 logging.warning('Cannot connect to server')
                 time.sleep(10)
+            except socket.error:
+                logging.warning('Cannot connect to server')
+                time.sleep(10)
 
 
     def get_next_task(self):
