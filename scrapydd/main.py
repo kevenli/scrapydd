@@ -26,6 +26,7 @@ from webhook import WebhookDaemon
 import tempfile
 import pkg_resources
 import shutil
+from daemonize import daemonize
 
 logger = logging.getLogger(__name__)
 
@@ -591,20 +592,9 @@ class Daemon():
     def start(self):
         signal.signal(signal.SIGINT, self.on_signal)
         signal.signal(signal.SIGTERM, self.on_signal)
-        try:
-            pid = os.fork()
-            if pid > 0:
-                print 'Daemon PID % d' % pid
-                self.pid = pid
-                with open(self.pidfile, 'w+') as f_pidfile:
-                    f_pidfile.write(str(pid))
-
-                os._exit(0)
-        except OSError, error:
-            print 'fork  # 2 failed: %d (%s)' % (error.errno, error.strerror)
-            os._exit(1)
-
-        self.start_subprocess()
+        daemonize(pidfile=self.pidfile)
+        #self.start_subprocess()
+        start_server()
         self.try_remove_pidfile()
 
 if __name__ == "__main__":
