@@ -12,6 +12,7 @@ from .nodes import NodeManager
 import datetime
 import json
 from .config import Config
+from .process import fork_processes
 import os.path
 import sys
 import logging
@@ -517,7 +518,8 @@ def start_server(argv=None):
     print 'Starting server on %s:%d' % (bind_address, bind_port)
 
     sockets = tornado.netutil.bind_sockets(bind_port, bind_address)
-    #tornado.process.fork_processes(4)
+    #tornado.process.fork_processes(1)
+    fork_processes(1)
 
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
@@ -612,8 +614,8 @@ class Daemon():
         tornado.ioloop.IOLoop.instance().stop()
 
     def start(self):
-        signal.signal(signal.SIGINT, self.on_signal)
-        signal.signal(signal.SIGTERM, self.on_signal)
+        #signal.signal(signal.SIGINT, self.on_signal)
+        #signal.signal(signal.SIGTERM, self.on_signal)
         daemonize(pidfile=self.pidfile)
         #self.start_subprocess()
         start_server()
