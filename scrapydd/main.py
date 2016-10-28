@@ -30,6 +30,7 @@ from tornado.process import Subprocess
 from tornado import gen
 import tornado.httpserver
 import tornado.netutil
+from workspace import ProjectWorkspace
 
 logger = logging.getLogger(__name__)
 
@@ -59,21 +60,9 @@ class UploadProject(tornado.web.RequestHandler):
         eggf = StringIO(eggfile['body'])
         egg_storage.put(eggf, project_name, version)
 
-        project_workspace_dir = os.path.abspath(os.path.join('workspace', project_name))
-        if sys.platform.startswith('linux'):
-            pip = os.path.join(project_workspace_dir, 'bin', 'pip')
-            python = os.path.join(project_workspace_dir, 'bin', 'python')
-        elif sys.platform.startswith('win'):
-            pip = os.path.join(project_workspace_dir, 'Scripts', 'pip.exe')
-            python = os.path.join(project_workspace_dir, 'Scripts', 'python.exe')
-            # since the tornado.process.Subprocess.wait_for_exit does not support
-            # windows platform now, the windows platform is not supported yet.
-            raise NotImplementedError('Unsupported system %s' % sys.platform)
-        else:
-            raise NotImplementedError('Unsupported system %s' % sys.platform)
-        if not os.path.exists(pip) or not os.path.exists(python):
-            logger.debug('Virtualenv environment does not exist, creating.')
-            yield Subprocess(['virtualenv', '--system-site-packages', project_workspace_dir]).wait_for_exit()
+        workspace = ProjectWorkspace(project_name)
+        yield workspace.init()
+
         try:
             prefix = '%s-%s-' % (project_name, version)
             fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
@@ -90,14 +79,9 @@ class UploadProject(tornado.web.RequestHandler):
         finally:
             if eggpath:
                 os.remove(eggpath)
-        # install requirements in virtualenv
-        yield Subprocess([pip, 'install'] + requirements).wait_for_exit()
+        yield workspace.pip_install(requirements)
 
-        env = os.environ.copy()
-        env['SCRAPY_PROJECT'] = project_name
-        spider_list_process = Subprocess([python, '-m', 'scrapyd.runner', 'list'], env=env, stdout=subprocess.PIPE)
-        yield spider_list_process.wait_for_exit()
-        spiders = spider_list_process.stdout.read().splitlines()
+        spiders = yield workspace.spider_list(project_name)
         logger.debug('spiders: %s' % spiders)
 
         with session_scope() as session:
@@ -524,12 +508,6 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
 
 def start_server(argv=None):
     config = Config()
-    if config.getboolean('debug'):
-        logging.basicConfig(level=logging.DEBUG, filename='scrapydd-server.log',
-                                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    else:
-        logging.basicConfig(level=logging.INFO, filename='scrapydd-server.log',
-                                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     logging.debug('starting server with argv : %s' % str(argv))
 
@@ -566,6 +544,9 @@ def run(argv=None):
     opts, args = parser.parse_args(argv)
     pidfile = opts.pidfile or 'scrapydd-server.pid'
 
+    config = Config()
+    init_logging(config)
+
     if opts.daemon:
         print 'starting daemon.'
         daemon = Daemon(pidfile=pidfile)
@@ -573,6 +554,28 @@ def run(argv=None):
         sys.exit(0)
     else:
         start_server()
+
+def init_logging(config):
+    import logging.handlers
+    logger = logging.getLogger()
+    fh = logging.handlers.TimedRotatingFileHandler('scrapydd-server.log', when='D', backupCount=7)
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+
+    if config.getboolean('debug'):
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
+    access_log_logger = logging.getLogger('tornado.access')
+    access_log_fh = logging.handlers.TimedRotatingFileHandler('scrapydd-access.log', when='D', backupCount=30)
+    access_log_logger.addHandler(access_log_fh)
+    access_log_logger.setLevel(logging.INFO)
+
 
 class Daemon():
     def __init__(self, pidfile):
@@ -612,8 +615,8 @@ class Daemon():
         signal.signal(signal.SIGINT, self.on_signal)
         signal.signal(signal.SIGTERM, self.on_signal)
         daemonize(pidfile=self.pidfile)
-        self.start_subprocess()
-        #start_server()
+        #self.start_subprocess()
+        start_server()
         self.try_remove_pidfile()
 
 if __name__ == "__main__":
