@@ -4,6 +4,12 @@ from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 from subprocess import Popen, PIPE
 import logging
+import tempfile
+import scrapyd.config
+from scrapyd.eggstorage import FilesystemEggStorage
+import shutil
+import pkg_resources
+
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +55,28 @@ class ProjectWorkspace():
 
         check_process()
         return future
+
+    def find_project_requirements(self, project, egg_storage=None, eggf=None):
+        if eggf is None:
+
+            version, eggf = egg_storage.get(project)
+        try:
+            prefix = '%s-nover-' % (project)
+            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
+            logger.debug('tmp egg file saved to %s' % eggpath)
+            lf = os.fdopen(fd, 'wb')
+            eggf.seek(0)
+            shutil.copyfileobj(eggf, lf)
+            lf.close()
+            try:
+                d = pkg_resources.find_distributions(eggpath).next()
+            except StopIteration:
+                raise ValueError("Unknown or corrupt egg")
+            requirements = [str(x) for x in d.requires()]
+            return requirements
+        finally:
+            if eggpath:
+                os.remove(eggpath)
 
     def pip_install(self, requirements):
         future = Future()

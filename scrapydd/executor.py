@@ -19,6 +19,8 @@ from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from stream import MultipartRequestBodyProducer
 from w3lib.url import path_to_file_uri
 import socket
+from tornado import gen
+from workspace import ProjectWorkspace
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +283,21 @@ class TaskExecutor():
         self.download_egg()
         return self.future, None
 
+    @gen.coroutine
+    def execute(self):
+        workspace = ProjectWorkspace(self.task.project_name)
+        logger.debug('begin download egg.')
+        egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
+        request = HTTPRequest(egg_request_url)
+        client = AsyncHTTPClient()
+        response = yield client.fetch(request, callback=self.download_egg_done)
+        self.egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
+        logger.debug('download egg done.')
+        requirements = workspace.find_project_requirements()
+
+        yield workspace.pip_install(requirements)
+        self.execute_subprocess()
+
     def check_process(self):
         execute_result = self.p.poll()
         logger.debug('check process')
@@ -328,36 +345,16 @@ class TaskExecutor():
 
     def test_egg_requirements(self, project):
         logger.debug('enter test_egg')
-        version, eggfile = self.egg_storage.get(project)
-        logger.debug(version)
-        if eggfile:
-            prefix = '%s-%s-' % (project, version)
-            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
-
-            lf = os.fdopen(fd, 'wb')
-            shutil.copyfileobj(eggfile, lf)
-            lf.close()
-            logger.debug(eggpath)
+        workspace = ProjectWorkspace(project)
         try:
-            d = pkg_resources.find_distributions(eggpath).next()
-        except StopIteration:
-            raise ValueError("Unknown or corrupt egg")
-            logger.debug(d.requires())
-        requirements = [str(x) for x in d.requires()]
-        requirements += ['scrapyd']
-        if eggpath:
-            logger.debug('removing: ' + eggpath)
-            os.remove(eggpath)
-
-        pip = os.path.join(self.workspace_dir, 'bin', 'pip')
-        python = os.path.join(self.workspace_dir, 'bin', 'python')
-        try:
-            if not os.path.exists(pip) and not os.path.exists(python):
-                logger.debug('Virtualenv environment does not exist, creating.')
-                subprocess.check_call(['virtualenv', '--system-site-packages', self.workspace_dir])
+            requirements = workspace.find_project_requirements(project, egg_storage=self.egg_storage)
+            requirements += ['scrapyd']
+            workspace.init().result()
             logger.debug('Begin test requirements.')
-            self.p_test_egg_requirements = subprocess.Popen([pip, 'install'] +requirements, stderr=self._f_output)
-            self.p_test_egg_requirements_callback.start()
+
+            def callback(future):
+                self.execute_subprocess()
+            workspace.pip_install(requirements).add_done_callback(callback)
         except Exception as e:
             self.complete_with_error('Error when creating virtualenv: %s' % e)
 
