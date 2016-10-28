@@ -349,12 +349,13 @@ class TaskExecutor():
         try:
             requirements = workspace.find_project_requirements(project, egg_storage=self.egg_storage)
             requirements += ['scrapyd']
-            workspace.init().result()
-            logger.debug('Begin test requirements.')
+            def after_workspace_init(future):
+                def callback(future):
+                    self.execute_subprocess()
 
-            def callback(future):
-                self.execute_subprocess()
-            workspace.pip_install(requirements).add_done_callback(callback)
+                workspace.pip_install(requirements).add_done_callback(callback)
+            workspace.init().add_done_callback(after_workspace_init)
+            logger.debug('Begin test requirements.')
         except Exception as e:
             self.complete_with_error('Error when creating virtualenv: %s' % e)
 
