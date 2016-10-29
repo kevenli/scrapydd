@@ -81,6 +81,7 @@ class HistoricalJob(Base):
     status = Column(Integer, default=0)
     log_file = Column(String(500))
     items_file = Column(String(500))
+    items_count = Column(Integer)
 
 
 class SpiderWebhook(Base):

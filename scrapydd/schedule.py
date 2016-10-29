@@ -257,6 +257,15 @@ class SchedulerManager:
         historical_job.status = job.status
         if log_file:
             historical_job.log_file = log_file
+            import re
+            items_crawled_pattern = re.compile("\'item_scraped_count\': (\d+),")
+            with open(log_file, 'r') as f:
+                log_content = f.read()
+                m = items_crawled_pattern.search(log_content)
+                logger.debug(m)
+                if m:
+                    historical_job.items_count = int(m.group(1))
+
         if items_file:
             historical_job.items_file = items_file
         session.delete(job)

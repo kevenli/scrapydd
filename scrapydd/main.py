@@ -519,7 +519,10 @@ def start_server(argv=None):
 
     sockets = tornado.netutil.bind_sockets(bind_port, bind_address)
     #tornado.process.fork_processes(1)
-    fork_processes(1)
+    if not sys.platform.startswith('win'):
+        fork_processes(1)
+    else:
+        logger.warning('Windows platform does not support forking process, running in single process mode.')
 
     scheduler_manager = SchedulerManager()
     scheduler_manager.init()
