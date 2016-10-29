@@ -112,7 +112,7 @@ class WebhookJobExecutor():
         self.future = Future()
         self.job = job
         self.ioloop = IOLoop.current()
-        self.send_msg_interval = 1
+        self.send_msg_interval = 0.1
 
     def start(self):
         self.item_file = open(self.job.items_file, 'r')
@@ -133,7 +133,7 @@ class WebhookJobExecutor():
                 future.add_done_callback(self.schedule_next_send)
             except ValueError as e:
                 logger.error('Error when docoding jl file.' + e.message)
-                self.ioloop.call_later(1, self.schedule_next_send)
+                self.schedule_next_send()
         # no data left in file, complete
         else:
             self.finish_job()
