@@ -566,14 +566,21 @@ def run(argv=None):
 
 def init_logging(config):
     import logging.handlers
+    log_dir = 'logs'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
     logger = logging.getLogger()
-    fh = logging.handlers.TimedRotatingFileHandler('scrapydd-server.log', when='D', backupCount=7)
+    fh = logging.handlers.TimedRotatingFileHandler(os.path.join(log_dir, 'scrapydd-server.log'), when='D', backupCount=7)
+    eh = logging.handlers.TimedRotatingFileHandler(os.path.join(log_dir, 'scrapydd-error.log'), when='D', backupCount=30)
     ch = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
+    eh.setFormatter(formatter)
+    eh.setLevel(logging.ERROR)
     logger.addHandler(fh)
     logger.addHandler(ch)
+    logger.addHandler(eh)
 
     if config.getboolean('debug'):
         logger.setLevel(logging.DEBUG)
@@ -581,7 +588,7 @@ def init_logging(config):
         logger.setLevel(logging.INFO)
 
     access_log_logger = logging.getLogger('tornado.access')
-    access_log_fh = logging.handlers.TimedRotatingFileHandler('scrapydd-access.log', when='D', backupCount=30)
+    access_log_fh = logging.handlers.TimedRotatingFileHandler(os.path.join(log_dir, 'scrapydd-access.log'), when='D', backupCount=30)
     access_log_logger.addHandler(access_log_fh)
     access_log_logger.setLevel(logging.INFO)
 
