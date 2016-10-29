@@ -326,8 +326,9 @@ class TaskExecutor():
 
     def execute_subprocess(self):
         # init items file
+        workspace = ProjectWorkspace(self.task.project_name)
         self.items_file = os.path.join(self.workspace_dir, '%s.%s' % (self.task.id, 'jl'))
-        python = os.path.join(self.workspace_dir, 'bin', 'python')
+        python = workspace.python
         runner = 'scrapyd.runner'
         pargs = [python, '-m', runner, 'crawl', self.task.spider_name]
 
