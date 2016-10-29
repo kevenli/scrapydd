@@ -38,6 +38,30 @@
                 <th>Items</th>
                 <th>Status</th>
             </tr>
+            {% for job in running_jobs %}
+                <tr>
+                    <td>{{job.id}}</td>
+                    <td>
+                        {% if job.start_time %}
+                        {{job.start_time}}
+                        {% end %}
+                    </td>
+                    <td>
+                        {% if job.update_time and job.start_time %}
+                        {{job.update_time-job.start_time}}
+                        {% end %}
+                    </td>
+                    <td></td>
+                    <td>
+
+                    </td>
+                    {% if job.status == 0 %}
+                        <td style="">PENDING</td>
+                    {% else %}
+                        <td style="">RUNNING</td>
+                    {% end %}
+                </tr>
+            {% end %}
             {% for job in jobs %}
                 <tr>
                     <td>{{job.id}}</td>
