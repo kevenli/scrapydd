@@ -463,6 +463,8 @@ class SpiderWebhookHandler(tornado.web.RequestHandler):
             webhook = SpiderWebhook()
             webhook.payload_url = payload_url
             webhook.id = spider.id
+        else:
+            webhook.payload_url = payload_url
         session.add(webhook)
         session.commit()
         session.close()
