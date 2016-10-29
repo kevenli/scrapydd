@@ -45,7 +45,7 @@ def get_egg_storage():
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         session = Session()
-        projects = list(session.query(Project))
+        projects = list(session.query(Project).order_by(Project.name))
         loader = get_template_loader()
         self.write(loader.load("index.html").generate(projects=projects))
         session.close()

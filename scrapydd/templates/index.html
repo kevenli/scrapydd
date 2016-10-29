@@ -11,20 +11,29 @@
         <li><a href="/jobs">Jobs</a></li>
         <li><a href="/spiders">Spiders</a></li>
     </ul>
-    <table>
+    <table border="1">
         <tr>
             <th>Project</th>
             <th>Spiders</th>
         </tr>
         {% for project in projects %}
             <tr>
-                <td><strong>{{project.name}}</strong></td>
+                <td rowspan="{{len(project.spiders) or 1}}"><strong>{{project.name}}</strong></td>
                 <td>
-                    {% for spider in project.spiders %}
+                    {% if project.spiders %}
+                    {% for spider in project.spiders[0:1]%}
                         <a href="/projects/{{project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
+                    {% end %}
                     {% end %}
                 </td>
             </tr>
+                    {% for spider in project.spiders[1:] %}
+                        <tr>
+                            <td>
+                        <a href="/projects/{{project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
+                            </td>
+                        </tr>
+                    {% end %}
         {% end %}
     </table>
 </body>
