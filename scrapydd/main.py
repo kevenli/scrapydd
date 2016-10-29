@@ -304,11 +304,10 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
     def post(self):
         try:
             self.ps.finish_receive()
-            fields = self.ps.get_values(['task_id', 'log', 'status'])
+            fields = self.ps.get_values(['task_id','status'])
             logger.debug(self.ps.get_nonfile_names())
             node_id = self.request.headers.get('X-Dd-Nodeid')
             task_id = fields['task_id']
-            log = fields.get('log', None)
             status = fields['status']
             if status == 'success':
                 status_int = 2
@@ -337,14 +336,12 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
                 spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
                 if not os.path.exists(spider_log_folder):
                     os.makedirs(spider_log_folder)
-                log_file = os.path.join(spider_log_folder, job.id + '.log')
+
                 log_part = self.ps.get_parts_by_name('log')[0]
                 if log_part:
                     import shutil
+                    log_file = os.path.join(spider_log_folder, job.id + '.log')
                     shutil.copy(log_part['tmpfile'].name, log_file)
-                elif log:
-                    with open(log_file, 'w') as f:
-                        f.write(log)
 
             except Exception as e:
                 logger.error('Error when writing task log file, %s' % e)
