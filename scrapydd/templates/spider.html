@@ -78,7 +78,7 @@
                     <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
                     <td>
                         {% if job.items_count %}
-                        {{job.items_count}}
+                        <a href="/items/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.jl">{{job.items_count}}</a>
                         {% end %}
                     </td>
                     {% if job.status == 2 %}

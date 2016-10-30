@@ -422,6 +422,16 @@ class LogsHandler(tornado.web.RequestHandler):
         loader = get_template_loader()
         self.write(loader.load("log.html").generate(log=log))
 
+
+class ItemsFileHandler(tornado.web.RequestHandler):
+    def get(self, project, spider, jobid):
+        with session_scope() as session:
+            job = session.query(HistoricalJob).filter_by(id=jobid).first()
+            items_file =job.items_file
+            self.set_header('Content-Type', 'application/json')
+            self.write(open(items_file, 'r').read())
+
+
 class JobStartHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):
         self.scheduler_manager = scheduler_manager
@@ -497,6 +507,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),
         (r'/jobs/(\w+)/start', JobStartHandler, {'scheduler_manager': scheduler_manager}),
         (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
+        (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
     ])
 
 def start_server(argv=None):
