@@ -23,11 +23,7 @@ import subprocess
 import signal
 from stream import PostDataStreamer
 from webhook import WebhookDaemon
-import tempfile
-import pkg_resources
-import shutil
 from daemonize import daemonize
-from tornado.process import Subprocess
 from tornado import gen
 import tornado.httpserver
 import tornado.netutil
@@ -39,10 +35,6 @@ logger = logging.getLogger(__name__)
 def get_template_loader():
     loader = tornado.template.Loader(os.path.join(os.path.dirname(__file__), "templates"))
     return loader
-
-
-def get_egg_storage():
-    return FilesystemEggStorage(scrapyd.config.Config())
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -57,46 +49,29 @@ class MainHandler(tornado.web.RequestHandler):
 class UploadProject(tornado.web.RequestHandler):
     @gen.coroutine
     def post(self):
-        egg_storage = get_egg_storage()
         project_name = self.request.arguments['project'][0]
         version = self.request.arguments['version'][0]
         eggfile = self.request.files['egg'][0]
-        eggfilename = eggfile['filename']
         eggf = StringIO(eggfile['body'])
-        egg_storage.put(eggf, project_name, version)
-
-        workspace = ProjectWorkspace(project_name)
-        yield workspace.init()
 
         try:
-            prefix = '%s-%s-' % (project_name, version)
-            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
-            logger.debug('tmp egg file saved to %s' % eggpath)
-            lf = os.fdopen(fd, 'wb')
-            eggf.seek(0)
-            shutil.copyfileobj(eggf, lf)
-            lf.close()
-            try:
-                d = pkg_resources.find_distributions(eggpath).next()
-            except StopIteration:
-                raise ValueError("Unknown or corrupt egg")
-            requirements = [str(x) for x in d.requires()]
-        finally:
-            if eggpath:
-                os.remove(eggpath)
-        yield workspace.pip_install(requirements)
+            workspace = ProjectWorkspace(project_name)
+            yield workspace.init()
+            spiders = yield workspace.test_egg(eggf)
+            workspace.put_egg(eggf, version)
 
-        try:
-            spiders = yield workspace.spider_list(project_name)
-        except ProcessFailed as e:
-            self.set_status(400, reason='Invalid project egg.')
+        except InvalidProjectEgg as e:
+            logger.error(e)
+            self.set_status(400, reason=e.message)
             self.finish("<html><title>%(code)d: %(message)s</title>"
-                        "<body><pre>%(output)s</pre></body></html>" % {
-                            "code": 400,
-                            "message": self._reason,
-                            "output": e.err_output,
-                        })
+                            "<body><pre>%(output)s</pre></body></html>" % {
+                                "code": 400,
+                                "message": e.message,
+                                "output": e.detail,
+                            })
             return
+        finally:
+            workspace.clearup()
 
         logger.debug('spiders: %s' % spiders)
         with session_scope() as session:
@@ -230,8 +205,7 @@ class SpiderEggHandler(tornado.web.RequestHandler):
     def get(self, id):
         session = Session()
         spider = session.query(Spider).filter_by(id=id).first()
-        egg_storage = get_egg_storage()
-        version, f = egg_storage.get(spider.project.name)
+        version, f = ProjectWorkspace(spider.project.name).get_egg()
         self.write(f.read())
         session.close()
 
