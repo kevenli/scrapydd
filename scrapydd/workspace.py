@@ -9,6 +9,7 @@ import scrapyd.config
 from scrapyd.eggstorage import FilesystemEggStorage
 import shutil
 import pkg_resources
+from scrapydd.exceptions import ProcessFailed
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,8 @@ class ProjectWorkspace():
 
     def find_project_requirements(self, project, egg_storage=None, eggf=None):
         if eggf is None:
-
+            if egg_storage is None:
+                egg_storage = FilesystemEggStorage(scrapyd.config.Config())
             version, eggf = egg_storage.get(project)
         try:
             prefix = '%s-nover-' % (project)
@@ -91,7 +93,7 @@ class ProjectWorkspace():
                 if retcode == 0:
                     future.set_result(self)
                 else:
-                    future.set_exception(Exception('Error when init workspace virtualenv '))
+                    future.set_exception(RuntimeError('Error when init workspace virtualenv '))
                 return
             IOLoop.current().call_later(1, check_process)
 
@@ -103,7 +105,7 @@ class ProjectWorkspace():
         try:
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = project
-            process = Popen([self.python, '-m', 'scrapyd.runner', 'list'], env = env, stdout = PIPE)
+            process = Popen([self.python, '-m', 'scrapyd.runner', 'list'], env = env, stdout = PIPE, stderr= PIPE)
         except Exception as e:
             future.set_exception(e)
 
@@ -114,7 +116,7 @@ class ProjectWorkspace():
                 if retcode == 0:
                     future.set_result(process.stdout.read().splitlines())
                 else:
-                    future.set_exception(Exception('Error when run spider_list.'))
+                    future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
                 return
             IOLoop.current().call_later(1, check_process)
 

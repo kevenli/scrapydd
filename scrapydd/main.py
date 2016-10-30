@@ -35,12 +35,15 @@ from workspace import ProjectWorkspace
 
 logger = logging.getLogger(__name__)
 
+
 def get_template_loader():
     loader = tornado.template.Loader(os.path.join(os.path.dirname(__file__), "templates"))
     return loader
 
+
 def get_egg_storage():
     return FilesystemEggStorage(scrapyd.config.Config())
+
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -49,6 +52,7 @@ class MainHandler(tornado.web.RequestHandler):
         loader = get_template_loader()
         self.write(loader.load("index.html").generate(projects=projects))
         session.close()
+
 
 class UploadProject(tornado.web.RequestHandler):
     @gen.coroutine
@@ -82,9 +86,19 @@ class UploadProject(tornado.web.RequestHandler):
                 os.remove(eggpath)
         yield workspace.pip_install(requirements)
 
-        spiders = yield workspace.spider_list(project_name)
-        logger.debug('spiders: %s' % spiders)
+        try:
+            spiders = yield workspace.spider_list(project_name)
+        except ProcessFailed as e:
+            self.set_status(400, reason='Invalid project egg.')
+            self.finish("<html><title>%(code)d: %(message)s</title>"
+                        "<body><pre>%(output)s</pre></body></html>" % {
+                            "code": 400,
+                            "message": self._reason,
+                            "output": e.err_output,
+                        })
+            return
 
+        logger.debug('spiders: %s' % spiders)
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project_name).first()
             if project is None:

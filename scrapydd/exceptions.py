@@ -18,3 +18,9 @@ class JobRunning(Exception):
 
 class InvalidCronExpression(Exception):
     pass
+
+class ProcessFailed(Exception):
+    def __init__(self, err_output = None, std_output=None):
+        super(ProcessFailed, self).__init__(self)
+        self.err_output = err_output
+        self.std_output = std_output
