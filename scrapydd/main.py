@@ -415,12 +415,12 @@ class JobsHandler(tornado.web.RequestHandler):
 
 class LogsHandler(tornado.web.RequestHandler):
     def get(self, project, spider, jobid):
-        logfilepath = os.path.join('logs', project, spider, jobid + '.log')
-        with open(logfilepath, 'r') as f:
-        #    self.write(f.read())
-            log = f.read()
-        loader = get_template_loader()
-        self.write(loader.load("log.html").generate(log=log))
+        with session_scope() as session:
+            job = session.query(HistoricalJob).filter_by(id=jobid).first()
+            with open(job.log_file, 'r') as f:
+                log = f.read()
+            loader = get_template_loader()
+            self.write(loader.load("log.html").generate(log=log))
 
 
 class ItemsFileHandler(tornado.web.RequestHandler):
