@@ -237,6 +237,14 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
         self.scheduler_manager.add_schedule(project, spider, cron)
         self.redirect('/projects/%s/spiders/%s'% (project, spider))
 
+class DeleteSpiderTriggersHandler(tornado.web.RequestHandler):
+    def initialize(self, scheduler_manager):
+        self.scheduler_manager = scheduler_manager
+
+    def post(self, project_name, spider_name, trigger_id):
+        self.scheduler_manager.remove_schedule(project_name, spider_name, trigger_id)
+        self.redirect('/projects/%s/spiders/%s' % (project_name, spider_name))
+
 class  ExecuteNextHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):
         self.scheduler_manager = scheduler_manager
@@ -499,6 +507,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/spiders/(\d+)/egg', SpiderEggHandler),
         (r'/projects/(\w+)/spiders/(\w+)', SpiderInstanceHandler2),
         (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler, {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),

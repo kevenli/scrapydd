@@ -336,3 +336,11 @@ class SchedulerManager:
             if os.path.exists(original_items_file):
                 os.remove(original_items_file)
             session.delete(job)
+
+    def remove_schedule(self, project_name, spider_name, trigger_id):
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project_name).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+            trigger = session.query(Trigger).filter(Trigger.spider_id==spider.id, Trigger.id == trigger_id).first()
+            self.scheduler.remove_job(str(trigger.id))
+            session.delete(trigger)

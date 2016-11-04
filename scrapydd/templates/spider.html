@@ -15,6 +15,11 @@
             {% for trigger in spider.triggers %}
                 <tr>
                     <td>{{trigger.cron_pattern}}</td>
+                    <td>
+                        <form action="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers/{{trigger.id}}/delete" method="post">
+                            <button value="X">X</button>
+                        </form>
+                    </td>
                 </tr>
             {% end %}
         </table>
