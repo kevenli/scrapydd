@@ -12,7 +12,7 @@ from .nodes import NodeManager
 import datetime
 import json
 from .config import Config
-from .process import fork_processes
+from .process import fork_processes, _task_id
 import os.path
 import sys
 import logging
@@ -532,11 +532,17 @@ def start_server(argv=None):
     sockets = tornado.netutil.bind_sockets(bind_port, bind_address)
     #tornado.process.fork_processes(1)
     if not sys.platform.startswith('win'):
-        fork_processes(1)
+        #task_id = fork_processes(2)
+        task_id = fork_processes(config.getint('fork_proc_count'))
+
     else:
         logger.warning('Windows platform does not support forking process, running in single process mode.')
 
-    scheduler_manager = SchedulerManager()
+    print task_id
+
+
+
+    scheduler_manager = SchedulerManager(task_id)
     scheduler_manager.init()
 
     node_manager = NodeManager(scheduler_manager)
