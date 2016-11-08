@@ -14,7 +14,6 @@ from config import Config
 from sqlalchemy import distinct, desc
 import os
 from pysyncobj import SyncObj, replicated
-import tornado.netutil
 
 
 def generate_job_id():
@@ -43,20 +42,22 @@ class SchedulerManager():
         self.clear_finished_jobs_callback = PeriodicCallback(self.clear_finished_jobs, 60*1000)
         self.reset_timeout_job_callback = PeriodicCallback(self.reset_timeout_job, 60*1000)
 
-
-        sync_address = config.get('cluster_bind_address')
-        sync_ports = config.get('cluster_bind_ports').split(',')
-        sync_port = int(sync_ports[task_id])
-        peers = config.get('cluster_peers').split(',') if config.get('cluster_peers') else []
-        peers = peers + ['%s:%d' % (sync_address,int(port)) for port in sync_ports if int(port) != sync_port]
-        print '%s:%d' % (sync_address, sync_port)
-        print peers
-        try:
-            self.sync_obj = ScheduleSyncObj(sync_address, sync_port, peers)
-            self.sync_obj.set_on_remove_schedule_job(self.remove_scheduling_job)
-            self.sync_obj.set_on_add_schedule_job(self.add_scheduling_job)
-        except Exception as e:
-            print type(e)
+        if task_id:
+            sync_address = config.get('cluster_bind_address')
+            sync_ports = config.get('cluster_bind_ports').split(',')
+            sync_port = int(sync_ports[task_id])
+            peers = config.get('cluster_peers').split(',') if config.get('cluster_peers') else []
+            peers = peers + ['%s:%d' % (sync_address,int(port)) for port in sync_ports if int(port) != sync_port]
+            print '%s:%d' % (sync_address, sync_port)
+            print peers
+            try:
+                self.sync_obj = ScheduleSyncObj(sync_address, sync_port, peers)
+            except Exception as e:
+                print type(e)
+        else:
+            self.sync_obj = NoSync()
+        self.sync_obj.set_on_remove_schedule_job(self.remove_scheduling_job)
+        self.sync_obj.set_on_add_schedule_job(self.add_scheduling_job)
         #else:
         #    print 'error'
 
@@ -418,6 +419,22 @@ class ScheduleSyncObj(SyncObj):
     @replicated
     def remove_schedule_job(self, trigger_id):
         logger.info('_remove_schedule_job %s' % trigger_id)
+        if self.on_remove_schedule_job is not None:
+            self.on_remove_schedule_job(str(trigger_id))
+
+    def set_on_remove_schedule_job(self, callback):
+        self.on_remove_schedule_job = callback
+
+class NoSync():
+    def add_schedule_job(self, trigger_id):
+        logger.info('_add_schedule_job')
+        if self.on_add_schedule_job is not None:
+            self.on_add_schedule_job(trigger_id)
+
+    def set_on_add_schedule_job(self, callback):
+        self.on_add_schedule_job = callback
+
+    def remove_schedule_job(self, trigger_id):
         if self.on_remove_schedule_job is not None:
             self.on_remove_schedule_job(str(trigger_id))
 
