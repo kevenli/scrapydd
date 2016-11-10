@@ -28,6 +28,7 @@ from tornado import gen
 import tornado.httpserver
 import tornado.netutil
 from workspace import ProjectWorkspace
+from scrapydd.cluster import ClusterNode
 
 logger = logging.getLogger(__name__)
 
@@ -536,7 +537,12 @@ def start_server(argv=None):
     else:
         logger.warning('Windows platform does not support forking process, running in single process mode.')
 
-    scheduler_manager = SchedulerManager(task_id)
+    cluster_sync_obj = None
+    if task_id is not None and config.get('cluster_bind_address'):
+        cluster_node = ClusterNode(task_id, config)
+        cluster_sync_obj = cluster_node.sync_obj
+
+    scheduler_manager = SchedulerManager(config=config, syncobj=cluster_sync_obj)
     scheduler_manager.init()
 
     node_manager = NodeManager(scheduler_manager)

@@ -13,7 +13,7 @@ from Queue import Queue, Empty
 from config import Config
 from sqlalchemy import distinct, desc
 import os
-from pysyncobj import SyncObj, replicated
+
 
 
 def generate_job_id():
@@ -24,11 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class SchedulerManager():
-    def __init__(self, task_id, config=None):
+    def __init__(self, config=None, syncobj=None):
         if config is None:
             config = Config()
         self.config = config
-        self.task_id = task_id
         executors = {
             'default': ThreadPoolExecutor(20),
             'processpool': ProcessPoolExecutor(5)
@@ -42,24 +41,10 @@ class SchedulerManager():
         self.clear_finished_jobs_callback = PeriodicCallback(self.clear_finished_jobs, 60*1000)
         self.reset_timeout_job_callback = PeriodicCallback(self.reset_timeout_job, 60*1000)
 
-        if task_id:
-            sync_address = config.get('cluster_bind_address')
-            sync_ports = config.get('cluster_bind_ports').split(',')
-            sync_port = int(sync_ports[task_id])
-            peers = config.get('cluster_peers').split(',') if config.get('cluster_peers') else []
-            peers = peers + ['%s:%d' % (sync_address,int(port)) for port in sync_ports if int(port) != sync_port]
-            print '%s:%d' % (sync_address, sync_port)
-            print peers
-            try:
-                self.sync_obj = ScheduleSyncObj(sync_address, sync_port, peers)
-            except Exception as e:
-                print type(e)
-        else:
-            self.sync_obj = NoSync()
-        self.sync_obj.set_on_remove_schedule_job(self.remove_scheduling_job)
-        self.sync_obj.set_on_add_schedule_job(self.add_scheduling_job)
-        #else:
-        #    print 'error'
+        self.sync_obj = syncobj
+        if syncobj is not None:
+            self.sync_obj.set_on_remove_schedule_job(self.on_cluster_remove_scheduling_job)
+            self.sync_obj.set_on_add_schedule_job(self.on_cluster_add_scheduling_job)
 
     def init(self):
         session = Session()
@@ -117,16 +102,22 @@ class SchedulerManager():
         except ValueError:
             raise InvalidCronExpression()
 
-        #job = self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger, kwargs={'trigger_id': trigger_id},
-        #                       id=str(trigger_id), replace_existing=True)
-        self.sync_obj.add_schedule_job(trigger_id)
+        job = self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger, kwargs={'trigger_id': trigger_id},
+                               id=str(trigger_id), replace_existing=True)
+        if self.sync_obj:
+            self.sync_obj.add_schedule_job(trigger_id)
 
-    def remove_scheduling_job(self, job_id):
-        self.scheduler.remove_job(job_id)
+    def on_cluster_remove_scheduling_job(self, job_id):
+        logger.debug('on_cluster_remove_scheduling_job')
+        if self.scheduler.get_job(job_id):
+            self.scheduler.remove_job(job_id)
 
-    def add_scheduling_job(self, trigger_id):
+    def on_cluster_add_scheduling_job(self, trigger_id):
+        logger.debug('on_cluster_add_scheduling_job')
         with session_scope() as session:
             trigger = session.query(Trigger).filter_by(id = trigger_id).first()
+            if trigger is None:
+                return
             cron = trigger.cron_pattern
             cron_parts = cron.split(' ')
             if len(cron_parts) != 5:
@@ -390,10 +381,15 @@ class SchedulerManager():
             project = session.query(Project).filter(Project.name == project_name).first()
             spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
             trigger = session.query(Trigger).filter(Trigger.spider_id==spider.id, Trigger.id == trigger_id).first()
-            #self.scheduler.remove_job(str(trigger.id))
-            #self._remove_schedule_job()
-            self.sync_obj.remove_schedule_job(trigger.id)
+
             session.delete(trigger)
+            if self.scheduler.get_job(str(trigger_id)):
+                self.scheduler.remove_job(str(trigger.id))
+
+            if self.sync_obj:
+                logger.info('remove_schedule')
+                self.sync_obj.remove_schedule_job(trigger.id)
+
 
 
     def _add_schedule_job(self):
@@ -401,42 +397,3 @@ class SchedulerManager():
 
     def _remove_schedule_job(self):
         print '_remove_schedule_job'
-
-class ScheduleSyncObj(SyncObj):
-    def __init__(self, bind_address, bind_port, peers):
-        super(ScheduleSyncObj, self).__init__('%s:%d' % (bind_address, bind_port), peers)
-        self.__counter = 0
-
-    @replicated
-    def add_schedule_job(self, trigger_id):
-        logger.info('_add_schedule_job')
-        if self.on_add_schedule_job is not None:
-            self.on_add_schedule_job(trigger_id)
-
-    def set_on_add_schedule_job(self, callback):
-        self.on_add_schedule_job = callback
-
-    @replicated
-    def remove_schedule_job(self, trigger_id):
-        logger.info('_remove_schedule_job %s' % trigger_id)
-        if self.on_remove_schedule_job is not None:
-            self.on_remove_schedule_job(str(trigger_id))
-
-    def set_on_remove_schedule_job(self, callback):
-        self.on_remove_schedule_job = callback
-
-class NoSync():
-    def add_schedule_job(self, trigger_id):
-        logger.info('_add_schedule_job')
-        if self.on_add_schedule_job is not None:
-            self.on_add_schedule_job(trigger_id)
-
-    def set_on_add_schedule_job(self, callback):
-        self.on_add_schedule_job = callback
-
-    def remove_schedule_job(self, trigger_id):
-        if self.on_remove_schedule_job is not None:
-            self.on_remove_schedule_job(str(trigger_id))
-
-    def set_on_remove_schedule_job(self, callback):
-        self.on_remove_schedule_job = callback
