@@ -34,6 +34,6 @@ setup(
         'poster>=0.8.1',
         'service-identity',
         'virtualenv',
-        'pysyncobj',
+        'pysyncobj>=0.2.3',
     ]
 )
