@@ -16,7 +16,7 @@ class ClusterNode():
         peers = peers + ['%s:%d' % (sync_address, int(port)) for port in sync_ports if int(port) != sync_port]
         logging.debug('starting cluster node.')
         logging.debug('cluster node binding: %s:%d' % (sync_address, sync_port))
-        logging.debug('cluster other peers: ' + peers)
+        logging.debug('cluster other peers: %s' % peers)
         try:
             self.sync_obj = ClusterSyncObj(sync_address, sync_port, peers)
         except Exception as e:
