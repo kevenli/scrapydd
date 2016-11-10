@@ -80,10 +80,10 @@ class UploadProject(tornado.web.RequestHandler):
             if project is None:
                 project = Project()
                 project.name = project_name
-                project.version = version
-                session.add(project)
-                session.commit()
-                session.refresh(project)
+            project.version = version
+            session.add(project)
+            session.commit()
+            session.refresh(project)
 
             for spider_name in spiders:
                 spider = session.query(Spider).filter_by(project_id = project.id, name=spider_name).first()

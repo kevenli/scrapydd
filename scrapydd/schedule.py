@@ -389,11 +389,3 @@ class SchedulerManager():
             if self.sync_obj:
                 logger.info('remove_schedule')
                 self.sync_obj.remove_schedule_job(trigger.id)
-
-
-
-    def _add_schedule_job(self):
-        print '_add_schedule_job'
-
-    def _remove_schedule_job(self):
-        print '_remove_schedule_job'
