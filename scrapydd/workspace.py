@@ -173,6 +173,7 @@ class ProjectWorkspace(object):
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
+            return future
 
         def check_process():
             logger.debug('poll')
