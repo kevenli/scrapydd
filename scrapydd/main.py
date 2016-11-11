@@ -62,7 +62,7 @@ class UploadProject(tornado.web.RequestHandler):
             workspace.put_egg(eggf, version)
 
         except InvalidProjectEgg as e:
-            logger.error(e)
+            logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
             self.set_status(400, reason=e.message)
             self.finish("<html><title>%(code)d: %(message)s</title>"
                             "<body><pre>%(output)s</pre></body></html>" % {
@@ -311,7 +311,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
             elif status == 'fail':
                 status_int = 3
             else:
-                self.write_error(401, 'Invalid argument: status.')
+                self.set_status(401, 'Invalid argument: status.')
                 return
 
             session = Session()
@@ -324,7 +324,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
             job = query.first()
 
             if job is None:
-                self.write_error(404, 'Job not found.')
+                self.set_status(404, 'Job not found.')
                 session.close()
                 return
             log_file = None
@@ -487,6 +487,36 @@ class SpiderWebhookHandler(tornado.web.RequestHandler):
         session.commit()
         session.close()
 
+class DeleteProjectHandler(tornado.web.RequestHandler):
+    def initialize(self, scheduler_manager):
+        self.scheduler_manager = scheduler_manager
+
+    def post(self):
+        project_name = self.get_argument('project')
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project_name).first()
+            spiders = session.query(Spider).filter_by(project_id=project.id)
+            for spider in spiders:
+                triggers = session.query(Trigger).filter_by(spider_id = spider.id)
+                session.query(SpiderExecutionQueue).filter_by(spider_id = spider.id).delete()
+                session.commit()
+                for trigger in triggers:
+                    self.scheduler_manager.remove_schedule(project_name, spider.name, trigger_id=trigger.id)
+                for history_log in session.query(HistoricalJob).filter(HistoricalJob.spider_id == spider.id):
+                    try:
+                        os.remove(history_log.log_file)
+                    except:
+                        pass
+                    try:
+                        os.remove(history_log.items_file)
+                    except:
+                        pass
+                    session.delete(history_log)
+                session.delete(spider)
+            session.delete(project)
+
+
+
 def make_app(scheduler_manager, node_manager, webhook_daemon):
     '''
 
@@ -500,6 +530,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r"/", MainHandler),
         (r'/uploadproject', UploadProject),
         (r'/addversion.json', UploadProject),
+        (r'/delproject.json', DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
         (r'/schedule.json', ScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/add_schedule.json', AddScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects', ProjectList),

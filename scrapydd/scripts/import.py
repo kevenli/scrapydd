@@ -25,6 +25,11 @@ for dir in os.listdir(source_eggs_dir):
     }
     datagen, headers = multipart_encode(post_data)
     request = urllib2.Request(url=dest_url, headers=headers, data=datagen)
-    res = urllib2.urlopen(request)
-    print res.read()
+    try:
+        res = urllib2.urlopen(request)
+    except urllib2.HTTPError as e:
+        print 'HTTPError: %s' % e
+        print e.read()
+        break
+
     

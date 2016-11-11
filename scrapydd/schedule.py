@@ -386,6 +386,6 @@ class SchedulerManager():
             if self.scheduler.get_job(str(trigger_id)):
                 self.scheduler.remove_job(str(trigger.id))
 
-            if self.sync_obj:
-                logger.info('remove_schedule')
-                self.sync_obj.remove_schedule_job(trigger.id)
+        if self.sync_obj:
+            logger.info('remove_schedule')
+            self.sync_obj.remove_schedule_job(trigger.id)
