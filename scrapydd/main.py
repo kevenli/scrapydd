@@ -97,11 +97,11 @@ class UploadProject(tornado.web.RequestHandler):
                 self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
             else:
                 loader = get_template_loader()
-                self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
+                self.write(loader.load("uploadproject.html").generate())
 
     def get(self):
         loader = get_template_loader()
-        self.write(loader.load("uploadproject.html").generate(myvalue="XXX"))
+        self.write(loader.load("uploadproject.html").generate())
 
 class ScheduleHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):

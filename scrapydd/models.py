@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, schema, Column
+from sqlalchemy import create_engine, schema, Column, desc
 from sqlalchemy.types import Integer, String, DateTime
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -72,7 +72,7 @@ class HistoricalJob(Base):
     __tablename__ = 'job_history'
 
     id = Column(String(length=50), primary_key=True)
-    spider_id = Column(Integer)
+    spider_id = Column(Integer, ForeignKey('spiders.id'))
     project_name = Column(String(length=50))
     spider_name = Column(String(length=50))
     fire_time = Column(DateTime)
@@ -82,6 +82,8 @@ class HistoricalJob(Base):
     log_file = Column(String(500))
     items_file = Column(String(500))
     items_count = Column(Integer)
+
+Spider.historical_jobs = relationship("HistoricalJob", order_by=desc(HistoricalJob.start_time))
 
 
 class SpiderWebhook(Base):

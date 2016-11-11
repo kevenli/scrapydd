@@ -15,22 +15,66 @@
         <tr>
             <th>Project</th>
             <th>Spiders</th>
+            <th>Last Run</th>
+            <th>Last Status</th>
+            <th>Last Items</th>
         </tr>
         {% for project in projects %}
             <tr>
                 <td rowspan="{{len(project.spiders) or 1}}"><strong>{{project.name}}</strong></td>
-                <td>
-                    {% if project.spiders %}
+                {% if project.spiders %}
+
                     {% for spider in project.spiders[0:1]%}
+                    <td>
                         <a href="/projects/{{project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
+                     </td>
+                    <td>
+                        {% if spider.historical_jobs %}
+                            {{spider.historical_jobs[0].start_time}}
+                        {% end %}
+                    </td>
+                {% if spider.historical_jobs %}
+                    {% if spider.historical_jobs[0].status == 2 %}
+                        <td style="background-color:green; color:#fff">SUCCESS</td>
+                    {% else %}
+                        <td style="background-color:red; color:#fff">FAIL</td>
                     {% end %}
+                {% else %}
+                    <td>
+                    </td>
+                {% end %}
+                    <td>
+                        {% if spider.historical_jobs %}
+                            {{spider.historical_jobs[0].items_count}}
+                        {% end %}
+                    </td>
                     {% end %}
-                </td>
+                {% end %}
             </tr>
                     {% for spider in project.spiders[1:] %}
                         <tr>
                             <td>
                         <a href="/projects/{{project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
+                            </td>
+                            <td>
+                                {% if spider.historical_jobs %}
+                                    {{spider.historical_jobs[0].start_time}}
+                                {% end %}
+                            </td>
+                        {% if spider.historical_jobs %}
+                            {% if spider.historical_jobs[0].status == 2 %}
+                                <td style="background-color:green; color:#fff">SUCCESS</td>
+                            {% else %}
+                                <td style="background-color:red; color:#fff">FAIL</td>
+                            {% end %}
+                        {% else %}
+                            <td>
+                            </td>
+                        {% end %}
+                            <td>
+                                {% if spider.historical_jobs %}
+                                    {{spider.historical_jobs[0].items_count}}
+                                {% end %}
                             </td>
                         </tr>
                     {% end %}
