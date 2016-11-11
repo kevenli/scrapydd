@@ -375,6 +375,7 @@ class TaskExecutor():
         self._f_output.close()
         self.ret_code = ret_code
         self.check_process_callback.stop()
+        self.egg_storage.delete(self.task.project_name)
         self.future.set_result(self)
 
     def complete_with_error(self, error_message):
@@ -382,6 +383,10 @@ class TaskExecutor():
         self._f_output.write(error_message)
         self._f_output.close()
         self.ret_code = 1
+        try:
+            self.egg_storage.delete(self.task.project_name)
+        except Exception as e:
+            logger.warning('Error when removing project eggs. %s' % e)
         self.future.set_result(self)
 
     def clear(self):
