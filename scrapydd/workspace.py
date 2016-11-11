@@ -51,6 +51,7 @@ class ProjectWorkspace(object):
             process = Popen(['virtualenv', '--system-site-packages', self.project_workspace_dir])
         except Exception as e:
             future.set_exception(e)
+            return future
         def check_process():
             logger.debug('poll')
             retcode = process.poll()
