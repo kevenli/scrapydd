@@ -202,6 +202,9 @@ class ProjectWorkspace(object):
         eggfile.seek(0)
         self.egg_storage.put(eggfile=eggfile, project=self.project_name, version=version)
 
-
     def get_egg(self, version=None):
         return self.egg_storage.get(self.project_name, version=version)
+
+    def delete_egg(self, project, version=None):
+        logger.info('deleting project eggs')
+        return self.egg_storage.delete(project, version)
