@@ -149,6 +149,7 @@ class ProjectWorkspace(object):
             process = Popen([self.pip, 'install'] + requirements, stdout=PIPE, stderr=PIPE)
         except Exception as e:
             future.set_exception(e)
+            return future
         def check_process():
             logger.debug('poll')
             retcode = process.poll()
