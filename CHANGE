@@ -1,0 +1,10 @@
+v0.4.8
+
+* server: upload project check parts before read items log
+* server: error handling of queueed job with no spider or project
+* agent: remove eggs after spider run
+* delete eggs when deleting project
+* workspace init, return if exception catched
+* home page show spider last status
+* delproject.json
+* fix: upload project did not modify project version
