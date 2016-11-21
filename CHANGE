@@ -1,3 +1,7 @@
+v0.4.9
+
+* server: spider concurrency control.
+
 v0.4.8
 
 * server: upload project check parts before read items log
