@@ -41,6 +41,17 @@
         </div>
     {% end %}
     <div>
+        <a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/settings">Settings</a>
+        <table>
+            {% for setting in settings %}
+                <tr>
+                    <td>{{setting.setting_key}}</td>
+                    <td>{{setting.value}}</td>
+                </tr>
+            {% end %}
+        </table>
+    </div>
+    <div>
         <label>Jobs:</label>
         <table border="1">
             <tr>

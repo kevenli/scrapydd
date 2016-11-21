@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Spider settings</title>
+</head>
+<body>
+    <form method="POST">
+    <div>
+        <label>Concurrency:</label>
+        <input name="concurrency" value="{{settings['concurrency'].value}}">
+    </div>
+    <div>
+        <button type="submit" >保存</button>
+        <a href="/projects/{{project.name}}/spiders/{{spider.name}}">返回</a>
+    </div>
+    </form>
+</body>
+</html>

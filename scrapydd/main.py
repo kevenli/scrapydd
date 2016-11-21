@@ -6,7 +6,7 @@ from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
-    SpiderWebhook, session_scope
+    SpiderWebhook, session_scope, SpiderSettings
 from schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
@@ -198,6 +198,7 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         context['jobs'] = jobs
         context['webhook'] = webhook
         context['running_jobs'] = running_jobs
+        context['settings'] = session.query(SpiderSettings).filter_by(spider_id = spider.id).order_by(SpiderSettings.setting_key)
         loader = get_template_loader()
         self.write(loader.load("spider.html").generate(**context))
         session.close()
@@ -529,6 +530,42 @@ class DeleteProjectHandler(tornado.web.RequestHandler):
             ProjectWorkspace(project_name).delete_egg(project_name)
 
 
+class SpiderSettingsHandler(tornado.web.RequestHandler):
+    def get(self, project, spider):
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project).first()
+            spider = session.query(Spider).filter_by(project_id = project.id, name=spider).first()
+            #settings = session.query(SpiderSettings).filter_by(spider_id = spider.id)
+            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id = spider.id, setting_key='concurrency').first()
+            if not concurrency_setting:
+                concurrency_setting = SpiderSettings()
+                concurrency_setting.setting_key = 'concurrency_setting'
+                concurrency_setting.value = 1
+            template = get_template_loader().load('spidersettings.html')
+            context = {}
+            context['settings'] = {'concurrency': concurrency_setting}
+            context['project'] = project
+            context['spider'] = spider
+
+            return self.write(template.generate(**context))
+
+    def post(self, project, spider):
+        concurrency = int(self.get_argument('concurrency'))
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project).first()
+            spider = session.query(Spider).filter_by(project_id = project.id, name=spider).first()
+
+            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id = spider.id, setting_key='concurrency').first()
+            if not concurrency_setting:
+                concurrency_setting = SpiderSettings()
+                concurrency_setting.spider_id = spider.id
+                concurrency_setting.setting_key = 'concurrency'
+            concurrency_setting.value = concurrency
+            session.add(concurrency_setting)
+            self.redirect('/projects/%s/spiders/%s' % (project.name, spider.name))
+
+
+
 
 def make_app(scheduler_manager, node_manager, webhook_daemon):
     '''
@@ -553,6 +590,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/projects/(\w+)/spiders/(\w+)', SpiderInstanceHandler2),
         (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler, {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),
