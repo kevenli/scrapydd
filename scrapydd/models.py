@@ -49,6 +49,7 @@ class SpiderExecutionQueue(Base):
 
     id = Column(String(length=50), primary_key=True)
     spider_id = Column(Integer)
+    slot = Column(Integer, default=1)
     project_name = Column(String(length=50))
     spider_name = Column(String(length=50))
     fire_time = Column(DateTime)
@@ -101,6 +102,15 @@ class WebhookJob(Base):
     payload_url = Column(String(length=50))
     items_file = Column(String(length=250))
     status = Column(Integer)
+
+
+class SpiderSettings(Base):
+    __tablename__ = 'spider_settings'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    spider_id = Column(Integer, ForeignKey('spiders.id'))
+    setting_key = Column(String(length=50), nullable=False)
+    value = Column(String(length=200))
 
 
 def init_database():
