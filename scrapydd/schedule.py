@@ -1,5 +1,6 @@
 
-from models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope
+from models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
+    SpiderSettings
 from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
@@ -138,30 +139,35 @@ class SchedulerManager():
                                          id=str(trigger_id), replace_existing=True)
 
     def trigger_fired(self, trigger_id):
-        session = Session()
-        trigger = session.query(Trigger).filter_by(id=trigger_id).first()
-        spider = session.query(Spider).filter_by(id=trigger.spider_id).first()
-        project = session.query(Project).filter_by(id=spider.project_id).first()
-        executing = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id == spider.id, SpiderExecutionQueue.status.in_([0,1])).first()
-        if executing:
-            logger.warning('spider %s-%s is still running or in queue, skipping' % (project.name, spider.name))
+        with session_scope() as session:
+            trigger = session.query(Trigger).filter_by(id=trigger_id).first()
+            spider = session.query(Spider).filter_by(id=trigger.spider_id).first()
+            project = session.query(Project).filter_by(id=spider.project_id).first()
+            executing = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id == spider.id, SpiderExecutionQueue.status.in_([0,1]))
+            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='concurrency').first()
+            concurrency = int(concurrency_setting.value) if concurrency_setting else 1
+            executing_slots = [executing_job.slot for executing_job in executing]
+            free_slots = [x for x in range(1,concurrency+1) if x not in executing_slots]
+            if not free_slots:
+                logger.warning('spider %s-%s is configured as %d concurency, and %d in queue, skipping' % (project.name, spider.name, concurrency,
+                                                                                                          len(executing_slots)))
+                return
+
+            executing = SpiderExecutionQueue()
+            executing.id = generate_job_id()
+            executing.spider_id = spider.id
+            executing.project_name = project.name
+            executing.spider_name = spider.name
+            executing.fire_time = datetime.datetime.now()
+            executing.update_time = datetime.datetime.now()
+            executing.slot = free_slots[0]
+            session.add(executing)
+            try:
+                session.commit()
+            except (Exception, IntegrityError) as e:
+                logger.warning(e)
             session.close()
             return
-
-        executing = SpiderExecutionQueue()
-        executing.id = generate_job_id()
-        executing.spider_id = spider.id
-        executing.project_name = project.name
-        executing.spider_name = spider.name
-        executing.fire_time = datetime.datetime.now()
-        executing.update_time = datetime.datetime.now()
-        session.add(executing)
-        try:
-            session.commit()
-        except (Exception, IntegrityError) as e:
-            logger.warning(e)
-        session.close()
-        return
 
     def add_schedule(self, project, spider, cron):
         session = Session()
