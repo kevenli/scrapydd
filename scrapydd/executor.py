@@ -18,6 +18,8 @@ from w3lib.url import path_to_file_uri
 import socket
 from tornado import gen
 from workspace import ProjectWorkspace
+import tempfile
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +295,7 @@ class TaskExecutor():
         self.check_process_callback = None
         self.items_file = None
         self.ret_code = None
-        self.workspace_dir = os.path.abspath(os.path.join('workspace', self.task.project_name))
+        self.workspace_dir = tempfile.mkdtemp(prefix='ddjob-%s-%s-' % (task.project_name, task.id))
         if not os.path.exists(self.workspace_dir):
             os.makedirs(self.workspace_dir)
         self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
@@ -418,9 +420,6 @@ class TaskExecutor():
         self.future.set_result(self)
 
     def clear(self):
-        if self.items_file and os.path.exists(self.items_file):
-            os.remove(self.items_file)
-        if self.output_file and os.path.exists(self.output_file):
-            os.remove(self.output_file)
+        shutil.rmtree(self.workspace_dir)
 
 
