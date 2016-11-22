@@ -677,9 +677,14 @@ def start_server(argv=None):
 
     if https_port:
         check_and_gen_ssl_keys(config)
-        ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        if config.getboolean('client_validation'):
+            ssl_ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        else:
+            ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_ctx.load_cert_chain(os.path.join('keys', "%s.crt" % config.get('server_name')),
                                 os.path.join('keys', "%s.key" % config.get('server_name')))
+        ssl_ctx.load_verify_locations(cafile='keys/ca.crt')
+        ssl_ctx.check_hostname = False
         httpsserver = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
         httpsserver.add_sockets(https_sockets)
         logger.info('starting https server on %s:%s' % (bind_address, https_port))
