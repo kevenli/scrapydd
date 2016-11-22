@@ -29,6 +29,8 @@ import tornado.httpserver
 import tornado.netutil
 from workspace import ProjectWorkspace
 from scrapydd.cluster import ClusterNode
+from scrapydd.ssl_gen import SSLCertificateGenerator
+import ssl
 
 logger = logging.getLogger(__name__)
 
@@ -602,17 +604,45 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
     ])
 
+def check_and_gen_ssl_keys(config):
+    server_name = config.get('server_name')
+    if not server_name:
+        raise Exception('Must specify a server name')
+    ssl_gen = SSLCertificateGenerator()
+    try:
+        ca_key = ssl_gen.get_ca_key()
+        ca_cert = ssl_gen.get_ca_cert()
+    except IOError:
+        logger.info('ca cert not exist, creating new cert and key.')
+        ssl_gen.gen_ca('scrapydd', 'scrapydd')
+
+    host_name = config.get('server_name')
+    if not os.path.exists(os.path.join('keys', '%s.crt' % host_name)):
+        logger.info('server cert not exist, creating new.')
+        alt_names = [s.strip() for s in config.get('dns_alt_names').split(',')]
+        if '' in alt_names:
+            alt_names.remove('')
+        ssl_gen.gen_cert(host_name, usage=2, alt_names=alt_names)
+
 def start_server(argv=None):
     config = Config()
-
     logging.debug('starting server with argv : %s' % str(argv))
 
     init_database()
     bind_address = config.get('bind_address')
     bind_port = config.getint('bind_port')
-    print 'Starting server on %s:%d' % (bind_address, bind_port)
+    try:
+        https_port = int(config.get('https_port')) if config.get('https_port') else None
+    except ValueError:
+        logger.warning('https_port is configured, but it is not int, %s' % config.get('https_port'))
+        https_port = None
+
+    if https_port:
+        https_sockets = tornado.netutil.bind_sockets(https_port, bind_address)
 
     sockets = tornado.netutil.bind_sockets(bind_port, bind_address)
+
+    # task_id is current process identifier when forked processes, start with 0
     task_id = None
     if not sys.platform.startswith('win'):
         task_id = fork_processes(config.getint('fork_proc_count'))
@@ -635,8 +665,18 @@ def start_server(argv=None):
 
     app = make_app(scheduler_manager, node_manager, webhook_daemon)
 
+
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
+
+    if https_port:
+        check_and_gen_ssl_keys(config)
+        ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_ctx.load_cert_chain(os.path.join('keys', "%s.crt" % config.get('server_name')),
+                                os.path.join('keys', "%s.key" % config.get('server_name')))
+        httpsserver = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
+        httpsserver.add_sockets(https_sockets)
+        logger.info('starting https server on %s:%s' % (bind_address, https_port))
     ioloop = tornado.ioloop.IOLoop.current()
     ioloop.start()
 
