@@ -1,18 +1,15 @@
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.queues import Queue
 from tornado.concurrent import Future
+from tornado.gen import coroutine
 import urllib2, urllib
 import json
 from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
 import subprocess
-import sys
 import os
 import urlparse
 import logging
-import tempfile
-import shutil
-import pkg_resources
 import time
 from config import AgentConfig
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
@@ -26,9 +23,15 @@ logger = logging.getLogger(__name__)
 
 TASK_STATUS_SUCCESS = 'success'
 TASK_STATUS_FAIL = 'fail'
+
+EXECUTOR_STATUS_OFFLINE = 0
+EXECUTOR_STATUS_ONLINE = 1
+
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
 register_openers()
+
+
 
 class SpiderTask():
     id = None
@@ -75,12 +78,18 @@ class Executor():
     def __init__(self, config=None):
         self.ioloop = IOLoop.current()
         self.node_id = None
+        self.status = EXECUTOR_STATUS_OFFLINE
 
         if config is None:
             config =AgentConfig()
         self.task_slots = TaskSlotContainer(config.getint('slots', 1))
         self.config = config
-        self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
+        # if server_https_port is configured, prefer to use it.
+        if config.get('server_https_port'):
+            self.service_base = 'https://%s:%d'% (config.get('server'), config.getint('server_https_port'))
+        else:
+            self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
+        self.httpclient = AsyncHTTPClient(defaults=dict(validate_cert=True))
 
     def start(self):
         logger.info('------------------------')
@@ -110,47 +119,57 @@ class Executor():
             if not self.checktask_callback.is_running():
                 self.checktask_callback.start()
 
-
+    @coroutine
     def send_heartbeat(self):
+        if self.status == EXECUTOR_STATUS_OFFLINE:
+            self.register_node()
+            return
         url = urlparse.urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
         running_tasks = ','.join([task.id for task in self.task_slots.tasks()])
-        request = urllib2.Request(url, data='', headers={'X-DD-RunningJobs': running_tasks})
+        request = HTTPRequest(url=url, method='POST', body='', headers={'X-DD-RunningJobs': running_tasks})
         try:
-            res = urllib2.urlopen(request)
-            self.check_header_new_task_on_server(res.info())
-            response_data = res.read()
+            res = yield self.httpclient.fetch(request)
+            self.check_header_new_task_on_server(res.headers)
         except urllib2.HTTPError as e:
             if e.code == 400:
                 logging.warning('Node expired, register now.')
+                self.status = EXECUTOR_STATUS_OFFLINE
                 self.register_node()
-        except urllib2.URLError:
-            logging.warning('Cannot connect to server.')
+        except urllib2.URLError as e:
+            logging.warning('Cannot connect to server. %s' % e)
+        except Exception as e:
+            logging.warning('Cannot connect to server. %s' % e)
 
 
+    @coroutine
     def register_node(self):
-        while True:
-            try:
-                url = urlparse.urljoin(self.service_base, '/nodes')
-                request = urllib2.Request(url, data='')
-                res = urllib2.urlopen(request)
-                self.node_id = json.loads(res.read())['id']
-                logger.info('node %d registered' % self.node_id)
-                return
-            except urllib2.URLError:
-                logging.warning('Cannot connect to server')
-                time.sleep(10)
-            except socket.error:
-                logging.warning('Cannot connect to server')
-                time.sleep(10)
+        try:
+            url = urlparse.urljoin(self.service_base, '/nodes')
+            request = HTTPRequest(url = url, method='POST', body='')
+            res = yield self.httpclient.fetch(request)
+            self.status = EXECUTOR_STATUS_ONLINE
+            self.node_id = json.loads(res.body)['id']
+            logger.info('node %d registered' % self.node_id)
+        except urllib2.URLError as e:
+            logging.warning('Cannot connect to server, %s' % e )
+            time.sleep(10)
+        except socket.error as e:
+            logging.warning('Cannot connect to server, %s' % e)
+            time.sleep(10)
 
+    def on_new_task_reach(self, task):
+        if task is not None:
+            self.task_slots.put_task(task)
+            self.execute_task(task)
 
+    @coroutine
     def get_next_task(self):
         url = urlparse.urljoin(self.service_base, '/executing/next_task')
         post_data = urllib.urlencode({'node_id': self.node_id})
-        request = urllib2.Request(url=url, data=post_data)
+        request = HTTPRequest(url=url, method='POST', body=post_data)
         try:
-            res = urllib2.urlopen(request)
-            response_content = res.read()
+            response = yield self.httpclient.fetch(request)
+            response_content = response.body
             response_data = json.loads(response_content)
             logging.debug(url)
             logging.debug(response_content)
@@ -161,7 +180,7 @@ class Executor():
                 task.project_name = response_data['data']['task']['project_name']
                 task.project_version = response_data['data']['task']['version']
                 task.spider_name = response_data['data']['task']['spider_name']
-                return task
+                self.on_new_task_reach(task)
         except urllib2.URLError:
             logger.warning('Cannot connect to server')
 
@@ -171,12 +190,13 @@ class Executor():
         self.post_start_task(task, pid)
         self.ioloop.add_future(future, self.task_finished)
 
+    @coroutine
     def post_start_task(self, task, pid):
         url = urlparse.urljoin(self.service_base, '/jobs/%s/start' % task.id)
         post_data = urllib.urlencode({'pid':pid})
         try:
-            request = urllib2.Request(url, post_data)
-            urllib2.urlopen(request)
+            request = HTTPRequest(url=url, method='POST', body=post_data)
+            respones = yield self.httpclient.fetch(request)
         except urllib2.URLError as e:
             logger.error('Error when post_task_task: %s' % e)
         except urllib2.HTTPError as e:
@@ -204,7 +224,7 @@ class Executor():
         datagen, headers = multipart_encode(post_data)
         headers['X-DD-Nodeid'] = str(self.node_id)
         request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
-        client = AsyncHTTPClient()
+        client = self.httpclient
         future = client.fetch(request, raise_error=False)
         self.ioloop.add_future(future, self.complete_task_done(task_executor, log_file, items_file))
         logger.info('task %s finished' % task_executor.task.id)
@@ -243,10 +263,7 @@ class Executor():
 
     def check_task(self):
         if not self.task_slots.is_full():
-            task = self.get_next_task()
-            if task is not None:
-                self.task_slots.put_task(task)
-                self.execute_task(task)
+            self.get_next_task()
 
 
 class TaskExecutor():
@@ -257,7 +274,10 @@ class TaskExecutor():
         self.task = task
         if config is None:
             config = AgentConfig()
-        self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
+        if config.get('server_https_port'):
+            self.service_base = 'https://%s:%d' % (config.get('server'), config.getint('server_https_port'))
+        else:
+            self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
         self._f_output = None
         self.output_file = None
         self.future = Future()
