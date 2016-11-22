@@ -17,7 +17,10 @@ class Config(object):
     def __init__(self, values=None, extra_sources=()):
         if values is None:
             sources = self._getsources()
-            default_config = get_data(__package__, 'scrapydd.default.conf')
+            if __package__:
+                default_config = get_data(__package__, 'scrapydd.default.conf')
+            else:
+                default_config = open(os.path.join(os.path.dirname(__file__), 'scrapydd.default.conf' )).read()
             default_config_stream = StringIO()
             default_config_stream.write(default_config)
             default_config_stream.seek(0, os.SEEK_SET)
