@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 def init_logging(config):
     import logging.handlers
     logger = logging.getLogger()
-    fh = logging.handlers.TimedRotatingFileHandler('scrapydd-agent.log', when='D', backupCount=7)
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    fh = logging.handlers.TimedRotatingFileHandler('logs/scrapydd-agent.log', when='D', backupCount=7)
     ch = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)

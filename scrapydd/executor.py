@@ -91,7 +91,10 @@ class Executor():
             self.service_base = 'https://%s:%d'% (config.get('server'), config.getint('server_https_port'))
         else:
             self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
-        self.httpclient = AsyncHTTPClient(defaults=dict(validate_cert=True, ca_certs='keys/ca.crt'))
+        client_cert = config.get('client_cert') or None
+        client_key = config.get('client_key') or None
+
+        self.httpclient = AsyncHTTPClient(defaults=dict(validate_cert=True, ca_certs='keys/ca.crt', client_cert=client_cert, client_key=client_key))
 
 
     def start(self):
