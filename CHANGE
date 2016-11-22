@@ -1,3 +1,8 @@
+v0.4.10
+
+* server and client: ssl validation, support both CLIENT/SERVER validation
+* agent: isolate spider's workdir im tmp folder
+
 v0.4.9
 
 * server: spider concurrency control.
