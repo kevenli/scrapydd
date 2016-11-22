@@ -89,7 +89,8 @@ class Executor():
             self.service_base = 'https://%s:%d'% (config.get('server'), config.getint('server_https_port'))
         else:
             self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
-        self.httpclient = AsyncHTTPClient(defaults=dict(validate_cert=True))
+        self.httpclient = AsyncHTTPClient(defaults=dict(validate_cert=True, ca_certs='keys/ca.crt'))
+
 
     def start(self):
         logger.info('------------------------')
@@ -143,6 +144,13 @@ class Executor():
 
     @coroutine
     def register_node(self):
+        if self.service_base.startswith('https') and not os.path.exists('keys/ca.crt') :
+            httpclient = AsyncHTTPClient(force_instance=True)
+            cacertrequest = HTTPRequest(urlparse.urljoin(self.service_base, 'ca.crt'), validate_cert=False)
+            cacertresponse = yield httpclient.fetch(cacertrequest)
+            if not os.path.exists('keys'):
+                os.mkdir('keys')
+            open('keys/ca.crt', 'wb').write(cacertresponse.body)
         try:
             url = urlparse.urljoin(self.service_base, '/nodes')
             request = HTTPRequest(url = url, method='POST', body='')

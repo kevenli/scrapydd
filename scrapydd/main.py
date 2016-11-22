@@ -567,6 +567,11 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
             self.redirect('/projects/%s/spiders/%s' % (project.name, spider.name))
 
 
+class CACertHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(open('keys/ca.crt','rb').read())
+        self.set_header('Content-Type', 'application/cert')
+
 
 
 def make_app(scheduler_manager, node_manager, webhook_daemon):
@@ -602,6 +607,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/jobs/(\w+)/start', JobStartHandler, {'scheduler_manager': scheduler_manager}),
         (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
         (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
+        (r'/ca.crt', CACertHandler),
     ])
 
 def check_and_gen_ssl_keys(config):
