@@ -307,7 +307,6 @@ class SchedulerManager():
             with open(log_file, 'r') as f:
                 log_content = f.read()
                 m = items_crawled_pattern.search(log_content)
-                logger.debug(m)
                 if m:
                     historical_job.items_count = int(m.group(1))
 

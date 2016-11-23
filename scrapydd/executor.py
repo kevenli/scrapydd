@@ -12,7 +12,7 @@ import urlparse
 import logging
 import time
 from config import AgentConfig
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
 from stream import MultipartRequestBodyProducer
 from w3lib.url import path_to_file_uri
 import socket
@@ -143,6 +143,11 @@ class Executor():
                 self.register_node()
         except urllib2.URLError as e:
             logging.warning('Cannot connect to server. %s' % e)
+        except HTTPError as e:
+            if e.code == 400:
+                logging.warning('Node expired, register now.')
+                self.status = EXECUTOR_STATUS_OFFLINE
+                self.register_node()
         except Exception as e:
             logging.warning('Cannot connect to server. %s' % e)
 
@@ -165,10 +170,8 @@ class Executor():
             logger.info('node %d registered' % self.node_id)
         except urllib2.URLError as e:
             logging.warning('Cannot connect to server, %s' % e )
-            time.sleep(10)
         except socket.error as e:
             logging.warning('Cannot connect to server, %s' % e)
-            time.sleep(10)
 
     def on_new_task_reach(self, task):
         if task is not None:
