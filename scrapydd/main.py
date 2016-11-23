@@ -8,11 +8,11 @@ from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
     SpiderWebhook, session_scope, SpiderSettings
 from schedule import SchedulerManager
-from .nodes import NodeManager
+from scrapydd.nodes import NodeManager
 import datetime
 import json
-from .config import Config
-from .process import fork_processes
+from scrapydd.config import Config
+from scrapydd.process import fork_processes
 import os.path
 import sys
 import logging
@@ -228,18 +228,30 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
         self.scheduler_manager = scheduler_manager
 
     def get(self, project, spider):
-        session = Session()
-        project = session.query(Project).filter(Project.name == project).first()
-        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
-        loader = get_template_loader()
-        self.write(loader.load("spidercreatetrigger.html").generate(spider=spider))
-
-        session.close()
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
+            loader = get_template_loader()
+            context = {}
+            context['spider'] = spider
+            context['errormsg'] = None
+            self.write(loader.load("spidercreatetrigger.html").generate(**context))
 
     def post(self, project, spider):
         cron = self.get_argument('cron')
-        self.scheduler_manager.add_schedule(project, spider, cron)
-        self.redirect('/projects/%s/spiders/%s'% (project, spider))
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
+            try:
+                self.scheduler_manager.add_schedule(project, spider, cron)
+                return self.redirect('/projects/%s/spiders/%s' % (project.name, spider.name))
+            except InvalidCronExpression:
+                loader = get_template_loader()
+                context = {}
+                context['spider'] = spider
+                context['errormsg'] = 'Invalid cron expression '
+                return self.write(loader.load("spidercreatetrigger.html").generate(**context))
+
 
 class DeleteSpiderTriggersHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):

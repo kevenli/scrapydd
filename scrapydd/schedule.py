@@ -9,7 +9,7 @@ from tornado.ioloop import IOLoop, PeriodicCallback
 import uuid
 import logging
 import datetime
-from .exceptions import *
+from scrapydd.exceptions import *
 from Queue import Queue, Empty
 from config import Config
 from sqlalchemy import distinct, desc
@@ -106,7 +106,8 @@ class SchedulerManager():
         job = self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger, kwargs={'trigger_id': trigger_id},
                                id=str(trigger_id), replace_existing=True)
         if self.sync_obj:
-            self.sync_obj.add_schedule_job(trigger_id)
+            self.ioloop.call_later(0, self.sync_obj.add_schedule_job, trigger_id)
+            #self.sync_obj.add_schedule_job(trigger_id)
 
     def on_cluster_remove_scheduling_job(self, job_id):
         logger.debug('on_cluster_remove_scheduling_job')
@@ -170,30 +171,20 @@ class SchedulerManager():
             return
 
     def add_schedule(self, project, spider, cron):
-        session = Session()
-        project = session.query(Project).filter(Project.name == project).first()
-        if project is None:
-            raise ProjectNotFound()
+        with session_scope()as session:
+            triggers = session.query(Trigger).filter(Trigger.spider_id==spider.id)
+            found = False
+            for trigger in triggers:
+                if trigger.cron_pattern == cron:
+                    found = True
+                    break
 
-        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
-        if spider is None:
-            raise SpiderNotFound()
-
-        triggers = session.query(Trigger).filter(Trigger.spider_id==spider.id)
-        found = False
-        for trigger in triggers:
-            if trigger.cron_pattern == cron:
-                found = True
-                break
-
-        if not found:
-            trigger = Trigger()
-            trigger.spider_id = spider.id
-            trigger.cron_pattern = cron
-            session.add(trigger)
-            session.commit()
-            self.add_job(trigger.id, cron)
-        session.close()
+            if not found:
+                trigger = Trigger()
+                trigger.spider_id = spider.id
+                trigger.cron_pattern = cron
+                session.add(trigger)
+                self.add_job(trigger.id, cron)
 
     def add_task(self, project_name, spider_name):
         session = Session()

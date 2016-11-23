@@ -20,5 +20,10 @@
     </div>
         <div><input type="submit" value="保存" /></div>
         </form>
+    {% if errormsg %}
+        <div>
+            <font style="color:red">{{errormsg}}</font>
+        </div>
+    {% end %}
 </body>
 </html>
