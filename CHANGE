@@ -1,3 +1,8 @@
+v0.4.11
+
+* fix: invalid cron error handling of creating trigger
+* fix: agent node expired exception not handled
+
 v0.4.10
 
 * server and client: ssl validation, support both CLIENT/SERVER validation
