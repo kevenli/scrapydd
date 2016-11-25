@@ -23,6 +23,12 @@ def generate_job_id():
 
 logger = logging.getLogger(__name__)
 
+JOB_STATUS_PENDING = 0
+JOB_STATUS_RUNNING = 1
+JOB_STATUS_SUCCESS = 2
+JOB_STATUS_FAIL = 3
+JOB_STATUS_WARNING = 4
+
 
 class SchedulerManager():
     def __init__(self, config=None, syncobj=None):
@@ -295,11 +301,17 @@ class SchedulerManager():
             historical_job.log_file = log_file
             import re
             items_crawled_pattern = re.compile("\'item_scraped_count\': (\d+),")
+            error_log_pattern = re.compile("\'log_count/ERROR\': (\d+),")
+            warning_log_pattern = re.compile("\'log_count/WARNING\': (\d+),")
             with open(log_file, 'r') as f:
                 log_content = f.read()
                 m = items_crawled_pattern.search(log_content)
                 if m:
                     historical_job.items_count = int(m.group(1))
+
+                m = error_log_pattern.search(log_content) or warning_log_pattern.search(log_content)
+                if m:
+                    historical_job.status = JOB_STATUS_WARNING
 
         if items_file:
             historical_job.items_file = items_file

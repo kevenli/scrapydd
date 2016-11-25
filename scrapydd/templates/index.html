@@ -3,6 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <title>Scrapydd</title>
+    <style>
+        td.success {
+            color:white;
+            background-color:green;
+        }
+        td.fail {
+            background-color:red;
+            color:#fff;
+        }
+        td.warning {
+            background-color:orange;
+            color:#fff;
+        }
+    </style>
 </head>
 <body>
     Welcome.
@@ -34,18 +48,15 @@
                         {% end %}
                     </td>
                 {% if spider.historical_jobs %}
-                    {% if spider.historical_jobs[0].status == 2 %}
-                        <td style="background-color:green; color:#fff">SUCCESS</td>
-                    {% else %}
-                        <td style="background-color:red; color:#fff">FAIL</td>
-                    {% end %}
+                    {% set job = spider.historical_jobs[0] %}
+                    <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
                 {% else %}
                     <td>
                     </td>
                 {% end %}
                     <td>
                         {% if spider.historical_jobs %}
-                            {{spider.historical_jobs[0].items_count}}
+                            {{spider.historical_jobs[0].items_count or ''}}
                         {% end %}
                     </td>
                     {% end %}
@@ -62,18 +73,15 @@
                                 {% end %}
                             </td>
                         {% if spider.historical_jobs %}
-                            {% if spider.historical_jobs[0].status == 2 %}
-                                <td style="background-color:green; color:#fff">SUCCESS</td>
-                            {% else %}
-                                <td style="background-color:red; color:#fff">FAIL</td>
-                            {% end %}
+                            {% set job = spider.historical_jobs[0] %}
+                            <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
                         {% else %}
                             <td>
                             </td>
                         {% end %}
                             <td>
                                 {% if spider.historical_jobs %}
-                                    {{spider.historical_jobs[0].items_count}}
+                                    {{spider.historical_jobs[0].items_count or ''}}
                                 {% end %}
                             </td>
                         </tr>
