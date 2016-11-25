@@ -44,6 +44,14 @@ class Trigger(Base):
 
 Spider.triggers = relationship("Trigger", order_by=Trigger.id)
 
+
+class JobStatus(Base):
+    __tablename__ = 'job_status'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(length=50), nullable=False)
+    desc = Column(String(length=200))
+
+
 class SpiderExecutionQueue(Base):
     __tablename__ = 'spider_execution_queue'
 
@@ -55,7 +63,8 @@ class SpiderExecutionQueue(Base):
     fire_time = Column(DateTime)
     start_time = Column(DateTime)
     node_id = Column(Integer)
-    status = Column(Integer, default=0)
+    status = Column(Integer, ForeignKey('job_status.id'), default=0)
+    status_obj = relationship('JobStatus')
     update_time = Column(DateTime)
     pid = Column(Integer)
 
@@ -79,7 +88,8 @@ class HistoricalJob(Base):
     fire_time = Column(DateTime)
     start_time = Column(DateTime)
     complete_time = Column(DateTime)
-    status = Column(Integer, default=0)
+    status = Column(Integer, ForeignKey('job_status.id'), default=0)
+    status_obj = relationship('JobStatus')
     log_file = Column(String(500))
     items_file = Column(String(500))
     items_count = Column(Integer)

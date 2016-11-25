@@ -3,6 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
+    <style>
+        td.success {
+            color:white;
+            background-color:green;
+        }
+        td.fail {
+            background-color:red;
+            color:#fff;
+        }
+        td.warning {
+            background-color:orange;
+            color:#fff;
+        }
+    </style>
 </head>
 <body>
     <div>
@@ -79,11 +93,7 @@
                     <td>
 
                     </td>
-                    {% if job.status == 0 %}
-                        <td style="">PENDING</td>
-                    {% else %}
-                        <td style="">RUNNING</td>
-                    {% end %}
+                    <td class="{{job.status_obj.name}}">PENDING</td>
                 </tr>
             {% end %}
             {% for job in jobs %}
@@ -97,11 +107,7 @@
                         <a href="/items/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.jl">{{job.items_count}}</a>
                         {% end %}
                     </td>
-                    {% if job.status == 2 %}
-                        <td style="background-color:green; color:#fff">SUCCESS</td>
-                    {% else %}
-                        <td style="background-color:red; color:#fff">FAIL</td>
-                    {% end %}
+                    <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
                 </tr>
             {% end %}
         </table>
