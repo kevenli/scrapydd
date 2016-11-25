@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
+import time
 
 
 class SuccessSpiderSpider(scrapy.Spider):
@@ -10,4 +11,5 @@ class SuccessSpiderSpider(scrapy.Spider):
     )
 
     def parse(self, response):
+        time.sleep(10)
         pass
