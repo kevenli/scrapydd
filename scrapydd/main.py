@@ -474,6 +474,7 @@ class JobStartHandler(tornado.web.RequestHandler):
 
     def post(self, jobid):
         pid = self.get_argument('pid')
+        pid = int(pid) if pid else None
         self.scheduler_manager.job_start(jobid, pid)
 
 

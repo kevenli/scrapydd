@@ -204,12 +204,13 @@ class Executor():
         executor = TaskExecutor(task, config=self.config)
         future, pid = executor.begin_execute()
         self.post_start_task(task, pid)
+        executor.on_subprocess_start = self.post_start_task
         self.ioloop.add_future(future, self.task_finished)
 
     @coroutine
     def post_start_task(self, task, pid):
         url = urlparse.urljoin(self.service_base, '/jobs/%s/start' % task.id)
-        post_data = urllib.urlencode({'pid':pid})
+        post_data = urllib.urlencode({'pid':pid or ''})
         try:
             request = HTTPRequest(url=url, method='POST', body=post_data)
             respones = yield self.httpclient.fetch(request)
@@ -314,6 +315,7 @@ class TaskExecutor():
         if not os.path.exists(eggs_dir):
             os.mkdir(eggs_dir)
         self.egg_storage = FilesystemEggStorage(scrapyd.config.Config(values={'eggs_dir': eggs_dir}))
+        self.on_subprocess_start = None
 
     def begin_execute(self):
         self.download_egg()
@@ -374,6 +376,9 @@ class TaskExecutor():
         env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.items_file))
         try:
             self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, cwd=self.workspace_dir, stderr=self._f_output)
+            if self.on_subprocess_start:
+                self.on_subprocess_start(self.task, self.p.pid)
+
         except Exception as e:
             return self.complete_with_error('Error when starting crawl subprocess : %s' % e)
         logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))

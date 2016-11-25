@@ -222,6 +222,9 @@ class SchedulerManager():
         for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.node_id==node_id, SpiderExecutionQueue.status == 1):
             job.status = 0
             job.update_time = datetime.datetime.now()
+            job.start_time = None
+            job.pid = None
+            job.node_id = None
             session.add(job)
         session.commit()
         session.close()
@@ -235,14 +238,16 @@ class SchedulerManager():
         return pending, running, finished
 
     def job_start(self, jobid, pid):
-        session = Session()
-        job = session.query(SpiderExecutionQueue).filter_by(id=jobid).first()
-        job.start_time = datetime.datetime.now()
-        job.update_time = datetime.datetime.now()
-        job.pid = pid
-        session.add(job)
-        session.commit()
-        session.close()
+        with session_scope() as session:
+            job = session.query(SpiderExecutionQueue).filter_by(id=jobid).first()
+            if job.start_time is None:
+                job.start_time = datetime.datetime.now()
+            job.update_time = datetime.datetime.now()
+            if job.pid is None and pid:
+                job.pid = pid
+            session.add(job)
+            session.commit()
+            session.close()
 
     def get_next_task(self, node_id):
         if not self.task_queue.empty():
