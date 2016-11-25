@@ -310,7 +310,7 @@ class SchedulerManager():
                     historical_job.items_count = int(m.group(1))
 
                 m = error_log_pattern.search(log_content) or warning_log_pattern.search(log_content)
-                if m:
+                if m and historical_job.status == JOB_STATUS_SUCCESS:
                     historical_job.status = JOB_STATUS_WARNING
 
         if items_file:
