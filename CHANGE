@@ -1,3 +1,8 @@
+v0.4.12
+
+* fix: job's pid not updated.
+* server: job status as WARNING when error/warning in log.
+
 v0.4.11
 
 * fix: invalid cron error handling of creating trigger
