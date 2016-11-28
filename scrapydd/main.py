@@ -73,6 +73,16 @@ class UploadProject(tornado.web.RequestHandler):
                                 "output": e.detail,
                             })
             return
+        except ProcessFailed as e:
+            logger.error('Error when uploading project, %s, %s' % (e.message, e.std_output))
+            self.set_status(400, reason=e.message)
+            self.finish("<html><title>%(code)d: %(message)s</title>"
+                            "<body><pre>%(output)s</pre></body></html>" % {
+                                "code": 400,
+                                "message": e.message,
+                                "output": e.std_output,
+                            })
+            return
         finally:
             workspace.clearup()
 
@@ -453,7 +463,8 @@ class LogsHandler(tornado.web.RequestHandler):
     def get(self, project, spider, jobid):
         with session_scope() as session:
             job = session.query(HistoricalJob).filter_by(id=jobid).first()
-            with open(job.log_file, 'r') as f:
+            log_file = job.log_file
+            with open(log_file, 'r') as f:
                 log = f.read()
             loader = get_template_loader()
             self.write(loader.load("log.html").generate(log=log))
