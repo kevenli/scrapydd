@@ -20,6 +20,7 @@ from tornado import gen
 from workspace import ProjectWorkspace
 import tempfile
 import shutil
+from exceptions import *
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,11 @@ class Executor():
 
     def execute_task(self, task):
         executor = TaskExecutor(task, config=self.config)
-        future, pid = executor.begin_execute()
+
+        #future, pid = executor.begin_execute()
+        future = executor.future
+        pid = None
+        executor.execute()
         self.post_start_task(task, pid)
         executor.on_subprocess_start = self.post_start_task
         self.ioloop.add_future(future, self.task_finished)
@@ -307,8 +312,6 @@ class TaskExecutor():
             os.makedirs(self.workspace_dir)
         self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
         self._f_output = open(self.output_file, 'w')
-        self.p_test_egg_requirements = None
-        self.p_test_egg_requirements_callback = PeriodicCallback(self.test_egg_requirements_check, 1*1000)
         self.check_process_callback = PeriodicCallback(self.check_process, 1000)
 
         eggs_dir = os.path.join(self.workspace_dir, 'eggs')
@@ -317,24 +320,32 @@ class TaskExecutor():
         self.egg_storage = FilesystemEggStorage(scrapyd.config.Config(values={'eggs_dir': eggs_dir}))
         self.on_subprocess_start = None
 
-    def begin_execute(self):
-        self.download_egg()
-        return self.future, None
-
     @gen.coroutine
     def execute(self):
-        workspace = ProjectWorkspace(self.task.project_name)
-        logger.debug('begin download egg.')
-        egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
-        request = HTTPRequest(egg_request_url)
-        client = AsyncHTTPClient()
-        response = yield client.fetch(request, callback=self.download_egg_done)
-        self.egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
-        logger.debug('download egg done.')
-        requirements = workspace.find_project_requirements()
-
-        yield workspace.pip_install(requirements)
-        self.execute_subprocess()
+        try:
+            workspace = ProjectWorkspace(self.task.project_name)
+            yield workspace.init()
+            logger.debug('begin download egg.')
+            egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
+            request = HTTPRequest(egg_request_url)
+            client = AsyncHTTPClient()
+            response = yield client.fetch(request)
+            self.egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
+            logger.debug('download egg done.')
+            requirements = workspace.find_project_requirements(self.task.project_name, egg_storage=self.egg_storage)
+            yield workspace.pip_install(requirements)
+            self.execute_subprocess()
+        except ProcessFailed as e:
+            logger.error(e)
+            error_log = e.message
+            if e.std_output:
+                logger.error(e.std_output)
+                error_log += e.std_output
+            self.complete_with_error(error_log)
+        except Exception as e:
+            logger.error(e)
+            error_log = e.message
+            self.complete_with_error(error_log)
 
     def check_process(self):
         execute_result = self.p.poll()
@@ -342,25 +353,6 @@ class TaskExecutor():
         if execute_result is not None:
             logger.info('task complete')
             self.complete(execute_result)
-
-    def download_egg(self):
-        logger.debug('begin download egg.')
-        egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
-        request = HTTPRequest(egg_request_url)
-        client = AsyncHTTPClient()
-        client.fetch(request, callback=self.download_egg_done)
-
-    def download_egg_done(self, response):
-        '''
-        :type response: tornado.webclient.HTTPResponse
-        :return:
-        '''
-        if response.error:
-            return self.complete_with_error("Error when retrieving egg : %s" % response.error)
-
-        self.egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
-        logger.debug('download egg done.')
-        self.test_egg_requirements(self.task.project_name)
 
     def execute_subprocess(self):
         # init items file
@@ -384,33 +376,6 @@ class TaskExecutor():
         logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
 
         self.check_process_callback.start()
-
-    def test_egg_requirements(self, project):
-        logger.debug('enter test_egg')
-        workspace = ProjectWorkspace(project)
-        try:
-            requirements = workspace.find_project_requirements(project, egg_storage=self.egg_storage)
-            requirements += ['scrapyd']
-            def after_workspace_init(future):
-                def callback(future):
-                    self.execute_subprocess()
-
-                workspace.pip_install(requirements).add_done_callback(callback)
-            workspace.init().add_done_callback(after_workspace_init)
-            logger.debug('Begin test requirements.')
-        except Exception as e:
-            self.complete_with_error('Error when creating virtualenv: %s' % e)
-
-    def test_egg_requirements_check(self):
-        ret_code = self.p_test_egg_requirements.poll()
-        logger.debug('check egg requirements process')
-        if ret_code is not None:
-            self.p_test_egg_requirements_callback.stop()
-            if ret_code == 0:
-                logger.info('requirements satisfied.')
-                self.execute_subprocess()
-            else:
-                self.complete_with_error('Error when install requirements.')
 
     def complete(self, ret_code):
         self._f_output.close()

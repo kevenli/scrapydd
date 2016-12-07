@@ -48,7 +48,7 @@ class ProjectWorkspace(object):
             return future
 
         try:
-            process = Popen(['virtualenv', '--system-site-packages', self.project_workspace_dir])
+            process = Popen(['virtualenv', '--system-site-packages', self.project_workspace_dir], stdout=PIPE, stderr=PIPE)
         except Exception as e:
             future.set_exception(e)
             return future
@@ -59,7 +59,9 @@ class ProjectWorkspace(object):
                 if retcode == 0:
                     future.set_result(self)
                 else:
-                    future.set_exception(Exception('Error when init workspace virtualenv '))
+                    std_output = process.stdout.read()
+                    err_output = process.stderr.read()
+                    future.set_exception(ProcessFailed('Error when init workspace virtualenv ', std_output=std_output, err_output=err_output))
                 return
             IOLoop.current().call_later(1, check_process)
 
@@ -144,6 +146,7 @@ class ProjectWorkspace(object):
 
 
     def pip_install(self, requirements):
+        logger.debug('installing requirements: %s' % requirements)
         future = Future()
         try:
             process = Popen([self.pip, 'install'] + requirements, stdout=PIPE, stderr=PIPE)
@@ -157,7 +160,9 @@ class ProjectWorkspace(object):
                 if retcode == 0:
                     future.set_result(self)
                 else:
-                    future.set_exception(RuntimeError('Error when init workspace virtualenv '))
+                    std_out = process.stdout.read()
+                    err_out = process.stderr.read()
+                    future.set_exception(ProcessFailed(std_output=std_out, err_output=err_out))
                 return
             IOLoop.current().call_later(1, check_process)
 

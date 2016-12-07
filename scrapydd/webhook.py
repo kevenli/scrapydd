@@ -141,6 +141,7 @@ class WebhookJobExecutor():
     def finish_job(self):
         if self.item_file:
             self.item_file.close()
+        os.remove(self.job.items_file)
         self.future.set_result(self.job)
 
     def schedule_next_send(self, future=None):
@@ -197,7 +198,7 @@ class WebhookDaemon():
     def on_spider_complete(self, job, items_file):
         with session_scope() as session:
             webhook = session.query(SpiderWebhook).filter_by(id = job.spider_id).first()
-            task_items_file = os.path.join(self.queue_file_dir, os.path.basename(items_file))
-            shutil.copy(items_file, task_items_file)
-            if webhook:
+            if webhook and webhook.payload_url:
+                task_items_file = os.path.join(self.queue_file_dir, os.path.basename(items_file))
+                shutil.copy(items_file, task_items_file)
                 self.storage.add_job(job.id, webhook.payload_url, task_items_file)

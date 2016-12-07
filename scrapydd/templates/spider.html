@@ -93,7 +93,7 @@
                     <td>
 
                     </td>
-                    <td class="{{job.status_obj.name}}">PENDING</td>
+                    <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
                 </tr>
             {% end %}
             {% for job in jobs %}
