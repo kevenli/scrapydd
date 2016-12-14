@@ -207,6 +207,7 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
         context = {}
         context['spider'] = spider
+        context['project'] = project
         context['jobs'] = jobs
         context['webhook'] = webhook
         context['running_jobs'] = running_jobs
