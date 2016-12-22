@@ -213,3 +213,6 @@ class ProjectWorkspace(object):
     def delete_egg(self, project, version=None):
         logger.info('deleting project eggs')
         return self.egg_storage.delete(project, version)
+
+    def list_versions(self, project):
+        return self.egg_storage.list(project)

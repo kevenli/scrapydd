@@ -207,6 +207,7 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
         context = {}
         context['spider'] = spider
+        context['project'] = project
         context['jobs'] = jobs
         context['webhook'] = webhook
         context['running_jobs'] = running_jobs
@@ -597,6 +598,17 @@ class CACertHandler(tornado.web.RequestHandler):
         self.set_header('Content-Type', 'application/cert')
 
 
+class ListProjectVersionsHandler(tornado.web.RequestHandler):
+    def get(self):
+        try:
+            project = self.get_argument('project')
+        except tornado.web.MissingArgumentError as e:
+            return self.write({'status': 'error', 'message': e.arg_name})
+
+        workspace = ProjectWorkspace(project)
+        versions = workspace.list_versions(project)
+        return self.write({'status':'ok', 'versions': versions})
+
 
 def make_app(scheduler_manager, node_manager, webhook_daemon):
     '''
@@ -612,6 +624,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/uploadproject', UploadProject),
         (r'/addversion.json', UploadProject),
         (r'/delproject.json', DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/listversions.json', ListProjectVersionsHandler),
         (r'/schedule.json', ScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/add_schedule.json', AddScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects', ProjectList),
