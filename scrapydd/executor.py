@@ -10,7 +10,6 @@ import subprocess
 import os
 import urlparse
 import logging
-import time
 from config import AgentConfig
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
 from stream import MultipartRequestBodyProducer
@@ -46,6 +45,7 @@ class SpiderTask():
 
 class TaskSlotContainer():
     def __init__(self, max_size=1):
+        self._max_size = max_size
         self.slots = [None] * max_size
 
     def is_full(self):
@@ -73,10 +73,13 @@ class TaskSlotContainer():
             if item is not None:
                 yield item
 
+    @property
+    def max_size(self):
+        return self._max_size
+
 class Executor():
     heartbeat_interval = 10
     checktask_interval = 10
-    task_queue = Queue()
 
     def __init__(self, config=None):
         self.ioloop = IOLoop.current()
@@ -203,11 +206,8 @@ class Executor():
 
     def execute_task(self, task):
         executor = TaskExecutor(task, config=self.config)
-
-        #future, pid = executor.begin_execute()
-        future = executor.future
         pid = None
-        executor.execute()
+        future = executor.execute()
         self.post_start_task(task, pid)
         executor.on_subprocess_start = self.post_start_task
         self.ioloop.add_future(future, self.task_finished)
@@ -274,7 +274,6 @@ class Executor():
 
             if response.error:
                 logger.warning('Error when post task complete request: %s' % response.error)
-            task_executor.clear()
             self.task_slots.remove_task(task_executor.task)
             logger.debug('complete_task_done')
         return complete_task_done_f
@@ -287,6 +286,18 @@ class Executor():
         if not self.task_slots.is_full():
             self.get_next_task()
 
+class TaskExecuteResult():
+    task = None
+    output_file = None
+    items_file = None
+    ret_code = None
+    executor = None
+
+    def __init__(self, task, log_file, items_file, ret_code):
+        self.task = task
+        self.output_file = log_file
+        self.items_file = items_file
+        self.ret_code = ret_code
 
 class TaskExecutor():
     def __init__(self, task, config=None):
@@ -302,7 +313,6 @@ class TaskExecutor():
             self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
         self._f_output = None
         self.output_file = None
-        self.future = Future()
         self.p = None
         self.check_process_callback = None
         self.items_file = None
@@ -334,18 +344,19 @@ class TaskExecutor():
             logger.debug('download egg done.')
             requirements = workspace.find_project_requirements(self.task.project_name, egg_storage=self.egg_storage)
             yield workspace.pip_install(requirements)
-            self.execute_subprocess()
+            result = yield self.execute_subprocess()
         except ProcessFailed as e:
             logger.error(e)
             error_log = e.message
             if e.std_output:
                 logger.error(e.std_output)
                 error_log += e.std_output
-            self.complete_with_error(error_log)
+            result = self.complete_with_error(error_log)
         except Exception as e:
             logger.error(e)
             error_log = e.message
-            self.complete_with_error(error_log)
+            result = self.complete_with_error(error_log)
+        raise gen.Return(result)
 
     def check_process(self):
         execute_result = self.p.poll()
@@ -355,6 +366,7 @@ class TaskExecutor():
             self.complete(execute_result)
 
     def execute_subprocess(self):
+        future = Future()
         # init items file
         workspace = ProjectWorkspace(self.task.project_name)
         self.items_file = os.path.join(self.workspace_dir, '%s.%s' % (self.task.id, 'jl'))
@@ -375,27 +387,38 @@ class TaskExecutor():
             return self.complete_with_error('Error when starting crawl subprocess : %s' % e)
         logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
 
+        def check_process():
+            execute_result = self.p.poll()
+            logger.debug('check process')
+            if execute_result is not None:
+                logger.info('task complete')
+                future.set_result(self.complete(execute_result))
+
+        self.check_process_callback = PeriodicCallback(check_process, 1*1000)
         self.check_process_callback.start()
+        return future
+
+    def result(self):
+        return self
 
     def complete(self, ret_code):
         self._f_output.close()
         self.ret_code = ret_code
         self.check_process_callback.stop()
-        self.egg_storage.delete(self.task.project_name)
-        self.future.set_result(self)
+        self.check_process_callback = None
+        return self.result()
 
     def complete_with_error(self, error_message):
         logger.error(error_message)
         self._f_output.write(error_message)
         self._f_output.close()
         self.ret_code = 1
-        try:
-            self.egg_storage.delete(self.task.project_name)
-        except Exception as e:
-            logger.warning('Error when removing project eggs. %s' % e)
-        self.future.set_result(self)
+        return self.result()
 
-    def clear(self):
-        shutil.rmtree(self.workspace_dir)
+    def __del__(self):
+        logger.debug('delete task executor for task %s' % self.task.id)
+        if self.workspace_dir and os.path.exists(self.workspace_dir):
+            shutil.rmtree(self.workspace_dir)
+
 
 
