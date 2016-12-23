@@ -1,3 +1,7 @@
+v0.4.15:
+
+* fix: new trigger will to fire job starting
+
 v0.4.14:
 
 * fix: TaskExecutor memory leap
