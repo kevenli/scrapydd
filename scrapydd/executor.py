@@ -1,5 +1,4 @@
 from tornado.ioloop import IOLoop, PeriodicCallback
-from tornado.queues import Queue
 from tornado.concurrent import Future
 from tornado.gen import coroutine
 import urllib2, urllib
@@ -102,9 +101,6 @@ class Executor():
 
 
     def start(self):
-        logger.info('------------------------')
-        logger.info('Starting scrapydd agent.')
-        logger.info('------------------------')
         self.register_node()
         #init heartbeat period callback
         heartbeat_callback = PeriodicCallback(self.send_heartbeat, self.heartbeat_interval*1000)
@@ -115,6 +111,23 @@ class Executor():
         # so do not start this period method. But if server is an old version without that header info
         # client sill need to poll GET_TASK.
         self.checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval*1000)
+
+        # code for debuging memory leak
+        # import objgraph
+        # def check_memory():
+        #     logger.debug('Checking memory.')
+        #     logger.debug(objgraph.by_type('SpiderTask'))
+        #     logger.debug(objgraph.by_type('TaskExecutor'))
+        #     logger.debug(objgraph.by_type('Future'))
+        #     logger.debug(objgraph.by_type('PeriodicCallback'))
+        #     future_objs = objgraph.by_type('Future')
+        #     if future_objs:
+        #         objgraph.show_chain(
+        #             objgraph.find_backref_chain(future_objs[-1], objgraph.is_proper_module),
+        #             filename='chain.png'
+        #         )
+        # self.check_memory_callback = PeriodicCallback(check_memory, 1*1000)
+        # self.check_memory_callback.start()
 
         self.ioloop.start()
 
@@ -191,8 +204,8 @@ class Executor():
             response = yield self.httpclient.fetch(request)
             response_content = response.body
             response_data = json.loads(response_content)
-            logging.debug(url)
-            logging.debug(response_content)
+            logger.debug(url)
+            logger.debug(response_content)
             if response_data['data'] is not None:
                 task = SpiderTask()
                 task.id = response_data['data']['task']['task_id']
@@ -322,7 +335,6 @@ class TaskExecutor():
             os.makedirs(self.workspace_dir)
         self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
         self._f_output = open(self.output_file, 'w')
-        self.check_process_callback = PeriodicCallback(self.check_process, 1000)
 
         eggs_dir = os.path.join(self.workspace_dir, 'eggs')
         if not os.path.exists(eggs_dir):

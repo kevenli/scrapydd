@@ -13,6 +13,7 @@ class Config(object):
     methods, and also tied to a single section"""
 
     SECTION = 'server'
+    _loaded_files = []
 
     def __init__(self, values=None, extra_sources=()):
         if values is None:
@@ -26,7 +27,8 @@ class Config(object):
             default_config_stream.seek(0, os.SEEK_SET)
             self.cp = SafeConfigParser()
             self.cp.readfp(default_config_stream)
-            self.cp.read(self._getsources())
+            for loaded_file in self.cp.read(self._getsources()):
+                self._loaded_files.append(os.path.abspath(loaded_file))
         else:
             self.cp = SafeConfigParser(values)
             self.cp.add_section(self.SECTION)
