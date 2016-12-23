@@ -94,7 +94,7 @@ class SchedulerManager():
                 for task in tasks_to_run:
                     self.task_queue.put(task)
 
-    def add_job(self, trigger_id, cron):
+    def build_cron_trigger(self, cron):
         cron_parts = cron.split(' ')
         if len(cron_parts) != 5:
             raise InvalidCronExpression()
@@ -106,8 +106,14 @@ class SchedulerManager():
                                       month=cron_parts[3],
                                       day_of_week=cron_parts[4],
                                       )
+            return crontrigger
         except ValueError:
             raise InvalidCronExpression()
+
+    def add_job(self, trigger_id, cron):
+        logger.debug('adding trigger %s %s' % (trigger_id, cron))
+        crontrigger = self.build_cron_trigger(cron)
+
 
         job = self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger, kwargs={'trigger_id': trigger_id},
                                id=str(trigger_id), replace_existing=True)
@@ -126,21 +132,7 @@ class SchedulerManager():
             trigger = session.query(Trigger).filter_by(id = trigger_id).first()
             if trigger is None:
                 return
-            cron = trigger.cron_pattern
-            cron_parts = cron.split(' ')
-            if len(cron_parts) != 5:
-                raise InvalidCronExpression()
-
-            try:
-                crontrigger = CronTrigger(minute=cron_parts[0],
-                                          hour=cron_parts[1],
-                                          day=cron_parts[2],
-                                          month=cron_parts[3],
-                                          day_of_week=cron_parts[4],
-                                          )
-            except ValueError:
-                raise InvalidCronExpression()
-
+            crontrigger = self.build_cron_trigger(trigger.cron_pattern)
             job = self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger,
                                          kwargs={'trigger_id': trigger_id},
                                          id=str(trigger_id), replace_existing=True)
@@ -148,6 +140,9 @@ class SchedulerManager():
     def trigger_fired(self, trigger_id):
         with session_scope() as session:
             trigger = session.query(Trigger).filter_by(id=trigger_id).first()
+            if not trigger:
+                logger.error('Trigger %s not found.' % trigger_id)
+                return
             spider = session.query(Spider).filter_by(id=trigger.spider_id).first()
             project = session.query(Project).filter_by(id=spider.project_id).first()
             executing = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id == spider.id, SpiderExecutionQueue.status.in_([0,1]))
@@ -186,10 +181,13 @@ class SchedulerManager():
                     break
 
             if not found:
+                # create a cron_trigger for just validating
+                cron_trigger = self.build_cron_trigger(cron)
                 trigger = Trigger()
                 trigger.spider_id = spider.id
                 trigger.cron_pattern = cron
                 session.add(trigger)
+                session.commit()
                 self.add_job(trigger.id, cron)
 
     def add_task(self, project_name, spider_name):
