@@ -1,3 +1,7 @@
+v0.4.16:
+
+* fix: agent posting complete request sometimes timeout, timeout time to 60 secs
+
 v0.4.15:
 
 * fix: new trigger will to fire job starting

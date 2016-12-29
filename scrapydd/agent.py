@@ -8,6 +8,7 @@ from config import AgentConfig
 from optparse import OptionParser
 import subprocess
 import tornado
+import scrapydd
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ class Daemon():
         tornado.ioloop.IOLoop.instance().stop()
 
     def start(self):
+        print 'Starting scrapydd agent daemon.'
         signal.signal(signal.SIGINT, self.on_signal)
         signal.signal(signal.SIGTERM, self.on_signal)
         daemonize(pidfile=self.pidfile)
@@ -89,6 +91,11 @@ default: scrapydd-agent.pid')
 def start():
     config = AgentConfig()
     init_logging(config)
+    logging.info('------------------------')
+    logging.info('Starting scrapydd agent.')
+    logging.info('config %s loaded' % config._loaded_files)
+    logging.info('scrapydd version : %s' % scrapydd.__version__)
+    logging.info('------------------------')
     executor = Executor(config)
     executor.start()
 
