@@ -258,7 +258,7 @@ class Executor():
         logger.debug(post_data)
         datagen, headers = multipart_encode(post_data)
         headers['X-DD-Nodeid'] = str(self.node_id)
-        request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
+        request = HTTPRequest(url, method='POST', headers=headers, request_timeout=60, body_producer=MultipartRequestBodyProducer(datagen))
         client = self.httpclient
         future = client.fetch(request, raise_error=False)
         self.ioloop.add_future(future, self.complete_task_done(task_executor, log_file, items_file))
