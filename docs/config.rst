@@ -47,6 +47,10 @@ slots
 ~~~~~~~~
 How many concurrent jobs the agent would run. Default: ``1``
 
+request_timeout
+~~~~~~~~~~~~~~~~
+Request timeout in seconds when communicating to server. Default: ``60``
+
 
 Example
 --------

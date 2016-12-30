@@ -97,7 +97,15 @@ class Executor():
         client_cert = config.get('client_cert') or None
         client_key = config.get('client_key') or None
 
-        self.httpclient = AsyncHTTPClient(defaults=dict(validate_cert=True, ca_certs='keys/ca.crt', client_cert=client_cert, client_key=client_key))
+        httpclient_defaults = {
+            'validate_cert': True,
+            'ca_certs' : 'keys/ca.crt',
+            'client_cert' : client_cert,
+            'client_key' : client_key,
+            'request_timeout': config.getfloat('request_timeout', 60)
+        }
+        logger.debug(httpclient_defaults)
+        self.httpclient = AsyncHTTPClient(defaults=httpclient_defaults)
 
 
     def start(self):
@@ -258,7 +266,7 @@ class Executor():
         logger.debug(post_data)
         datagen, headers = multipart_encode(post_data)
         headers['X-DD-Nodeid'] = str(self.node_id)
-        request = HTTPRequest(url, method='POST', headers=headers, request_timeout=60, body_producer=MultipartRequestBodyProducer(datagen))
+        request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
         client = self.httpclient
         future = client.fetch(request, raise_error=False)
         self.ioloop.add_future(future, self.complete_task_done(task_executor, log_file, items_file))
