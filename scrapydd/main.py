@@ -148,6 +148,10 @@ class AddScheduleHandler(tornado.web.RequestHandler):
         project = self.get_argument('project')
         spider = self.get_argument('spider')
         cron = self.get_argument('cron')
+
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
         try:
             self.scheduler_manager.add_schedule(project, spider, cron)
             response_data = {
