@@ -31,6 +31,7 @@ from workspace import ProjectWorkspace
 from scrapydd.cluster import ClusterNode
 from scrapydd.ssl_gen import SSLCertificateGenerator
 import ssl
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -443,7 +444,10 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
             self.node_manager.heartbeat(node_id)
             running_jobs = self.request.headers.get('X-DD-RunningJobs', None)
             if running_jobs:
-                self.scheduler_manager.jobs_running(node_id, running_jobs.split(','))
+                killing_jobs = list(self.scheduler_manager.jobs_running(node_id,running_jobs.split(',')))
+                if killing_jobs:
+                    logger.info('killing %s' % killing_jobs)
+                    self.set_header('X-DD-KillJobs', json.dumps(killing_jobs))
             response_data = {'status':'ok'}
         except NodeExpired:
             response_data = {'status': 'error', 'errmsg': 'Node expired'}
@@ -562,37 +566,54 @@ class DeleteProjectHandler(tornado.web.RequestHandler):
 
 
 class SpiderSettingsHandler(tornado.web.RequestHandler):
+    available_settings = {
+        'concurrency': '\d+',
+        'timeout': '\d+',
+    }
+
     def get(self, project, spider):
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project).first()
             spider = session.query(Spider).filter_by(project_id = project.id, name=spider).first()
-            #settings = session.query(SpiderSettings).filter_by(spider_id = spider.id)
-            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id = spider.id, setting_key='concurrency').first()
-            if not concurrency_setting:
-                concurrency_setting = SpiderSettings()
-                concurrency_setting.setting_key = 'concurrency_setting'
-                concurrency_setting.value = 1
+            job_settings = {setting.setting_key:setting.value for setting in session.query(SpiderSettings).filter_by(spider_id = spider.id)}
+
+            # default setting values
+            if 'concurrency' not in job_settings:
+                job_settings['concurrency'] = 1
+            if 'timeout' not in job_settings:
+                job_settings['timeout'] = 3600
             template = get_template_loader().load('spidersettings.html')
             context = {}
-            context['settings'] = {'concurrency': concurrency_setting}
+            context['settings'] = job_settings
             context['project'] = project
             context['spider'] = spider
 
             return self.write(template.generate(**context))
 
     def post(self, project, spider):
-        concurrency = int(self.get_argument('concurrency'))
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project).first()
             spider = session.query(Spider).filter_by(project_id = project.id, name=spider).first()
 
-            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id = spider.id, setting_key='concurrency').first()
-            if not concurrency_setting:
-                concurrency_setting = SpiderSettings()
-                concurrency_setting.spider_id = spider.id
-                concurrency_setting.setting_key = 'concurrency'
-            concurrency_setting.value = concurrency
-            session.add(concurrency_setting)
+            for argument, values in self.request.arguments.items():
+                value = values[0].strip()
+
+                if argument in self.available_settings and re.match(self.available_settings[argument], value):
+                    setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                      setting_key=argument).first()
+                    if value:
+                        # value is configured, save it
+                        if not setting:
+                            setting = SpiderSettings()
+                            setting.spider_id = spider.id
+                            setting.setting_key = argument
+                        setting.value = value
+                        session.add(setting)
+                    else:
+                        # no value specficed , delete it
+                        session.delete(setting)
+                else:
+                    raise Exception('Invalid setting')
             self.redirect('/projects/%s/spiders/%s' % (project.name, spider.name))
 
 
