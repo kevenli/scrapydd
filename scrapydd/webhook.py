@@ -4,7 +4,7 @@ import urllib
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 import logging
 from tornado.concurrent import Future
-from models import Session, WebhookJob, SpiderWebhook, session_scope
+from models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSettings
 import os, os.path, shutil
 
 logger = logging.getLogger(__name__)
@@ -197,8 +197,9 @@ class WebhookDaemon():
 
     def on_spider_complete(self, job, items_file):
         with session_scope() as session:
-            webhook = session.query(SpiderWebhook).filter_by(id = job.spider_id).first()
-            if webhook and webhook.payload_url:
+            webhook_setting = session.query(SpiderSettings).filter_by(spider_id = job.spider_id, setting_key='webhook_payload').first()
+            if webhook_setting and webhook_setting.value:
+                webhook_payload_url = webhook_setting.value
                 task_items_file = os.path.join(self.queue_file_dir, os.path.basename(items_file))
                 shutil.copy(items_file, task_items_file)
-                self.storage.add_job(job.id, webhook.payload_url, task_items_file)
+                self.storage.add_job(job.id, webhook_payload_url, task_items_file)

@@ -209,12 +209,10 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
             .filter(SpiderExecutionQueue.spider_id == spider.id)\
             .order_by(desc(SpiderExecutionQueue.update_time))
 
-        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
         context = {}
         context['spider'] = spider
         context['project'] = project
         context['jobs'] = jobs
-        context['webhook'] = webhook
         context['running_jobs'] = running_jobs
         context['settings'] = session.query(SpiderSettings).filter_by(spider_id = spider.id).order_by(SpiderSettings.setting_key)
         loader = get_template_loader()
@@ -503,37 +501,38 @@ class SpiderWebhookHandler(tornado.web.RequestHandler):
         session = Session()
         project = session.query(Project).filter(Project.name == project_name).first()
         spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
-
-        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
-        self.write(webhook.payload_url)
+        webhook_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                  setting_key='webhook_payload').first()
+        if webhook_setting:
+            self.write(webhook_setting.value)
 
     def post(self, project_name, spider_name):
         payload_url = self.get_argument('payload_url')
-        session = Session()
-        project = session.query(Project).filter(Project.name == project_name).first()
-        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project_name).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+            webhook_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                      setting_key='webhook_payload').first()
+            if webhook_setting is None:
+                # no existing row
+                webhook_setting = SpiderSettings()
+                webhook_setting.spider_id = spider.id
+                webhook_setting.setting_key = 'webhook_payload'
 
-        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
-        if webhook is None:
-            webhook = SpiderWebhook()
-            webhook.payload_url = payload_url
-            webhook.id = spider.id
-        else:
-            webhook.payload_url = payload_url
-        session.add(webhook)
-        session.commit()
-        session.close()
+            webhook_setting.value = payload_url
+            session.add(webhook_setting)
+            session.commit()
 
     def put(self, project_name, spider_name):
         self.post(project_name, spider_name)
 
     def delete(self, project_name, spider_name):
-        session = Session()
-        project = session.query(Project).filter(Project.name == project_name).first()
-        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
-        session.query(SpiderWebhook).filter_by(id=spider.id).delete()
-        session.commit()
-        session.close()
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project_name).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+            session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='webhook_payload').delete()
+            session.commit()
+
 
 class DeleteProjectHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):
@@ -569,6 +568,7 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
     available_settings = {
         'concurrency': '\d+',
         'timeout': '\d+',
+        'webhook_payload': '.*',
     }
 
     def get(self, project, spider):
