@@ -46,7 +46,7 @@ class SchedulerManager():
         self.ioloop = IOLoop.instance()
         self.poll_task_queue_callback = PeriodicCallback(self.poll_task_queue, self.pool_task_queue_interval * 1000)
         self.clear_finished_jobs_callback = PeriodicCallback(self.clear_finished_jobs, 60*1000)
-        self.reset_timeout_job_callback = PeriodicCallback(self.reset_timeout_job, 60*1000)
+        self.reset_timeout_job_callback = PeriodicCallback(self.reset_timeout_job, 10*1000)
 
         self.sync_obj = syncobj
         if syncobj is not None:
@@ -273,14 +273,29 @@ class SchedulerManager():
         return not self.task_queue.empty()
 
     def jobs_running(self, node_id, job_ids):
-        session = Session()
-        for job_id in job_ids:
-            job = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == job_id, SpiderExecutionQueue.status==1).first()
-            if job:
-                job.update_time = datetime.datetime.now()
-                session.add(job)
-        session.commit()
-        session.close()
+        '''
+
+        :param node_id:
+        :param job_ids:
+        :return:(job_id) to kill
+        '''
+        with session_scope() as session:
+            for job_id in job_ids:
+                job = session.query(SpiderExecutionQueue).filter(
+                    SpiderExecutionQueue.id == job_id).first()
+
+                if job:
+                    if job.node_id is None:
+                        job.node_id = node_id
+                    if job.node_id != node_id or \
+                        job.status != 1:
+                        yield job.id
+                    else:
+                        job.update_time = datetime.datetime.now()
+                        session.add(job)
+                else:
+                    yield job_id
+            session.commit()
 
     def job_finished(self, job, log_file=None, items_file=None):
         session = Session()
@@ -349,14 +364,35 @@ class SchedulerManager():
     def reset_timeout_job(self):
         with session_scope() as session:
             timeout_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
-            for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.update_time < timeout_time,
-                                                                  SpiderExecutionQueue.status == 1):
-                job.status = 0
-                job.pid = None
-                job.node_id = None
-                job.update_time = datetime.datetime.now()
-                session.add(job)
-                logging.info('Job %s is timeout, reseting.' % job.id)
+            for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 1):
+                spider = session.query(Spider).filter_by(id=job.spider_id).first()
+                job_timeout_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                              setting_key='timeout').first()
+                job_timeout = int(job_timeout_setting.value) if job_timeout_setting else 3600
+                logger.debug((job.update_time - job.start_time).seconds)
+                if job.update_time < timeout_time:
+                    # job is not refresh as expected, node might be died, reset the status to PENDING
+                    job.status = 0
+                    job.pid = None
+                    job.node_id = None
+                    job.update_time = datetime.datetime.now()
+                    session.add(job)
+                    logger.info('Job %s is timeout, reseting.' % job.id)
+                elif (job.update_time - job.start_time).seconds > job_timeout:
+                    # job is running too long, should be killed
+
+                    historical_job = HistoricalJob()
+                    historical_job.id = job.id
+                    historical_job.spider_id = job.spider_id
+                    historical_job.project_name = job.project_name
+                    historical_job.spider_name = job.spider_name
+                    historical_job.fire_time = job.fire_time
+                    historical_job.start_time = job.start_time
+                    historical_job.complete_time = job.update_time
+                    historical_job.status = 3
+                    session.delete(job)
+                    session.add(historical_job)
+                    logger.info('Job %s is timeout, killed.' % job.id)
             session.commit()
 
     def _remove_histical_job(self, job):

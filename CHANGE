@@ -1,3 +1,10 @@
+v0.4.17:
+
+* agent: add configuration request_timeout
+* fix: add_schedule.json occurs issue
+* server & agent: kill process when job is timeout
+* move webhook setting to spider settings
+
 v0.4.16:
 
 * fix: agent posting complete request sometimes timeout, timeout time to 60 secs

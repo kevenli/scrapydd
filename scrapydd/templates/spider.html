@@ -52,12 +52,6 @@
 
         </div>
     </div>
-    {% if webhook %}
-        <div>
-            <label>Webhook:</label>
-            <div><pre>{{ webhook.payload_url }}</pre></div>
-        </div>
-    {% end %}
     <div>
         <a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/settings">Settings</a>
         <table>

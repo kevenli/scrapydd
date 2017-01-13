@@ -31,6 +31,7 @@ from workspace import ProjectWorkspace
 from scrapydd.cluster import ClusterNode
 from scrapydd.ssl_gen import SSLCertificateGenerator
 import ssl
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +149,10 @@ class AddScheduleHandler(tornado.web.RequestHandler):
         project = self.get_argument('project')
         spider = self.get_argument('spider')
         cron = self.get_argument('cron')
+
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
         try:
             self.scheduler_manager.add_schedule(project, spider, cron)
             response_data = {
@@ -204,12 +209,10 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
             .filter(SpiderExecutionQueue.spider_id == spider.id)\
             .order_by(desc(SpiderExecutionQueue.update_time))
 
-        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
         context = {}
         context['spider'] = spider
         context['project'] = project
         context['jobs'] = jobs
-        context['webhook'] = webhook
         context['running_jobs'] = running_jobs
         context['settings'] = session.query(SpiderSettings).filter_by(spider_id = spider.id).order_by(SpiderSettings.setting_key)
         loader = get_template_loader()
@@ -439,7 +442,10 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
             self.node_manager.heartbeat(node_id)
             running_jobs = self.request.headers.get('X-DD-RunningJobs', None)
             if running_jobs:
-                self.scheduler_manager.jobs_running(node_id, running_jobs.split(','))
+                killing_jobs = list(self.scheduler_manager.jobs_running(node_id,running_jobs.split(',')))
+                if killing_jobs:
+                    logger.info('killing %s' % killing_jobs)
+                    self.set_header('X-DD-KillJobs', json.dumps(killing_jobs))
             response_data = {'status':'ok'}
         except NodeExpired:
             response_data = {'status': 'error', 'errmsg': 'Node expired'}
@@ -495,37 +501,38 @@ class SpiderWebhookHandler(tornado.web.RequestHandler):
         session = Session()
         project = session.query(Project).filter(Project.name == project_name).first()
         spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
-
-        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
-        self.write(webhook.payload_url)
+        webhook_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                  setting_key='webhook_payload').first()
+        if webhook_setting:
+            self.write(webhook_setting.value)
 
     def post(self, project_name, spider_name):
         payload_url = self.get_argument('payload_url')
-        session = Session()
-        project = session.query(Project).filter(Project.name == project_name).first()
-        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project_name).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+            webhook_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                      setting_key='webhook_payload').first()
+            if webhook_setting is None:
+                # no existing row
+                webhook_setting = SpiderSettings()
+                webhook_setting.spider_id = spider.id
+                webhook_setting.setting_key = 'webhook_payload'
 
-        webhook = session.query(SpiderWebhook).filter_by(id=spider.id).first()
-        if webhook is None:
-            webhook = SpiderWebhook()
-            webhook.payload_url = payload_url
-            webhook.id = spider.id
-        else:
-            webhook.payload_url = payload_url
-        session.add(webhook)
-        session.commit()
-        session.close()
+            webhook_setting.value = payload_url
+            session.add(webhook_setting)
+            session.commit()
 
     def put(self, project_name, spider_name):
         self.post(project_name, spider_name)
 
     def delete(self, project_name, spider_name):
-        session = Session()
-        project = session.query(Project).filter(Project.name == project_name).first()
-        spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
-        session.query(SpiderWebhook).filter_by(id=spider.id).delete()
-        session.commit()
-        session.close()
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project_name).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
+            session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='webhook_payload').delete()
+            session.commit()
+
 
 class DeleteProjectHandler(tornado.web.RequestHandler):
     def initialize(self, scheduler_manager):
@@ -558,37 +565,55 @@ class DeleteProjectHandler(tornado.web.RequestHandler):
 
 
 class SpiderSettingsHandler(tornado.web.RequestHandler):
+    available_settings = {
+        'concurrency': '\d+',
+        'timeout': '\d+',
+        'webhook_payload': '.*',
+    }
+
     def get(self, project, spider):
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project).first()
             spider = session.query(Spider).filter_by(project_id = project.id, name=spider).first()
-            #settings = session.query(SpiderSettings).filter_by(spider_id = spider.id)
-            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id = spider.id, setting_key='concurrency').first()
-            if not concurrency_setting:
-                concurrency_setting = SpiderSettings()
-                concurrency_setting.setting_key = 'concurrency_setting'
-                concurrency_setting.value = 1
+            job_settings = {setting.setting_key:setting.value for setting in session.query(SpiderSettings).filter_by(spider_id = spider.id)}
+
+            # default setting values
+            if 'concurrency' not in job_settings:
+                job_settings['concurrency'] = 1
+            if 'timeout' not in job_settings:
+                job_settings['timeout'] = 3600
             template = get_template_loader().load('spidersettings.html')
             context = {}
-            context['settings'] = {'concurrency': concurrency_setting}
+            context['settings'] = job_settings
             context['project'] = project
             context['spider'] = spider
 
             return self.write(template.generate(**context))
 
     def post(self, project, spider):
-        concurrency = int(self.get_argument('concurrency'))
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project).first()
             spider = session.query(Spider).filter_by(project_id = project.id, name=spider).first()
 
-            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id = spider.id, setting_key='concurrency').first()
-            if not concurrency_setting:
-                concurrency_setting = SpiderSettings()
-                concurrency_setting.spider_id = spider.id
-                concurrency_setting.setting_key = 'concurrency'
-            concurrency_setting.value = concurrency
-            session.add(concurrency_setting)
+            for argument, values in self.request.arguments.items():
+                value = values[0].strip()
+
+                if argument in self.available_settings and re.match(self.available_settings[argument], value):
+                    setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                      setting_key=argument).first()
+                    if value:
+                        # value is configured, save it
+                        if not setting:
+                            setting = SpiderSettings()
+                            setting.spider_id = spider.id
+                            setting.setting_key = argument
+                        setting.value = value
+                        session.add(setting)
+                    else:
+                        # no value specficed , delete it
+                        session.delete(setting)
+                else:
+                    raise Exception('Invalid setting')
             self.redirect('/projects/%s/spiders/%s' % (project.name, spider.name))
 
 

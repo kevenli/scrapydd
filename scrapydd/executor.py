@@ -54,8 +54,8 @@ class TaskSlotContainer():
         return True
 
     def put_task(self, task):
-        if not isinstance(task, SpiderTask):
-            raise ValueError('Task in TaskSlotContainer must be SpiderTask type.')
+        if not isinstance(task, TaskExecutor):
+            raise ValueError('Task in TaskSlotContainer must be TaskExecutor type.')
         for i in range(len(self.slots)):
             if self.slots[i] is None:
                 self.slots[i] = task
@@ -71,6 +71,11 @@ class TaskSlotContainer():
         for item in self.slots:
             if item is not None:
                 yield item
+
+    def get_task(self, task_id):
+        for item in self.slots:
+            if item and item.task.id == task_id:
+                return item
 
     @property
     def max_size(self):
@@ -97,7 +102,15 @@ class Executor():
         client_cert = config.get('client_cert') or None
         client_key = config.get('client_key') or None
 
-        self.httpclient = AsyncHTTPClient(defaults=dict(validate_cert=True, ca_certs='keys/ca.crt', client_cert=client_cert, client_key=client_key))
+        httpclient_defaults = {
+            'validate_cert': True,
+            'ca_certs' : 'keys/ca.crt',
+            'client_cert' : client_cert,
+            'client_key' : client_key,
+            'request_timeout': config.getfloat('request_timeout', 60)
+        }
+        logger.debug(httpclient_defaults)
+        self.httpclient = AsyncHTTPClient(defaults=httpclient_defaults)
 
 
     def start(self):
@@ -148,10 +161,17 @@ class Executor():
             self.register_node()
             return
         url = urlparse.urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
-        running_tasks = ','.join([task.id for task in self.task_slots.tasks()])
+        running_tasks = ','.join([task_executor.task.id for task_executor in self.task_slots.tasks()])
         request = HTTPRequest(url=url, method='POST', body='', headers={'X-DD-RunningJobs': running_tasks})
         try:
             res = yield self.httpclient.fetch(request)
+            if 'X-DD-KillJobs' in res.headers:
+                logger.info('received kill signal %s' % res.headers['X-DD-KillJobs'])
+                for job_id in json.loads(res.headers['X-DD-KillJobs']):
+                    task_to_kill = self.task_slots.get_task(job_id)
+                    if task_to_kill:
+                        logger.info('%s' % task_to_kill)
+                        task_to_kill.kill()
             self.check_header_new_task_on_server(res.headers)
         except urllib2.HTTPError as e:
             if e.code == 400:
@@ -192,8 +212,9 @@ class Executor():
 
     def on_new_task_reach(self, task):
         if task is not None:
-            self.task_slots.put_task(task)
-            self.execute_task(task)
+            task_executor = self.execute_task(task)
+            self.task_slots.put_task(task_executor)
+
 
     @coroutine
     def get_next_task(self):
@@ -224,6 +245,7 @@ class Executor():
         self.post_start_task(task, pid)
         executor.on_subprocess_start = self.post_start_task
         self.ioloop.add_future(future, self.task_finished)
+        return executor
 
     @coroutine
     def post_start_task(self, task, pid):
@@ -258,7 +280,7 @@ class Executor():
         logger.debug(post_data)
         datagen, headers = multipart_encode(post_data)
         headers['X-DD-Nodeid'] = str(self.node_id)
-        request = HTTPRequest(url, method='POST', headers=headers, request_timeout=60, body_producer=MultipartRequestBodyProducer(datagen))
+        request = HTTPRequest(url, method='POST', headers=headers, body_producer=MultipartRequestBodyProducer(datagen))
         client = self.httpclient
         future = client.fetch(request, raise_error=False)
         self.ioloop.add_future(future, self.complete_task_done(task_executor, log_file, items_file))
@@ -287,7 +309,7 @@ class Executor():
 
             if response.error:
                 logger.warning('Error when post task complete request: %s' % response.error)
-            self.task_slots.remove_task(task_executor.task)
+            self.task_slots.remove_task(task_executor)
             logger.debug('complete_task_done')
         return complete_task_done_f
 
@@ -431,6 +453,17 @@ class TaskExecutor():
         logger.debug('delete task executor for task %s' % self.task.id)
         if self.workspace_dir and os.path.exists(self.workspace_dir):
             shutil.rmtree(self.workspace_dir)
+
+    @gen.coroutine
+    def kill(self):
+        logger.info('killing job %s' % self.task.id)
+        if self.p:
+            self.p.terminate()
+
+        gen.sleep(10)
+        if self.p:
+            self.p.kill()
+
 
 
 

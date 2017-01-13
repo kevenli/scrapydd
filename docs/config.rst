@@ -22,10 +22,29 @@ bind_port
 ~~~~~~~~~~
 The port web server running on. Default: ``6800``
 
+client_validation
+~~~~~~~~~~~~~~~~~~
+Whether validate client's certificate on SSL, Default: ``false``
+
 debug
 ~~~~~~
 Whether run server on debug mode. Debug mode will set logging level to DEBUG.
 Default: ``false``.
+
+https_port
+~~~~~~~~~~~
+HTTPS port to listen on, specify this key will enable SSL mode.
+
+Default: None
+
+server_name
+~~~~~~~~~~~~
+Server's hostname.
+When SSL enabled, the public certificate will be loaded as filename `server_name`.crt and
+private certificate will be loaded as filename `server_name`.key in the ``keys`` folder.
+Default: ``localhost``
+
+
 
 Agent
 -----
@@ -46,6 +65,10 @@ The port of server. Default: ``6800``
 slots
 ~~~~~~~~
 How many concurrent jobs the agent would run. Default: ``1``
+
+request_timeout
+~~~~~~~~~~~~~~~~
+Request timeout in seconds when communicating to server. Default: ``60``
 
 
 Example

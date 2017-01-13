@@ -8,7 +8,15 @@
     <form method="POST">
     <div>
         <label>Concurrency:</label>
-        <input name="concurrency" value="{{settings['concurrency'].value}}">
+        <input name="concurrency" value="{{settings['concurrency']}}">
+    </div>
+    <div>
+        <label>Timeout(secs):</label>
+        <input name="timeout" value="{{settings['timeout']}}">
+    </div>
+    <div>
+        <label>Webhook Payload URL</label>
+        <input name="webhook_payload" value="{{settings.get('webhook_payload', '')}}">
     </div>
     <div>
         <button type="submit" >保存</button>
