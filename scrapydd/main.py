@@ -609,7 +609,7 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
                             setting.setting_key = argument
                         setting.value = value
                         session.add(setting)
-                    else:
+                    elif setting:
                         # no value specficed , delete it
                         session.delete(setting)
                 else:
