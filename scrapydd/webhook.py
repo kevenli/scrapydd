@@ -132,7 +132,7 @@ class WebhookJobExecutor():
                 future = client.fetch(request)
                 future.add_done_callback(self.schedule_next_send)
             except ValueError as e:
-                logger.error('Error when docoding jl file.' + e.message)
+                logger.error('Error when docoding jl file. %s', e.message)
                 self.schedule_next_send()
         # no data left in file, complete
         else:
