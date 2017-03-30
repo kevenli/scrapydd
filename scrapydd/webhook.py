@@ -8,6 +8,7 @@ from models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSett
 import os, os.path, shutil
 import sys
 from .exceptions import WebhookJobOverMemoryLimitError, WebhookJobJlDecodeError
+from .settting import SpiderSettingLoader
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class DatabaseWebhookJobStateStorage(WebhookJobStateStorage):
             if next_jobs:
                 return next_jobs[0]
 
-    def add_job(self, job_id, payload_url, items_file):
+    def add_job(self, job_id, payload_url, items_file, spider_id):
         '''
 
         @type job_id : str
@@ -84,13 +85,14 @@ class DatabaseWebhookJobStateStorage(WebhookJobStateStorage):
             job.job_id = job_id
             job.payload_url = payload_url
             job.items_file = items_file
+            job.spider_id = spider_id
             job.status = 0
             session.add(job)
 
 
 
 class WebhookJobExecutor():
-    def __init__(self, job, item_file, memory_limit):
+    def __init__(self, job, item_file, memory_limit, max_batch_size=0):
         self.payload_url = job.payload_url
         self.item_file = item_file
         self.future = Future()
@@ -98,16 +100,18 @@ class WebhookJobExecutor():
         self.ioloop = IOLoop.current()
         self.send_msg_interval = 0.1
         self.memory_limit = memory_limit
+        self.max_batch_size = max_batch_size
 
     def start(self):
         self.ioloop.call_later(self.send_msg_interval, self.send_next_msg)
         return self.future
 
-    def send_next_msg(self, max_batch_size=0):
+    def send_next_msg(self):
         row_count = 0
         rows = []
 
-        while max_batch_size <= 0 or row_count<max_batch_size:
+        max_batch_size = self.max_batch_size
+        while True:
             line = self.item_file.readline()
             if line == '':
                 break
@@ -124,6 +128,9 @@ class WebhookJobExecutor():
                 logger.warning('Webhook task memory usage over %s' % self.memory_limit)
                 self.future.set_exception(WebhookJobOverMemoryLimitError(self.job))
                 return
+
+            if max_batch_size > 0 and row_count >= max_batch_size:
+                break
 
         if len(rows) > 0:
             keys = []
@@ -169,7 +176,7 @@ class WebhookJobExecutor():
 class WebhookDaemon():
     queue_file_dir = 'webhook'
 
-    def __init__(self, config):
+    def __init__(self, config, spider_setting_loader):
         logger.debug('webhookdaemon start')
         self.ioloop = IOLoop.current()
         self.poll_next_job_callback = PeriodicCallback(self.check_job, 10*1000)
@@ -177,6 +184,7 @@ class WebhookDaemon():
         self.storage = DatabaseWebhookJobStateStorage()
         self.poll_next_job_callback.start()
         self.webhook_memory_limit = config.getint('webhook_memory_limit')
+        self.spider_setting_loader = spider_setting_loader
 
         if not os.path.exists(self.queue_file_dir):
             os.makedirs(self.queue_file_dir)
@@ -186,7 +194,15 @@ class WebhookDaemon():
         if self.current_job is None:
             next_job = self.storage.get_next_job()
             if next_job:
-                self.current_job = WebhookJobExecutor(next_job, open(next_job.items_file, 'r'), self.webhook_memory_limit)
+                items_file = open(next_job.items_file, 'r')
+
+                max_batch_size = 0
+                if next_job.spider_id:
+                    max_batch_size_setting = self.spider_setting_loader.get_spider_setting(next_job.spider_id, 'webhook_batch_size')
+                    if max_batch_size_setting:
+                        max_batch_size = int(max_batch_size_setting.value)
+
+                self.current_job = WebhookJobExecutor(next_job, items_file, self.webhook_memory_limit, max_batch_size=max_batch_size)
                 try:
                     future = self.current_job.start()
                     self.storage.start_job(next_job.id)
@@ -228,4 +244,4 @@ class WebhookDaemon():
                 webhook_payload_url = webhook_setting.value
                 task_items_file = os.path.join(self.queue_file_dir, os.path.basename(items_file))
                 shutil.copy(items_file, task_items_file)
-                self.storage.add_job(job.id, webhook_payload_url, task_items_file)
+                self.storage.add_job(job.id, webhook_payload_url, task_items_file, job.spider_id)

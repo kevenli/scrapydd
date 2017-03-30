@@ -11,7 +11,6 @@ import json
 class WebhookRequestHandler(tornado.web.RequestHandler):
     def initialize(self, test):
         self.test = test
-        self.test.batches = []
 
     def post(self):
         rows = []
@@ -94,5 +93,38 @@ class WebhookJobExecutorTest(AsyncHTTPTestCase):
         except WebhookJobJlDecodeError as e:
             self.assertEqual(job, e.job)
         self.assertEqual(len(self.batches), 0)
+
+    @tornado.testing.gen_test
+    def test_execute_batch_1(self):
+        data = [{'a':1},
+                {'a':2},
+                {'a':3}]
+        item_file = StringIO()
+        batch_size = 1
+        for row in data:
+            item_file.write(json.dumps(row) + '\r\n')
+        item_file.seek(0)
+
+        job = WebhookJob()
+        job.id = 1
+        job.items_file=item_file
+        job.job_id = 1
+
+        http_port = self.get_http_port()
+        job.payload_url = 'http://localhost:%s/update' % http_port
+
+        target = WebhookJobExecutor(job, item_file, 10000, max_batch_size=batch_size)
+        yield target.start()
+
+        self.assertEqual(len(self.batches), 3)
+        self.assertEqual(len(self.batches[0]), 1)
+        self.assertEqual(self.batches[0][0]['a'], '1')
+        self.assertEqual(len(self.batches[1]), 1)
+        self.assertEqual(self.batches[1][0]['a'], '2')
+        self.assertEqual(len(self.batches[1]), 1)
+        self.assertEqual(self.batches[2][0]['a'], '3')
+
+
+
 
 

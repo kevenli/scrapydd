@@ -109,6 +109,7 @@ class WebhookJob(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     job_id = Column(String(length=50))
+    spider_id = Column(Integer, ForeignKey('spiders.id'))
     payload_url = Column(String(length=50))
     items_file = Column(String(length=250))
     status = Column(Integer)

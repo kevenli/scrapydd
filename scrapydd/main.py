@@ -32,6 +32,7 @@ from scrapydd.cluster import ClusterNode
 from scrapydd.ssl_gen import SSLCertificateGenerator
 import ssl
 import re
+from .settting import SpiderSettingLoader
 
 logger = logging.getLogger(__name__)
 
@@ -569,6 +570,7 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
         'concurrency': '\d+',
         'timeout': '\d+',
         'webhook_payload': '.*',
+        'webhook_batch_size': '\d+',
     }
 
     def get(self, project, spider):
@@ -728,7 +730,7 @@ def start_server(argv=None):
     node_manager = NodeManager(scheduler_manager)
     node_manager.init()
 
-    webhook_daemon = WebhookDaemon()
+    webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
     webhook_daemon.init()
 
     app = make_app(scheduler_manager, node_manager, webhook_daemon)

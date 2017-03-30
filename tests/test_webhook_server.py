@@ -14,8 +14,9 @@ class DataReceiver(tornado.web.RequestHandler):
             for i, value in enumerate(values):
                 rows[i][key] = value
 
-        for row in rows:
-            print row
+        print '%s rows received' % len(rows)
+        #for row in rows:
+        #    print row
 
 def make_app():
     return tornado.web.Application([
