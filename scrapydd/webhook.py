@@ -6,27 +6,11 @@ import logging
 from tornado.concurrent import Future
 from models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSettings
 import os, os.path, shutil
+import sys
+from .exceptions import WebhookJobOverMemoryLimitError, WebhookJobJlDecodeError
 
 logger = logging.getLogger(__name__)
 
-def encode_data(data):
-    '''
-    Encode dict to http postable binary array
-    @type data: dict
-    @param data: the data dict to encode
-    :return:
-    '''
-    tmp = {}
-    for key, value in data.items():
-        if isinstance(value,(int, long, str)):
-            tmp[key] = value
-        elif isinstance(value, unicode):
-            tmp[key] = value.encode('utf8')
-        elif isinstance(value, (dict, tuple, list)):
-            tmp[key] = json.dumps(value)
-        else:
-            raise ValueError(type(value))
-    return urllib.urlencode(tmp)
 
 class WebhookJobStateStorage():
     def start_job(self, job_id):
@@ -106,34 +90,64 @@ class DatabaseWebhookJobStateStorage(WebhookJobStateStorage):
 
 
 class WebhookJobExecutor():
-    def __init__(self, job):
+    def __init__(self, job, item_file, memory_limit):
         self.payload_url = job.payload_url
-        self.item_file = None
+        self.item_file = item_file
         self.future = Future()
         self.job = job
         self.ioloop = IOLoop.current()
         self.send_msg_interval = 0.1
+        self.memory_limit = memory_limit
 
     def start(self):
-        self.item_file = open(self.job.items_file, 'r')
         self.ioloop.call_later(self.send_msg_interval, self.send_next_msg)
         return self.future
 
-    def send_next_msg(self, callback_future=None):
-        line = self.item_file.readline()
-        # if read new line, keep going
-        if line:
+    def send_next_msg(self, max_batch_size=0):
+        row_count = 0
+        rows = []
+
+        while max_batch_size <= 0 or row_count<max_batch_size:
+            line = self.item_file.readline()
+            if line == '':
+                break
             try:
                 line_data = json.loads(line.decode('utf8'))
-                client = AsyncHTTPClient()
-                request = HTTPRequest(url=self.payload_url,
-                                      method='POST',
-                                      body=encode_data(line_data))
-                future = client.fetch(request)
-                future.add_done_callback(self.schedule_next_send)
+                row_count += 1
+                rows.append(line_data)
             except ValueError as e:
-                logger.error('Error when docoding jl file. %s', e.message)
-                self.schedule_next_send()
+                logger.error('Error when decoding jl file. %s', e.message)
+                self.future.set_exception(WebhookJobJlDecodeError(self.job))
+                return
+
+            if sys.getsizeof(rows) > self.memory_limit:
+                logger.warning('Webhook task memory usage over %s' % self.memory_limit)
+                self.future.set_exception(WebhookJobOverMemoryLimitError(self.job))
+                return
+
+        if len(rows) > 0:
+            keys = []
+            post_dict = {}
+            for row in rows:
+                # encode unicode fields
+                for key, value in row.items():
+                    if isinstance(value, unicode):
+                        row[key] = value.encode('utf8')
+
+                # fill all keys
+                keys = list(set(keys + row.keys()))
+
+            for key in keys:
+                post_dict[key] = [row.get(key, '') for row in rows ]
+
+            post_data = urllib.urlencode(post_dict, doseq=True)
+
+            client = AsyncHTTPClient()
+            request = HTTPRequest(url=self.payload_url,
+                                  method='POST',
+                                  body=post_data)
+            future = client.fetch(request)
+            future.add_done_callback(self.schedule_next_send)
         # no data left in file, complete
         else:
             self.finish_job()
@@ -141,23 +155,28 @@ class WebhookJobExecutor():
     def finish_job(self):
         if self.item_file:
             self.item_file.close()
-        os.remove(self.job.items_file)
         self.future.set_result(self.job)
 
-    def schedule_next_send(self, future=None):
+    def schedule_next_send(self, callback_future=None):
+        if callback_future is not None:
+            exc = callback_future.exception()
+            if exc is not None:
+                self.future.set_exception(exc)
+                return
         self.ioloop.call_later(self.send_msg_interval, self.send_next_msg)
 
 
 class WebhookDaemon():
     queue_file_dir = 'webhook'
 
-    def __init__(self):
+    def __init__(self, config):
         logger.debug('webhookdaemon start')
         self.ioloop = IOLoop.current()
         self.poll_next_job_callback = PeriodicCallback(self.check_job, 10*1000)
         self.current_job = None
         self.storage = DatabaseWebhookJobStateStorage()
         self.poll_next_job_callback.start()
+        self.webhook_memory_limit = config.getint('webhook_memory_limit')
 
         if not os.path.exists(self.queue_file_dir):
             os.makedirs(self.queue_file_dir)
@@ -167,7 +186,7 @@ class WebhookDaemon():
         if self.current_job is None:
             next_job = self.storage.get_next_job()
             if next_job:
-                self.current_job = WebhookJobExecutor(next_job)
+                self.current_job = WebhookJobExecutor(next_job, open(next_job.items_file, 'r'), self.webhook_memory_limit)
                 try:
                     future = self.current_job.start()
                     self.storage.start_job(next_job.id)
@@ -181,12 +200,19 @@ class WebhookDaemon():
         self.poll_next_job_callback.start()
 
     def job_finised(self, future):
-        job = future.result()
-        self.storage.finish_job(job.id)
-        self.current_job = None
-        if os.path.exists(job.items_file) and os.path.dirname(job.items_file) == self.queue_file_dir:
-            os.remove(job.items_file)
-        logger.info('webhook job %s finished', job.id)
+        try:
+            job = future.result()
+            self.storage.finish_job(job.id)
+            self.current_job = None
+            if os.path.exists(job.items_file) and os.path.dirname(job.items_file) == self.queue_file_dir:
+                os.remove(job.items_file)
+            logger.info('webhook job %s finished', job.id)
+        except WebhookJobOverMemoryLimitError as e:
+            job = e.job
+            self.job_failed(job)
+        except WebhookJobJlDecodeError as e:
+            job = e.job
+            self.job_failed(job)
 
     def job_failed(self, job):
         self.storage.job_failed(job.id)

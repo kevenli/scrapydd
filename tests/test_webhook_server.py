@@ -5,12 +5,17 @@ from scrapydd.models import WebhookJob
 
 class DataReceiver(tornado.web.RequestHandler):
     def post(self):
-        pass
-        #logging.info(self.request.arguments)
-        for key, values in self.request.arguments.items():
-            logging.debug('%s:\t%s' % (key, values[0]))
-        logging.debug(self.get_argument('text'))
-        #logging.debug(self.request.body)
+        rows = []
+        for key, values in self.request.body_arguments.items():
+            if len(rows) == 0:
+                rows = [{} for x in range(len(values))]
+            if len(rows) != len(values):
+                raise Exception('rows are not aligned')
+            for i, value in enumerate(values):
+                rows[i][key] = value
+
+        for row in rows:
+            print row
 
 def make_app():
     return tornado.web.Application([
@@ -26,6 +31,7 @@ def main():
     # future = executor.start()
     app = make_app()
     app.listen(6803)
+    print 'http://localhost:%d/webhook' % 6803
     ioloop = tornado.ioloop.IOLoop.current()
     # def job_done(future):
     #     logging.debug('job finished.')

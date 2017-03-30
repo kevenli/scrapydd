@@ -1,0 +1,98 @@
+import unittest
+from scrapydd.webhook import *
+from scrapydd.models import WebhookJob
+from StringIO import StringIO
+import tornado
+import tornado.web
+from tornado.testing import AsyncTestCase, AsyncHTTPTestCase
+import json
+
+
+class WebhookRequestHandler(tornado.web.RequestHandler):
+    def initialize(self, test):
+        self.test = test
+        self.test.batches = []
+
+    def post(self):
+        rows = []
+        for key, values in self.request.body_arguments.items():
+            if len(rows) == 0:
+                rows = [{} for x in range(len(values))]
+            if len(rows) != len(values):
+                raise Exception('rows are not aligned')
+            for i, value in enumerate(values):
+                rows[i][key] = value
+        self.test.batches.append(rows)
+
+
+class WebhookJobExecutorTest(AsyncHTTPTestCase):
+    def setUp(self):
+        super(WebhookJobExecutorTest, self).setUp()
+        self.batches = []
+
+    def get_app(self):
+        return tornado.web.Application([
+            ('/update$', WebhookRequestHandler, {'test':self}),
+        ])
+
+    @tornado.testing.gen_test
+    def test_execute(self):
+        data = {'a':1}
+        item_file = StringIO(json.dumps(data))
+        job = WebhookJob()
+        job.id=1
+        job.items_file=item_file
+        job.job_id=1
+
+        http_port = self.get_http_port()
+        job.payload_url='http://localhost:%s/update' % http_port
+
+        target = WebhookJobExecutor(job, item_file, 1000)
+        job = yield target.start()
+        # only one post
+        self.assertEqual(len(self.batches), 1)
+        # the first post has one row
+        self.assertEqual(len(self.batches[0]), 1)
+        # the data of first post
+        self.assertEqual(self.batches[0][0]['a'],'1')
+
+    @tornado.testing.gen_test
+    def test_execute_over_memory_limit(self):
+        item_file = StringIO('{"a":1}')
+        job = WebhookJob()
+        job.id=1
+        job.items_file=item_file
+        job.job_id=1
+
+        http_port = self.get_http_port()
+        job.payload_url='http://localhost:%s/update' % http_port
+
+        target = WebhookJobExecutor(job, item_file, 1)
+        try:
+            job = yield target.start()
+            self.fail('WebhookMemoryLimitError not catched')
+        except WebhookJobOverMemoryLimitError as e:
+            self.assertEqual(e.job, job)
+        # no data actually posted
+        self.assertEqual(len(self.batches), 0)
+
+    @tornado.testing.gen_test
+    def test_execute_jl_decoding_error(self):
+        item_file = StringIO('{"a":11,12,3,123,}')
+        job = WebhookJob()
+        job.id=1
+        job.items_file=item_file
+        job.job_id=1
+
+        http_port = self.get_http_port()
+        job.payload_url='http://localhost:%s/update' % http_port
+
+        target = WebhookJobExecutor(job, item_file, 10000)
+        try:
+            job = yield target.start()
+            self.fail('WebhookJobJlDecodeError not catched')
+        except WebhookJobJlDecodeError as e:
+            self.assertEqual(job, e.job)
+        self.assertEqual(len(self.batches), 0)
+
+

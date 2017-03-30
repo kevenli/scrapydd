@@ -35,3 +35,14 @@ class InvalidProjectEgg(Exception):
         super(InvalidProjectEgg, self).__init__(self, message)
         self.message = message
         self.detail = detail
+
+
+class WebhookJobOverMemoryLimitError(Exception):
+    def __init__(self, job):
+        self.job = job
+        super(WebhookJobOverMemoryLimitError, self).__init__()
+
+class WebhookJobJlDecodeError(Exception):
+    def __init__(self, job):
+        self.job = job
+        super(WebhookJobJlDecodeError, self).__init__()
