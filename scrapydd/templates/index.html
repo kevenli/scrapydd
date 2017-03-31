@@ -32,6 +32,7 @@
             <th>Last Run</th>
             <th>Last Status</th>
             <th>Last Items</th>
+            <th>Triggers</th>
         </tr>
         {% for project in projects %}
             <tr>
@@ -59,6 +60,12 @@
                             {{spider.historical_jobs[0].items_count or ''}}
                         {% end %}
                     </td>
+                    <td>
+                        {% if spider.triggers %}
+                            {{len(spider.triggers)}}
+                        {% end %}
+
+                    </td>
                     {% end %}
                 {% end %}
             </tr>
@@ -82,6 +89,11 @@
                             <td>
                                 {% if spider.historical_jobs %}
                                     {{spider.historical_jobs[0].items_count or ''}}
+                                {% end %}
+                            </td>
+                            <td>
+                                {% if spider.triggers %}
+                                   {{len(spider.triggers)}}
                                 {% end %}
                             </td>
                         </tr>
