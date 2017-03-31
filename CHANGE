@@ -1,3 +1,10 @@
+v0.4.20:
+
+* webhook batch postdata
+* webhook max_memory_limit parameter, limit each webhook job's memory usage limit
+* show webhook jobs in spider detail view
+* spider's webhook_batch_size parameter to control each spider's posting batch size, default to 1
+
 v0.4.19:
 
 * fix: webhook jl decoding error.
