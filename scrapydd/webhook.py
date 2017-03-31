@@ -121,14 +121,14 @@ class WebhookJobExecutor():
             except ValueError as e:
                 logger.error('Error when decoding jl file. %s', e.message)
                 exc = WebhookJobJlDecodeError(executor=self, message='Error when decoding jl file')
-                self.future.set_exception(exc)
+                self.on_error(exc)
                 return
 
             if sys.getsizeof(rows) > self.memory_limit:
                 message = 'Webhook task memory usage over %s' % self.memory_limit
                 logger.warning(message)
                 exc = WebhookJobOverMemoryLimitError(executor=self, message=message)
-                self.future.set_exception(exc)
+                self.on_error(exc)
                 return
 
             if max_batch_size > 0 and row_count >= max_batch_size:
@@ -166,11 +166,17 @@ class WebhookJobExecutor():
             self.item_file.close()
         self.future.set_result(self.job)
 
+
+    def on_error(self, exc):
+        self.item_file.close()
+        self.future.set_exception(exc)
+
+
     def schedule_next_send(self, callback_future=None):
         if callback_future is not None:
             exc = callback_future.exception()
             if exc is not None:
-                self.future.set_exception(WebhookJobFailedError(executor=self, message=str(exc), inner_exc=exc))
+                self.on_error(WebhookJobFailedError(executor=self, message=str(exc), inner_exc=exc))
                 return
         self.ioloop.call_later(self.send_msg_interval, self.send_next_msg)
 
