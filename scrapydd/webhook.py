@@ -7,8 +7,7 @@ from tornado.concurrent import Future
 from models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSettings
 import os, os.path, shutil
 import sys
-from .exceptions import WebhookJobOverMemoryLimitError, WebhookJobJlDecodeError
-from .settting import SpiderSettingLoader
+from .exceptions import *
 
 logger = logging.getLogger(__name__)
 
@@ -121,12 +120,15 @@ class WebhookJobExecutor():
                 rows.append(line_data)
             except ValueError as e:
                 logger.error('Error when decoding jl file. %s', e.message)
-                self.future.set_exception(WebhookJobJlDecodeError(self.job))
+                exc = WebhookJobJlDecodeError(executor=self, message='Error when decoding jl file')
+                self.future.set_exception(exc)
                 return
 
             if sys.getsizeof(rows) > self.memory_limit:
-                logger.warning('Webhook task memory usage over %s' % self.memory_limit)
-                self.future.set_exception(WebhookJobOverMemoryLimitError(self.job))
+                message = 'Webhook task memory usage over %s' % self.memory_limit
+                logger.warning(message)
+                exc = WebhookJobOverMemoryLimitError(executor=self, message=message)
+                self.future.set_exception(exc)
                 return
 
             if max_batch_size > 0 and row_count >= max_batch_size:
@@ -168,7 +170,7 @@ class WebhookJobExecutor():
         if callback_future is not None:
             exc = callback_future.exception()
             if exc is not None:
-                self.future.set_exception(exc)
+                self.future.set_exception(WebhookJobFailedError(executor=self, message=str(exc), inner_exc=exc))
                 return
         self.ioloop.call_later(self.send_msg_interval, self.send_next_msg)
 
@@ -223,12 +225,17 @@ class WebhookDaemon():
             if os.path.exists(job.items_file) and os.path.dirname(job.items_file) == self.queue_file_dir:
                 os.remove(job.items_file)
             logger.info('webhook job %s finished', job.id)
-        except WebhookJobOverMemoryLimitError as e:
-            job = e.job
+        # except WebhookJobOverMemoryLimitError as e:
+        #     job = e.job
+        #     self.job_failed(job)
+        # except WebhookJobJlDecodeError as e:
+        #     job = e.job
+        #     self.job_failed(job)
+        except WebhookJobFailedError as e:
+            executor = e.executor
+            job = executor.job
             self.job_failed(job)
-        except WebhookJobJlDecodeError as e:
-            job = e.job
-            self.job_failed(job)
+            logger.error(e)
 
     def job_failed(self, job):
         self.storage.job_failed(job.id)
