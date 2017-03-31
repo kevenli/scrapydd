@@ -41,6 +41,7 @@ class WebhookJobFailedError(Exception):
     def __init__(self, executor, message=None, inner_exc=None):
         self.executor = executor
         self.inner_exc = inner_exc
+        self.message = message
         super(WebhookJobFailedError, self).__init__(message)
 
 
