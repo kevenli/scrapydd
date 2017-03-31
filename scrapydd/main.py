@@ -6,7 +6,7 @@ from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
-    SpiderWebhook, session_scope, SpiderSettings
+    SpiderWebhook, session_scope, SpiderSettings, WebhookJob
 from schedule import SchedulerManager
 from scrapydd.nodes import NodeManager
 import datetime
@@ -210,12 +210,15 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
             .filter(SpiderExecutionQueue.spider_id == spider.id)\
             .order_by(desc(SpiderExecutionQueue.update_time))
 
+        webhook_jobs = session.query(WebhookJob).filter_by(spider_id = spider.id)
+
         context = {}
         context['spider'] = spider
         context['project'] = project
         context['jobs'] = jobs
         context['running_jobs'] = running_jobs
         context['settings'] = session.query(SpiderSettings).filter_by(spider_id = spider.id).order_by(SpiderSettings.setting_key)
+        context['webhook_jobs'] = webhook_jobs
         loader = get_template_loader()
         self.write(loader.load("spider.html").generate(**context))
         session.close()

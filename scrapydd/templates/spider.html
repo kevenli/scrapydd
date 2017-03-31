@@ -110,5 +110,22 @@
             {% end %}
         </table>
     </div>
+    {%if webhook_jobs%}
+    <div>
+        <label>Webhook Jobs:</label>
+        <table border="1">
+            <tr>
+                <th>JobID</th>
+                <th>Status</th>
+            </tr>
+            {% for webhook_job in webhook_jobs %}
+                <tr>
+                    <td>{{webhook_job.id}}</td>
+                    <td class="{{webhook_job.status_obj.name}}">{{webhook_job.status_obj.name.upper()}}</td>
+                </tr>
+            {% end %}
+        </table>
+    </div>
+    {% end %}
 </body>
 </html>

@@ -112,7 +112,8 @@ class WebhookJob(Base):
     spider_id = Column(Integer, ForeignKey('spiders.id'))
     payload_url = Column(String(length=50))
     items_file = Column(String(length=250))
-    status = Column(Integer)
+    status = Column(Integer, ForeignKey('job_status.id'), default=0)
+    status_obj = relationship('JobStatus')
 
 
 class SpiderSettings(Base):
