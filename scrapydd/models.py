@@ -83,6 +83,7 @@ class HistoricalJob(Base):
 
     id = Column(String(length=50), primary_key=True)
     spider_id = Column(Integer, ForeignKey('spiders.id'))
+    spider = relationship('Spider')
     project_name = Column(String(length=50))
     spider_name = Column(String(length=50))
     fire_time = Column(DateTime)

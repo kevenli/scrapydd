@@ -14,6 +14,7 @@ from Queue import Queue, Empty
 from config import Config
 from sqlalchemy import distinct, desc
 import os
+from .mail import MailSender
 
 
 
@@ -327,7 +328,10 @@ class SchedulerManager():
                 if m:
                     historical_job.items_count = int(m.group(1))
 
-                m = error_log_pattern.search(log_content) or warning_log_pattern.search(log_content)
+                m = error_log_pattern.search(log_content)
+                if m and historical_job.status == JOB_STATUS_SUCCESS:
+                    historical_job.status = JOB_STATUS_FAIL
+                m = warning_log_pattern.search(log_content)
                 if m and historical_job.status == JOB_STATUS_SUCCESS:
                     historical_job.status = JOB_STATUS_WARNING
 
@@ -337,8 +341,30 @@ class SchedulerManager():
         session.add(historical_job)
         session.commit()
         session.refresh(historical_job)
+
+        # send mail
+        if historical_job.status == JOB_STATUS_FAIL:
+            self.try_send_job_failed_mail(historical_job)
+
+
         session.close()
         return historical_job
+
+    def try_send_job_failed_mail(self, job):
+        logger.debug('try_send_job_failed_mail')
+        job_fail_send_mail = self.config.getboolean('job_fail_send_mail')
+        if job_fail_send_mail:
+            try:
+                mail_sender = MailSender(self.config)
+                subject = 'scrapydd job failed'
+                to_address = self.config.get('job_fail_mail_receiver')
+                content = 'bot:%s \r\nspider:%s \r\n job_id:%s \r\n' % (job.spider.project.name,
+                                                                        job.spider_name,
+                                                                        job.id)
+                mail_sender.send(to_addresses=to_address, subject=subject, content=content)
+
+            except Exception as e:
+                logger.error('Error when sending job_fail mail %s' % e)
 
     def clear_finished_jobs(self):
         job_history_limit_each_spider = 100

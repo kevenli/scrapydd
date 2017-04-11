@@ -405,6 +405,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
             job.status = status_int
             job.update_time = datetime.datetime.now()
             historical_job = self.scheduler_manager.job_finished(job, log_file, items_file)
+
             if items_file:
                 self.webhook_daemon.on_spider_complete(historical_job, items_file)
 
