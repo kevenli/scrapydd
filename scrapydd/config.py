@@ -45,6 +45,7 @@ class Config(object):
         sources = ['/etc/scrapydd/scrapydd.conf', r'c:\scrapydd\scrapydd.conf']
         sources += sorted(glob.glob('/etc/scrapyd/conf.d/*'))
         sources += ['scrapydd.conf']
+        sources += ['conf/scrapydd.conf']
         sources += [expanduser('~/.scrapydd.conf')]
         return sources
 
