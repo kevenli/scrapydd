@@ -43,12 +43,13 @@ class TestingSMTPServer(smtpd.SMTPServer, threading.Thread):
 
 class MailSenderTest(unittest.TestCase):
     def test_send(self):
-        smtp_server = TestingSMTPServer(26)
+        smtp_port = 26
+        smtp_server = TestingSMTPServer(smtp_port)
         smtp_server.start()
 
         smtp_from = 'from@address.com'
         config = Config(values={
-                'smtp_port':'26',
+                'smtp_port':str(smtp_port),
                 'smtp_server':'localhost',
                 'smtp_user': '',
                 'smtp_passwd': '',
@@ -58,13 +59,16 @@ class MailSenderTest(unittest.TestCase):
         to_address = 'to@address.com'
         subject = 'some_subject'
         plain_text_content = 'some content'
-        target.send(to_address, subject, plain_text_content)
-        smtp_server.close()
+        try:
+            target.send(to_address, subject, plain_text_content)
+            self.assertEqual(smtp_from, smtp_server.received_mailfrom)
+            self.assertEqual(to_address, smtp_server.to_address)
+            self.assertEqual(subject, smtp_server.subject)
+            self.assertEqual(plain_text_content, smtp_server.body)
+        finally:
+            smtp_server.close()
 
-        self.assertEqual(smtp_from, smtp_server.received_mailfrom)
-        self.assertEqual(to_address, smtp_server.to_address)
-        self.assertEqual(subject, smtp_server.subject)
-        self.assertEqual(plain_text_content, smtp_server.body)
+
 
 
 
