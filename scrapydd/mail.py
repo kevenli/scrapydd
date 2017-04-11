@@ -18,7 +18,8 @@ class MailSender(object):
         msg['To'] = to_addresses
 
         smtp = smtplib.SMTP(self.smtp_server, self.smtp_port)
-        smtp.login(self.smtp_user, self.smtp_passwd)
+        if self.smtp_user and self.smtp_passwd:
+            smtp.login(self.smtp_user, self.smtp_passwd)
         smtp.sendmail(self.smtp_from, [to_addresses], msg.as_string())
         smtp.quit()
 

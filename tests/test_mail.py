@@ -11,8 +11,8 @@ class TestingSMTPServer(smtpd.SMTPServer, threading.Thread):
     def __init__(self, port=25):
         smtpd.SMTPServer.__init__(
             self,
-            ('localhost', port),
-            ('localhost', port),
+            ('0.0.0.0', port),
+            ('0.0.0.0', port),
         )
         threading.Thread.__init__(self)
         self.received_data=None
@@ -50,8 +50,8 @@ class MailSenderTest(unittest.TestCase):
         config = Config(values={
                 'smtp_port':'26',
                 'smtp_server':'localhost',
-                'smtp_user': 'test_user',
-                'smtp_passwd': 'test_password',
+                'smtp_user': '',
+                'smtp_passwd': '',
                 'smtp_from': smtp_from})
         target = MailSender(config)
 
