@@ -41,6 +41,7 @@ class TestingSMTPServer(smtpd.SMTPServer, threading.Thread):
     def run(self):
         asyncore.loop()
 
+@unittest.skip
 class MailSenderTest(unittest.TestCase):
     def test_send(self):
         smtp_port = 26
