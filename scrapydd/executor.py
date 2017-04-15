@@ -40,6 +40,7 @@ class SpiderTask():
     project_name = None
     spider_name = None
     project_version = None
+    spider_parameters = None
 
 
 class TaskSlotContainer():
@@ -234,6 +235,10 @@ class Executor():
                 task.project_name = response_data['data']['task']['project_name']
                 task.project_version = response_data['data']['task']['version']
                 task.spider_name = response_data['data']['task']['spider_name']
+                if 'spider_parameters' in response_data['data']['task']:
+                    task.spider_parameters = response_data['data']['task']['spider_parameters']
+                else:
+                    task.spider_parameters = {}
                 self.on_new_task_reach(task)
         except urllib2.URLError:
             logger.warning('Cannot connect to server')
@@ -407,6 +412,11 @@ class TaskExecutor():
         python = workspace.python
         runner = 'scrapyd.runner'
         pargs = [python, '-m', runner, 'crawl', self.task.spider_name]
+        for spider_parameter_key, spider_parameter_value in self.task.spider_parameters.items():
+            pargs += [
+                        '-s',
+                        '%s=%s' % (spider_parameter_key, spider_parameter_value)
+                      ]
 
         env = os.environ.copy()
         env['SCRAPY_PROJECT'] = str(self.task.project_name)

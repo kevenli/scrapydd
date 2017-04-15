@@ -1,1 +1,2 @@
 prune tests
+graft scrapydd/static

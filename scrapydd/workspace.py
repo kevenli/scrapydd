@@ -47,13 +47,14 @@ class ProjectWorkspace(object):
             future.set_result(self)
             return future
 
+        logger.debug('start creating virtualenv.')
         try:
             process = Popen(['virtualenv', '--system-site-packages', self.project_workspace_dir], stdout=PIPE, stderr=PIPE)
         except Exception as e:
             future.set_exception(e)
             return future
         def check_process():
-            logger.debug('poll')
+            logger.debug('create virtualenv process poll.')
             retcode = process.poll()
             if retcode is not None:
                 if retcode == 0:

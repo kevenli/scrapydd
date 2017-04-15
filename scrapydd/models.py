@@ -126,6 +126,17 @@ class SpiderSettings(Base):
     value = Column(String(length=200))
 
 
+class SpiderParameter(Base):
+    __tablename__ = 'spider_parameters'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    spider_id = Column(Integer, ForeignKey('spiders.id'))
+    parameter_key = Column(String(length=50), nullable=False)
+    value = Column(String(length=200))
+
+Spider.parameters = relationship('SpiderParameter', order_by=SpiderParameter.parameter_key)
+
+
 def init_database():
     db_repository = os.path.join(os.path.dirname(__file__), 'migrates')
     try:

@@ -3,6 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <title>Spider settings</title>
+    <link rel="stylesheet" href="/static/css/jquery-ui.min.css">
+    <script src="/static/js/jquery-1.12.3.min.js"></script>
+    <script language="javascript">
+        $(function(){
+
+            function remove_parameter(){
+                $(this).parents('.spider_parameter_row').remove();
+             }
+            $('#btnadd').click(function(){
+                console.log('click');
+                var new_parameter_section = $('<div class="spider_parameter_row">');
+                new_parameter_section.append($('<input name="SpiderParameterKey">'));
+                new_parameter_section.append($('<input name="SpiderParameterValue">'));
+                var remove_btn = $('<span class="ui-icon ui-icon-minus">')
+                remove_btn.click(remove_parameter);
+                new_parameter_section.append(remove_btn);
+                $('#spider_parameters').append(new_parameter_section);
+            });
+
+            $('.btn_remove_parameter').click(remove_parameter);
+        });
+
+    </script>
 </head>
 <body>
     <form method="POST">
@@ -21,6 +44,20 @@
     <div>
         <label>Webhook Batch Size</label>
         <input name="webhook_batch_size" value="{{settings.get('webhook_batch_size', '')}}">
+    </div>
+    <div id="spider_parameters">
+        <label>Spider Parameters:</label><span id="btnadd" class="ui-icon ui-icon-plus"></span>
+        {% for spider_parameter in spider_parameters %}
+            <div class="spider_parameter_row">
+                <input name="SpiderParameterKey" value="{{spider_parameter.parameter_key}}">
+                <input name="SpiderParameterValue" value="{{spider_parameter.value}}">
+                <span class="ui-icon ui-icon-minus btn_remove_parameter"></span>
+            </div>
+        {% end %}
+        <div>
+            <input name="SpiderParameterKey">
+            <input name="SpiderParameterValue">
+        </div>
     </div>
     <div>
         <button type="submit" >保存</button>

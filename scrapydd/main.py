@@ -6,7 +6,7 @@ from scrapyd.eggstorage import FilesystemEggStorage
 import scrapyd.config
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
-    SpiderWebhook, session_scope, SpiderSettings, WebhookJob
+    SpiderWebhook, session_scope, SpiderSettings, WebhookJob, SpiderParameter
 from schedule import SchedulerManager
 from scrapydd.nodes import NodeManager
 import datetime
@@ -219,6 +219,10 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         context['running_jobs'] = running_jobs
         context['settings'] = session.query(SpiderSettings).filter_by(spider_id = spider.id).order_by(SpiderSettings.setting_key)
         context['webhook_jobs'] = webhook_jobs
+        spider_parameters = session.query(SpiderParameter)\
+            .filter_by(spider_id = spider.id)\
+            .order_by(SpiderParameter.parameter_key)
+        context['spider_parameters'] = {parameter.parameter_key: parameter.value for parameter in spider_parameters}
         loader = get_template_loader()
         self.write(loader.load("spider.html").generate(**context))
         session.close()
@@ -259,6 +263,7 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
         cron = self.get_argument('cron')
         with session_scope() as session:
             project = session.query(Project).filter(Project.name == project).first()
+
             spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
             try:
                 self.scheduler_manager.add_schedule(project, spider, cron)
@@ -310,6 +315,7 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
                     'spider_name': next_task.spider_name,
                     'project_name': next_task.project_name,
                     'version': project.version,
+                    'spider_parameters': {parameter.parameter_key: parameter.value for parameter in spider.parameters}
                 }}
             self.write(json.dumps(response_data))
 
@@ -594,6 +600,11 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
             context['project'] = project
             context['spider'] = spider
 
+            spider_parameters = session.query(SpiderParameter)\
+                .filter_by(spider_id = spider.id)\
+                .order_by(SpiderParameter.parameter_key)
+            context['spider_parameters'] = spider_parameters
+
             return self.write(template.generate(**context))
 
     def post(self, project, spider):
@@ -601,25 +612,66 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
             project = session.query(Project).filter_by(name=project).first()
             spider = session.query(Spider).filter_by(project_id = project.id, name=spider).first()
 
-            for argument, values in self.request.arguments.items():
-                value = values[0].strip()
+            setting_concurrency_value = self.get_body_argument('concurrency', '1')
+            setting_concurrency = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                    setting_key='concurrency').first()
+            if not setting_concurrency:
+                setting_concurrency = SpiderSettings()
+                setting_concurrency.spider_id = spider.id
+                setting_concurrency.setting_key = 'concurrency'
+            setting_concurrency.value = setting_concurrency_value
+            session.add(setting_concurrency)
 
-                if argument in self.available_settings and re.match(self.available_settings[argument], value):
-                    setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
-                                                                      setting_key=argument).first()
-                    if value:
-                        # value is configured, save it
-                        if not setting:
-                            setting = SpiderSettings()
-                            setting.spider_id = spider.id
-                            setting.setting_key = argument
-                        setting.value = value
-                        session.add(setting)
-                    elif setting:
-                        # no value specficed , delete it
-                        session.delete(setting)
-                else:
-                    raise Exception('Invalid setting')
+
+            setting_timeout_value = self.get_body_argument('timeout', '3600')
+            setting_timeout = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                          setting_key='timeout').first()
+            if not setting_timeout:
+                setting_timeout = SpiderSettings()
+                setting_timeout.spider_id = spider.id
+                setting_timeout.setting_key = 'timeout'
+            setting_timeout.value = setting_timeout_value
+            session.add(setting_timeout)
+
+
+            setting_webhook_payload_value = self.get_body_argument('webhook_payload', '')
+            setting_webhook_payload = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                          setting_key='webhook_payload').first()
+            if not setting_webhook_payload:
+                setting_webhook_payload = SpiderSettings()
+                setting_webhook_payload.spider_id = spider.id
+                setting_webhook_payload.setting_key = 'webhook_payload'
+            setting_webhook_payload.value = setting_webhook_payload_value
+            session.add(setting_webhook_payload)
+
+
+            setting_webhook_batch_size_value = self.get_body_argument('webhook_batch_size', '')
+            setting_webhook_batch_size = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                          setting_key='webhook_batch_size').first()
+            if not setting_webhook_batch_size:
+                setting_webhook_batch_size = SpiderSettings()
+                setting_webhook_batch_size.spider_id = spider.id
+                setting_webhook_batch_size.setting_key = 'webhook_batch_size'
+            setting_webhook_batch_size.value = setting_webhook_batch_size_value
+            session.add(setting_webhook_batch_size)
+
+            spider_parameter_keys = self.get_body_arguments('SpiderParameterKey')
+            spider_parameter_values = self.get_body_arguments('SpiderParameterValue')
+            session.query(SpiderParameter).filter_by(spider_id=spider.id).delete()
+            for i, spider_parameter_key in enumerate(spider_parameter_keys):
+                spider_parameter_key = spider_parameter_key.strip()
+                if spider_parameter_key == '':
+                    continue
+
+                spider_parameter_value = spider_parameter_values[i]
+                spider_parameter = session.query(SpiderParameter).filter_by(spider_id=spider.id, parameter_key= spider_parameter_key).first()
+                if not spider_parameter:
+                    spider_parameter = SpiderParameter()
+                    spider_parameter.spider_id = spider.id
+                    spider_parameter.parameter_key = spider_parameter_key
+                spider_parameter.value = spider_parameter_value
+                session.add(spider_parameter)
+
             self.redirect('/projects/%s/spiders/%s' % (project.name, spider.name))
 
 
@@ -676,6 +728,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
         (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
         (r'/ca.crt', CACertHandler),
+        (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': os.path.join(os.path.dirname(__file__), 'static')}),
     ])
 
 def check_and_gen_ssl_keys(config):
