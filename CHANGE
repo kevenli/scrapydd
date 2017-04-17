@@ -1,3 +1,9 @@
+v0.4.21:
+
+* job fail email nofitication.
+* spider parameters.
+* add config file location ./conf/scrapydd.conf
+
 v0.4.20:
 
 * webhook batch postdata
