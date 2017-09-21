@@ -232,7 +232,7 @@ class SchedulerManager():
         session = Session()
         pending = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==0))
         running = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==1))
-        finished = list(session.query(HistoricalJob).slice(0, 100))
+        finished = list(session.query(HistoricalJob).order_by(desc(HistoricalJob.complete_time)).slice(0, 100))
         session.close()
         return pending, running, finished
 
