@@ -1,3 +1,7 @@
+v0.4.22:
+
+* fix: static js and css file cannot be loaded, use jquery cdn instead.
+
 v0.4.21:
 
 * job fail email nofitication.

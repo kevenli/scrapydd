@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>Spider settings</title>
-    <link rel="stylesheet" href="/static/css/jquery-ui.min.css">
-    <script src="/static/js/jquery-1.12.3.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.0/themes/smoothness/jquery-ui.css">
+    <script
+  src="https://code.jquery.com/jquery-1.12.4.min.js"
+  integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+  crossorigin="anonymous"></script>
     <script language="javascript">
         $(function(){
 
@@ -12,7 +15,6 @@
                 $(this).parents('.spider_parameter_row').remove();
              }
             $('#btnadd').click(function(){
-                console.log('click');
                 var new_parameter_section = $('<div class="spider_parameter_row">');
                 new_parameter_section.append($('<input name="SpiderParameterKey">'));
                 new_parameter_section.append($('<input name="SpiderParameterValue">'));
