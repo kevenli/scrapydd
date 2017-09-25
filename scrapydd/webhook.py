@@ -168,7 +168,9 @@ class WebhookJobExecutor():
 
 
     def on_error(self, exc):
+        logging.error('Webhook job failed, %s' % exc)
         self.item_file.close()
+
         self.future.set_exception(exc)
 
 
@@ -208,7 +210,11 @@ class WebhookDaemon():
                 if next_job.spider_id:
                     max_batch_size_setting = self.spider_setting_loader.get_spider_setting(next_job.spider_id, 'webhook_batch_size')
                     if max_batch_size_setting:
-                        max_batch_size = int(max_batch_size_setting.value)
+                        try:
+                            max_batch_size = int(max_batch_size_setting.value)
+                        except ValueError:
+                            # if setting is not configured correct, set it to 0 by default.
+                            max_batch_size = 0
 
                 self.current_job = WebhookJobExecutor(next_job, items_file, self.webhook_memory_limit, max_batch_size=max_batch_size)
                 try:
