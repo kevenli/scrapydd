@@ -1,3 +1,9 @@
+v0.4.23:
+
+* show finished jobs order by complete time desc in jobs page
+* default webhook batchsize to 0
+* populate spider parameters when uploading projects
+
 v0.4.22:
 
 * fix: static js and css file cannot be loaded, use jquery cdn instead.
