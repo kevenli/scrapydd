@@ -10,10 +10,9 @@ from scrapyd.eggstorage import FilesystemEggStorage
 import shutil
 import pkg_resources
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
-
+import json
 
 logger = logging.getLogger(__name__)
-
 
 class ProjectWorkspace(object):
     pip = None
@@ -187,6 +186,36 @@ class ProjectWorkspace(object):
             if retcode is not None:
                 if retcode == 0:
                     future.set_result(process.stdout.read().splitlines())
+                else:
+                    #future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
+                    future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
+                return
+            IOLoop.current().call_later(1, check_process)
+
+        check_process()
+        return future
+
+    def find_project_settings(self, project):
+        cwd = None
+        future = Future()
+        try:
+            env = os.environ.copy()
+            env['SCRAPY_PROJECT'] = project
+            process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings', project], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
+        except Exception as e:
+            logger.error(e)
+            future.set_exception(e)
+            return future
+
+        def check_process():
+            logger.debug('find_project_settings process poll')
+            retcode = process.poll()
+            if retcode is not None:
+                if retcode == 0:
+                    proc_output = process.stdout.read()
+                    logger.debug('find_project_settings output:')
+                    logger.debug(proc_output)
+                    future.set_result(json.loads(proc_output))
                 else:
                     #future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
                     future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))

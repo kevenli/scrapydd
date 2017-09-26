@@ -52,6 +52,15 @@ class MainHandler(tornado.web.RequestHandler):
 
 
 class UploadProject(tornado.web.RequestHandler):
+    except_project_settings = ['NEWSPIDER_MODULE',
+                               'SPIDER_MODULES',
+                               'BOT_NAME',
+                               'USER_AGENT',
+                               'LOG_LEVEL',
+                               'PROJECT',
+                               'SETTINGS_MODULE',
+                               ]
+
     @gen.coroutine
     def post(self):
         project_name = self.request.arguments['project'][0]
@@ -64,6 +73,8 @@ class UploadProject(tornado.web.RequestHandler):
             yield workspace.init()
             spiders = yield workspace.test_egg(eggf)
             workspace.put_egg(eggf, version)
+            project_settings = yield workspace.find_project_settings(project_name)
+            logger.debug(project_settings)
 
         except InvalidProjectEgg as e:
             logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
@@ -107,6 +118,26 @@ class UploadProject(tornado.web.RequestHandler):
                     spider.project_id = project.id
                     session.add(spider)
                     session.commit()
+                    session.refresh(spider)
+
+                for project_setting_key in project_settings.keys():
+                    if project_setting_key in UploadProject.except_project_settings:
+                        # skip except project settings.
+                        continue
+                    spider_parameter = session.query(SpiderParameter)\
+                        .filter_by(spider_id=spider.id, parameter_key=project_setting_key).first()
+
+                    if spider_parameter is None:
+                        spider_parameter = SpiderParameter()
+                        spider_parameter.spider_id = spider.id
+                        spider_parameter.parameter_key = project_setting_key
+                        spider_parameter.value = project_settings[project_setting_key]
+                        if not isinstance(spider_parameter.value, basestring):
+                            # support only string config now
+                            continue
+                        session.add(spider_parameter)
+                session.commit()
+
             if self.request.path.endswith('.json'):
                 self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
             else:
@@ -557,6 +588,7 @@ class DeleteProjectHandler(tornado.web.RequestHandler):
             for spider in spiders:
                 triggers = session.query(Trigger).filter_by(spider_id = spider.id)
                 session.query(SpiderExecutionQueue).filter_by(spider_id = spider.id).delete()
+                session.query(SpiderParameter).filter_by(spider_id = spider.id).delete()
                 session.commit()
                 for trigger in triggers:
                     self.scheduler_manager.remove_schedule(project_name, spider.name, trigger_id=trigger.id)
