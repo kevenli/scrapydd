@@ -45,13 +45,14 @@ class NodeManager():
         finally:
             session.close()
 
-    def create_node(self, remote_ip):
+    def create_node(self, remote_ip, tags=None):
         session = Session()
         node = Node()
         node.client_ip = remote_ip
         node.create_time = datetime.datetime.now()
         node.last_heartbeat = datetime.datetime.now()
         node.isalive = 1
+        node.tags = tags
         session.add(node)
         session.commit()
         session.refresh(node)

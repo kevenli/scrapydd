@@ -90,6 +90,7 @@ class Executor():
         self.ioloop = IOLoop.current()
         self.node_id = None
         self.status = EXECUTOR_STATUS_OFFLINE
+        self.tags = config.get('tags')
 
         if config is None:
             config =AgentConfig()
@@ -201,7 +202,8 @@ class Executor():
             open('keys/ca.crt', 'wb').write(cacertresponse.body)
         try:
             url = urlparse.urljoin(self.service_base, '/nodes')
-            request = HTTPRequest(url = url, method='POST', body='')
+            register_postdata = urllib.urlencode({'tags': self.tags})
+            request = HTTPRequest(url = url, method='POST', body=register_postdata)
             res = yield self.httpclient.fetch(request)
             self.status = EXECUTOR_STATUS_ONLINE
             self.node_id = json.loads(res.body)['id']

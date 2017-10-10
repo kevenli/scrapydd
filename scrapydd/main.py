@@ -467,7 +467,9 @@ class NodesHandler(tornado.web.RequestHandler):
         self.node_manager = node_manager
 
     def post(self):
-        node = self.node_manager.create_node(self.request.remote_ip)
+        tags = self.get_argument('tags', None)
+        remote_ip = self.request.remote_ip
+        node = self.node_manager.create_node(remote_ip, tags=tags)
         self.write(json.dumps({'id': node.id}))
 
 
@@ -479,7 +481,7 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
     def post(self, id):
         #logger.debug(self.request.headers)
         node_id = int(id)
-        self.set_header('X-DD-New-Task', self.scheduler_manager.has_task())
+        self.set_header('X-DD-New-Task', self.scheduler_manager.has_task(node_id))
         try:
             self.node_manager.heartbeat(node_id)
             running_jobs = self.request.headers.get('X-DD-RunningJobs', None)
@@ -613,6 +615,7 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
         'timeout': '\d+',
         'webhook_payload': '.*',
         'webhook_batch_size': '\d+',
+        'tag': '.*',
     }
 
     def get(self, project, spider):
@@ -626,6 +629,8 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
                 job_settings['concurrency'] = 1
             if 'timeout' not in job_settings:
                 job_settings['timeout'] = 3600
+            if 'tag' not in job_settings or job_settings['tag'] is None:
+                job_settings['tag'] = ''
             template = get_template_loader().load('spidersettings.html')
             context = {}
             context['settings'] = job_settings
@@ -686,6 +691,19 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
                 setting_webhook_batch_size.setting_key = 'webhook_batch_size'
             setting_webhook_batch_size.value = setting_webhook_batch_size_value
             session.add(setting_webhook_batch_size)
+
+            setting_tag_value = self.get_body_argument('tag', '').strip()
+            setting_tag_value = None if setting_tag_value == '' else setting_tag_value
+            setting_tag = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                          setting_key='tag').first()
+            if not setting_tag:
+                setting_tag = SpiderSettings()
+                setting_tag.spider_id = spider.id
+                setting_tag.setting_key = 'tag'
+            setting_tag.value = setting_tag_value
+            session.add(setting_tag)
+
+
 
             spider_parameter_keys = self.get_body_arguments('SpiderParameterKey')
             spider_parameter_values = self.get_body_arguments('SpiderParameterValue')

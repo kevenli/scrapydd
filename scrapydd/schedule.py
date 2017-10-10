@@ -1,6 +1,6 @@
 
 from models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
-    SpiderSettings
+    SpiderSettings, Node
 from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
@@ -41,11 +41,10 @@ class SchedulerManager():
             'processpool': ProcessPoolExecutor(5)
         }
         self.scheduler = TornadoScheduler(executors=executors)
-        self.task_queue = Queue()
+
         self.poll_task_queue_callback = None
         self.pool_task_queue_interval = 10
         self.ioloop = IOLoop.instance()
-        self.poll_task_queue_callback = PeriodicCallback(self.poll_task_queue, self.pool_task_queue_interval * 1000)
         self.clear_finished_jobs_callback = PeriodicCallback(self.clear_finished_jobs, 60*1000)
         self.reset_timeout_job_callback = PeriodicCallback(self.reset_timeout_job, 10*1000)
 
@@ -83,17 +82,8 @@ class SchedulerManager():
 
         self.scheduler.start()
 
-        self.poll_task_queue_callback.start()
         self.clear_finished_jobs_callback.start()
         self.reset_timeout_job_callback.start()
-
-    def poll_task_queue(self):
-        if self.task_queue.empty():
-            with session_scope() as session:
-                tasks_to_run = session.query(SpiderExecutionQueue).filter_by(status=0).order_by(
-                    SpiderExecutionQueue.update_time).slice(0, 10)
-                for task in tasks_to_run:
-                    self.task_queue.put(task)
 
     def build_cron_trigger(self, cron):
         cron_parts = cron.split(' ')
@@ -148,6 +138,8 @@ class SchedulerManager():
             project = session.query(Project).filter_by(id=spider.project_id).first()
             executing = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id == spider.id, SpiderExecutionQueue.status.in_([0,1]))
             concurrency_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='concurrency').first()
+            spider_tag_vo = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='tag').first()
+            spider_tag = spider_tag_vo.value if spider_tag_vo else None
             concurrency = int(concurrency_setting.value) if concurrency_setting else 1
             executing_slots = [executing_job.slot for executing_job in executing]
             free_slots = [x for x in range(1,concurrency+1) if x not in executing_slots]
@@ -164,6 +156,7 @@ class SchedulerManager():
             executing.fire_time = datetime.datetime.now()
             executing.update_time = datetime.datetime.now()
             executing.slot = free_slots[0]
+            executing.tag = spider_tag
             session.add(executing)
             try:
                 session.commit()
@@ -248,15 +241,18 @@ class SchedulerManager():
             session.commit()
             session.close()
 
+    def _regular_agent_tags(self, agent_tags):
+        if isinstance(agent_tags, basestring):
+            return agent_tags.split(',')
+        if agent_tags is None:
+            return [None]
+        return agent_tags
+
     def get_next_task(self, node_id):
-        if not self.task_queue.empty():
-            session = Session()
-            try:
-                next_task = self.task_queue.get_nowait()
-            except Empty:
-                return None
-            next_task = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == next_task.id,
-                                                                   SpiderExecutionQueue.status == 0).first()
+        with session_scope() as session:
+            node = session.query(Node).filter(Node.id == node_id).first()
+            node_tags = node.tags
+            next_task = self._get_next_task(session, node_tags)
             if not next_task:
                 return None
             next_task.start_time = datetime.datetime.now()
@@ -266,12 +262,26 @@ class SchedulerManager():
             session.add(next_task)
             session.commit()
             session.refresh(next_task)
-            session.close()
             return next_task
         return None
 
-    def has_task(self):
-        return not self.task_queue.empty()
+    def _get_next_task(self, session, agent_tags):
+        agent_tags = self._regular_agent_tags(agent_tags)
+        for tag in agent_tags:
+            next_task = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 0,
+                                                                   SpiderExecutionQueue.tag == tag).first()
+            if next_task:
+                return next_task
+
+        return None
+
+    def has_task(self, node_id):
+        with session_scope() as session:
+            node = session.query(Node).filter(Node.id == node_id).first()
+            node_tags = node.tags
+            next_task = self._get_next_task(session, node_tags)
+        return next_task is not None
+
 
     def jobs_running(self, node_id, job_ids):
         '''

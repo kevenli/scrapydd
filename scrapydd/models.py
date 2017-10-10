@@ -67,6 +67,7 @@ class SpiderExecutionQueue(Base):
     status_obj = relationship('JobStatus')
     update_time = Column(DateTime)
     pid = Column(Integer)
+    tag = Column(String(length=50))
 
 class Node(Base):
     __tablename__ = 'nodes'
@@ -76,6 +77,7 @@ class Node(Base):
     create_time = Column(DateTime)
     last_heartbeat = Column(DateTime)
     isalive = Column(Integer)
+    tags = Column(String(length=200))
 
 
 class HistoricalJob(Base):
