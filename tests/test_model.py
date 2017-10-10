@@ -1,9 +1,11 @@
 import unittest
 import os
 from scrapydd.models import init_database, session_scope, Project
+from unittest.case import SkipTest
 
 class ModelTest(unittest.TestCase):
     def setUp(self):
+        self.skipTest('do not test database recreation')
         if os.path.exists('database.db'):
             os.remove('database.db')
 
