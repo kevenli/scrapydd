@@ -120,6 +120,8 @@ class UploadProject(tornado.web.RequestHandler):
                     session.commit()
                     session.refresh(spider)
 
+                logger.debug('project settings: %s' % project_settings)
+
                 for project_setting_key in project_settings.keys():
                     if project_setting_key in UploadProject.except_project_settings:
                         # skip except project settings.
@@ -132,7 +134,7 @@ class UploadProject(tornado.web.RequestHandler):
                         spider_parameter.spider_id = spider.id
                         spider_parameter.parameter_key = project_setting_key
                         spider_parameter.value = project_settings[project_setting_key]
-                        if not isinstance(spider_parameter.value, basestring):
+                        if not isinstance(spider_parameter.value, (basestring, int, float)):
                             # support only string config now
                             continue
                         session.add(spider_parameter)

@@ -8,6 +8,7 @@ from migrate.versioning.api import version_control, upgrade
 from migrate.exceptions import DatabaseAlreadyControlledError
 import os
 from contextlib import contextmanager
+from scrapydd.config import Config
 
 metadata = schema.MetaData()
 Base = declarative_base(metadata=metadata)
@@ -139,7 +140,13 @@ class SpiderParameter(Base):
 Spider.parameters = relationship('SpiderParameter', order_by=SpiderParameter.parameter_key)
 
 
-def init_database():
+def init_database(config=None):
+    if config is None:
+        config = Config()
+
+    database_url = config.get('database_url')
+    engine = create_engine(database_url)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
     db_repository = os.path.join(os.path.dirname(__file__), 'migrates')
     try:
         version_control(url=database_url, repository=db_repository)
