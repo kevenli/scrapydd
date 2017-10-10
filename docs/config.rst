@@ -26,6 +26,11 @@ client_validation
 ~~~~~~~~~~~~~~~~~~
 Whether validate client's certificate on SSL, Default: ``false``
 
+database_url
+~~~~~~~~~~~~
+Database connection url. This will be passed to the inside sqlalchemy `create_engine` method.
+Default: ``sqlite:///database.db``
+
 debug
 ~~~~~~
 Whether run server on debug mode. Debug mode will set logging level to DEBUG.

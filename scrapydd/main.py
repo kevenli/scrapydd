@@ -609,6 +609,7 @@ class DeleteProjectHandler(tornado.web.RequestHandler):
                 session.delete(spider)
             session.delete(project)
             ProjectWorkspace(project_name).delete_egg(project_name)
+        logger.info('project %s deleted' % project_name)
 
 
 class SpiderSettingsHandler(tornado.web.RequestHandler):

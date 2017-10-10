@@ -42,7 +42,6 @@ class MainTest(AsyncHTTPTestCase):
 class UploadTest(MainTest):
     def test_logging_init(self):
         self.skipTest('no logging init')
-        init_logging(Config())
 
     def test_MainHandler(self):
         response = self.fetch('/')
@@ -69,10 +68,10 @@ class ScheduleHandlerTest(MainTest):
     def setUp(self):
         super(ScheduleHandlerTest, self).setUp()
         self._delproject()
-
+        self._upload_test_project()
+        logger.info('setup')
 
     def test_post(self):
-        self._upload_test_project()
         # schedule once
         project = 'test_project'
         spider = 'success_spider'
@@ -84,8 +83,6 @@ class ScheduleHandlerTest(MainTest):
         self.assertEqual(200, response.code)
 
     def test_post_job_already_running(self):
-        self._upload_test_project()
-        # schedule once
         project = 'test_project'
         spider = 'success_spider'
         postdata = urllib.urlencode({
@@ -96,6 +93,7 @@ class ScheduleHandlerTest(MainTest):
         response = self.fetch('/schedule.json', method='POST', body=postdata)
         self.assertEqual(400, response.code)
         self.assertIn('job is running', response.body)
+
 
 class AddScheduleHandlerTest(MainTest):
     def setUp(self):

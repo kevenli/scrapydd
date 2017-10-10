@@ -17,6 +17,7 @@ Base = declarative_base(metadata=metadata)
 database_url = 'sqlite:///database.db'
 engine = create_engine(database_url)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
+_Session = None
 
 
 class Project(Base):
@@ -144,9 +145,13 @@ def init_database(config=None):
     if config is None:
         config = Config()
 
+    global database_url
+    global engine
+    global _Session
     database_url = config.get('database_url')
     engine = create_engine(database_url)
-    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    _Session = sessionmaker(bind=engine, expire_on_commit=False)
+    #global Session
     db_repository = os.path.join(os.path.dirname(__file__), 'migrates')
     try:
         version_control(url=database_url, repository=db_repository)
@@ -154,11 +159,18 @@ def init_database(config=None):
         pass
     upgrade(database_url, db_repository)
 
+def _make_session():
+    global _Session
+    return _Session()
+
+Session = _make_session
+
+
 
 @contextmanager
 def session_scope():
     """Provide a transactional scope around a series of operations."""
-    session = Session()
+    session = _make_session()
     try:
         yield session
         session.commit()
