@@ -17,5 +17,6 @@ Contents:
    install
    webhook
    config
+   tags
 
 
