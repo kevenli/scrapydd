@@ -5,5 +5,8 @@ python:
 install: 
   - pip install -r requirements.txt
   - python setup.py install
+  - pip install -U codecov
 # command to run tests
 script: nosetests tests --exe --with-coverage --cover-package=scrapydd --cover-html
+after_success:
+  - codecov
