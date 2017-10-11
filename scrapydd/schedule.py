@@ -134,36 +134,22 @@ class SchedulerManager():
             if not trigger:
                 logger.error('Trigger %s not found.' % trigger_id)
                 return
+
             spider = session.query(Spider).filter_by(id=trigger.spider_id).first()
-            project = session.query(Project).filter_by(id=spider.project_id).first()
-            executing = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id == spider.id, SpiderExecutionQueue.status.in_([0,1]))
-            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='concurrency').first()
-            spider_tag_vo = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='tag').first()
-            spider_tag = spider_tag_vo.value if spider_tag_vo else None
-            concurrency = int(concurrency_setting.value) if concurrency_setting else 1
-            executing_slots = [executing_job.slot for executing_job in executing]
-            free_slots = [x for x in range(1,concurrency+1) if x not in executing_slots]
-            if not free_slots:
-                logger.warning('spider %s-%s is configured as %d concurency, and %d in queue, skipping' % (project.name, spider.name, concurrency,
-                                                                                                          len(executing_slots)))
+            if not spider:
+                logger.error('Spider %s not found' % spider.name)
                 return
 
-            executing = SpiderExecutionQueue()
-            executing.id = generate_job_id()
-            executing.spider_id = spider.id
-            executing.project_name = project.name
-            executing.spider_name = spider.name
-            executing.fire_time = datetime.datetime.now()
-            executing.update_time = datetime.datetime.now()
-            executing.slot = free_slots[0]
-            executing.tag = spider_tag
-            session.add(executing)
-            try:
-                session.commit()
-            except (Exception, IntegrityError) as e:
-                logger.warning(e)
-            session.close()
-            return
+            project = session.query(Project).filter_by(id=spider.project_id).first()
+            if not project:
+                logger.error('Project %s not found' % project.name)
+                return
+
+        try:
+            self.add_task(project.name, spider.name)
+        except JobRunning:
+            logger.info('Job for spider %s.%s already reach the concurrency limit' % (project.name, spider.name))
+
 
     def add_schedule(self, project, spider, cron):
         with session_scope()as session:
@@ -185,15 +171,20 @@ class SchedulerManager():
                 self.add_job(trigger.id, cron)
 
     def add_task(self, project_name, spider_name):
-        session = Session()
-        project = session.query(Project).filter(Project.name==project_name).first()
-        spider = session.query(Spider).filter(Spider.name==spider_name, Spider.project_id==project.id).first()
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name==project_name).first()
+            spider = session.query(Spider).filter(Spider.name==spider_name, Spider.project_id==project.id).first()
 
-        try:
-            existing = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id==spider.id, SpiderExecutionQueue.status.in_([0,1])))
-            if existing:
-                logger.warning('job %s_%s is running, ignoring schedule'%(project.name, spider.name))
-                raise JobRunning(existing[0].id)
+            executing = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id==spider.id, SpiderExecutionQueue.status.in_([0,1])))
+            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='concurrency').first()
+            concurrency = int(concurrency_setting.value) if concurrency_setting else 1
+            executing_slots = [executing_job.slot for executing_job in executing]
+            free_slots = [x for x in range(1, concurrency + 1) if x not in executing_slots]
+            if not free_slots:
+                logger.warning('spider %s-%s is configured as %d concurency, and %d in queue, skipping' % (
+                    project.name, spider.name, concurrency, len(executing_slots)))
+                raise JobRunning(executing[0].id)
+
             executing = SpiderExecutionQueue()
             spider_tag_vo = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='tag').first()
             spider_tag = spider_tag_vo.value if spider_tag_vo else None
@@ -205,12 +196,11 @@ class SchedulerManager():
             executing.fire_time = datetime.datetime.now()
             executing.update_time = datetime.datetime.now()
             executing.tag = spider_tag
+            executing.slot = free_slots[0]
             session.add(executing)
             session.commit()
             session.refresh(executing)
             return executing
-        finally:
-            session.close()
 
     def on_node_expired(self, node_id):
         session = Session()
