@@ -195,6 +195,8 @@ class SchedulerManager():
                 logger.warning('job %s_%s is running, ignoring schedule'%(project.name, spider.name))
                 raise JobRunning(existing[0].id)
             executing = SpiderExecutionQueue()
+            spider_tag_vo = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='tag').first()
+            spider_tag = spider_tag_vo.value if spider_tag_vo else None
             jobid = generate_job_id()
             executing.id = jobid
             executing.spider_id = spider.id
@@ -202,6 +204,7 @@ class SchedulerManager():
             executing.spider_name = spider.name
             executing.fire_time = datetime.datetime.now()
             executing.update_time = datetime.datetime.now()
+            executing.tag = spider_tag
             session.add(executing)
             session.commit()
             session.refresh(executing)
