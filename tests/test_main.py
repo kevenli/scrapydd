@@ -149,3 +149,33 @@ class NodesHandlerTest(MainTest):
         self.assertEqual(True, new_node.isalive)
         self.assertEqual(None, new_node.tags)
 
+
+class SpiderInstanceHandler2Test(MainTest):
+    def setUp(self):
+        super(SpiderInstanceHandler2Test, self).setUp()
+        self._upload_test_project()
+
+    def test_get(self):
+        with session_scope() as session:
+            spider = session.query(Spider).first()
+            project = spider.project
+
+        self.assertIsNotNone(spider)
+        response = self.fetch('/projects/%s/spiders/%s' % (project.name, spider.name))
+        self.assertEqual(200, response.code)
+
+
+class SpiderEggHandlerTest(MainTest):
+    def setUp(self):
+        super(SpiderEggHandlerTest, self).setUp()
+        self._upload_test_project()
+
+    def test_get(self):
+        with session_scope() as session:
+            spider = session.query(Spider).first()
+            project = spider.project
+
+        self.assertIsNotNone(spider)
+        # TODO: this interface should be replaced by /projects/xxx/spiders/yyy/egg
+        response = self.fetch('/spiders/%d/egg' % (spider.id, ))
+        self.assertEqual(200, response.code)
