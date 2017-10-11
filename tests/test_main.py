@@ -20,7 +20,9 @@ class MainTest(AsyncHTTPTestCase):
         config = Config()
         scheduler_manager = SchedulerManager(config=config)
         scheduler_manager.init()
-        return make_app(scheduler_manager, None, None)
+        node_manager = NodeManager(scheduler_manager)
+        node_manager.init()
+        return make_app(scheduler_manager, node_manager, None)
 
     def _delproject(self):
         postdata = {'project': 'test_project'}
@@ -127,3 +129,23 @@ class SpiderInstanceHandlerTest(MainTest):
     def test_get(self):
         spider = 'success_spider'
         response = self.fetch('/')
+
+
+class NodesHandlerTest(MainTest):
+    def test_register(self):
+        with session_scope() as session:
+            session.query(Node).delete()
+
+        response = self.fetch('/nodes', method="POST", body="")
+
+
+        with session_scope() as session:
+            new_node = session.query(Node).first()
+
+        self.assertEqual(200, response.code)
+        self.assertEqual('127.0.0.1', new_node.client_ip)
+        self.assertEqual(datetime.date.today(), new_node.create_time.date())
+        self.assertEqual(datetime.date.today(), new_node.last_heartbeat.date())
+        self.assertEqual(True, new_node.isalive)
+        self.assertEqual(None, new_node.tags)
+

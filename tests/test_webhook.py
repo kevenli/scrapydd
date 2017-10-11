@@ -29,6 +29,7 @@ class WebhookJobExecutorTest(AsyncHTTPTestCase):
     def setUp(self):
         super(WebhookJobExecutorTest, self).setUp()
         self.batches = []
+        os.environ['ASYNC_TEST_TIMEOUT'] = '30'
 
     def get_app(self):
         return tornado.web.Application([
