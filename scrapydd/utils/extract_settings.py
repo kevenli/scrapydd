@@ -5,14 +5,14 @@ import tempfile
 from contextlib import contextmanager
 from scrapy.settings import overridden_settings, Settings, iter_default_settings
 from scrapy.utils.project import get_project_settings
-from scrapydd.workspace import ProjectWorkspace
 from scrapyd.eggutils import activate_egg
+from scrapyd.eggstorage import FilesystemEggStorage
+import scrapyd.config
 import json
 
 @contextmanager
 def project_environment(project):
-    workspace =ProjectWorkspace(project)
-    eggstorage = workspace.egg_storage
+    eggstorage = FilesystemEggStorage(scrapyd.config.Config())
     version, eggfile = eggstorage.get(project)
     if eggfile:
         prefix = '%s-%s-' % (project, version)
