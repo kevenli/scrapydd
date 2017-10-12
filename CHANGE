@@ -1,3 +1,8 @@
+v0.5.0:
+
+* add tag system.
+* add database_url configuration
+
 v0.4.23:
 
 * show finished jobs order by complete time desc in jobs page
