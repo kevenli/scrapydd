@@ -100,7 +100,6 @@ class ScheduleHandlerTest(MainTest):
 class AddScheduleHandlerTest(MainTest):
     def setUp(self):
         super(AddScheduleHandlerTest, self).setUp()
-        self._delproject()
         self._upload_test_project()
 
     def test_add_scheduler(self):
