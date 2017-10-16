@@ -38,7 +38,8 @@ class MainTest(AsyncHTTPTestCase):
 
         datagen, headers = multipart_encode(post_data)
         databuffer = ''.join(datagen)
-        self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        self.assertEquals(200, response.code)
 
 
 class UploadTest(MainTest):
@@ -100,7 +101,9 @@ class ScheduleHandlerTest(MainTest):
 class AddScheduleHandlerTest(MainTest):
     def setUp(self):
         super(AddScheduleHandlerTest, self).setUp()
+        self._delproject()
         self._upload_test_project()
+        logger.info('setup')
 
     def test_add_scheduler(self):
         project = 'test_project'
