@@ -13,8 +13,10 @@ class DataReceiver(tornado.web.RequestHandler):
                 raise Exception('rows are not aligned')
             for i, value in enumerate(values):
                 rows[i][key] = value
+        content = '%s rows received' % len(rows)
+        print content
+        self.write(content)
 
-        print '%s rows received' % len(rows)
         #for row in rows:
         #    print row
 

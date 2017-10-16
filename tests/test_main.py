@@ -6,6 +6,7 @@ from poster.encode import multipart_encode
 from scrapydd.models import init_database
 import os.path
 import urllib
+import tempfile
 
 class MainTest(AsyncHTTPTestCase):
     @classmethod
@@ -22,7 +23,8 @@ class MainTest(AsyncHTTPTestCase):
         scheduler_manager.init()
         self.node_manager= node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None)
+        self.webhook = webhook = WebhookDaemon(config, SpiderSettingLoader())
+        return make_app(scheduler_manager, node_manager, webhook)
 
     def _delproject(self):
         postdata = {'project': 'test_project'}
@@ -338,3 +340,67 @@ class NodeHeartbeatHandlerTest(MainTest):
         response = self.fetch('/nodes/%d/heartbeat' % self.node.id, method='POST', body='')
         self.assertEqual(200, response.code)
         self.assertEqual('True', response.headers['X-DD-New-Task'])
+
+
+class JobExecutingTest(MainTest):
+    def setUp(self):
+        super(JobExecutingTest, self).setUp()
+        self._upload_test_project()
+        self.node = self.node_manager.create_node('127.0.0.1')
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+
+    def test_run(self):
+        log_content = 'some log'
+        items_content = 'some item'
+        self.scheduler_manager.add_task('test_project', 'success_spider')
+        post_data = {'node_id': str(self.node.id)}
+        response = self.fetch('/executing/next_task', method='POST', body=urllib.urlencode(post_data))
+        self.assertEqual(200, response.code)
+        response_data = json.loads(response.body)
+        task_id = response_data['data']['task']['task_id']
+
+        logs_file = tempfile.mktemp()
+        with open(logs_file, 'wb') as f:
+            f.write(log_content)
+
+        items_file = tempfile.mktemp()
+        with open(items_file, 'wb') as f:
+            f.write(items_content)
+
+        # running
+        response = self.fetch('/nodes/%d/heartbeat' % self.node.id, method='POST', body='')
+        self.assertEqual(200, response.code)
+
+        post_data = {}
+        post_data['task_id'] = str(task_id)
+        post_data['status'] = 'success'
+        post_data['log'] = open(logs_file, 'rb')
+        post_data['items'] = open(items_file, 'rb')
+
+        datagen, headers = multipart_encode(post_data)
+        headers['X-Dd-Nodeid'] = str(self.node.id)
+        databuffer = ''.join(datagen)
+        #logger.debug(headers)
+        #logger.debug(len(databuffer))
+        #logger.debug(databuffer)
+        response = self.fetch('/executing/complete', method='POST', headers=headers, body=databuffer)
+        #logger.debug(response)
+        self.assertEquals(200, response.code)
+
+        with session_scope() as session:
+            task = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == task_id).first()
+            historical_task = session.query(HistoricalJob).filter(HistoricalJob.id == task_id).first()
+            self.assertIsNone(task)
+            self.assertIsNotNone(historical_task)
+            self.assertEqual(historical_task.status, 2)
+
+            with open(historical_task.log_file, 'rb') as f:
+                self.assertEqual(f.read(), log_content)
+
+            with open(historical_task.items_file, 'rb') as f:
+                self.assertEqual(f.read(), items_content)
+
+
+
+

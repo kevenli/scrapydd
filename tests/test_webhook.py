@@ -11,7 +11,6 @@ import json
 class WebhookRequestHandler(tornado.web.RequestHandler):
     def initialize(self, test):
         self.test = test
-        os.environ['ASYNC_TEST_TIMEOUT'] = '30'
 
     def post(self):
         rows = []
