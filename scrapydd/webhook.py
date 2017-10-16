@@ -8,6 +8,7 @@ from models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSett
 import os, os.path, shutil
 import sys
 from .exceptions import *
+from cStringIO import StringIO
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +49,21 @@ class DatabaseWebhookJobStateStorage(WebhookJobStateStorage):
             session.add(job)
             session.commit()
 
-    def finish_job(self, job_id):
+    def finish_job(self, job_id, log=None):
         with session_scope() as session:
             job = session.query(WebhookJob).filter_by(id=job_id).first()
             job.status = 2
+            if log is not None:
+                job.log = log.getvalue()
             session.add(job)
             session.commit()
 
-    def job_failed(self, job_id):
+    def job_failed(self, job_id, log=None):
         with session_scope() as session:
             job = session.query(WebhookJob).filter_by(id=job_id).first()
             job.status = 3
+            if log is not None:
+                job.log = log.getvalue()
             session.add(job)
             session.commit()
 
@@ -100,6 +105,7 @@ class WebhookJobExecutor():
         self.send_msg_interval = 0.1
         self.memory_limit = memory_limit
         self.max_batch_size = max_batch_size
+        self.log = StringIO()
 
     def start(self):
         self.ioloop.call_later(self.send_msg_interval, self.send_next_msg)
@@ -120,12 +126,14 @@ class WebhookJobExecutor():
                 rows.append(line_data)
             except ValueError as e:
                 logger.error('Error when decoding jl file. %s', e.message)
+                self.log.write('Error when decoding jl file. %s\n' % e.message)
                 exc = WebhookJobJlDecodeError(executor=self, message='Error when decoding jl file')
                 self.on_error(exc)
                 return
 
             if sys.getsizeof(rows) > self.memory_limit:
-                message = 'Webhook task memory usage over %s' % self.memory_limit
+                message = 'Webhook task memory usage over %s, \n' % self.memory_limit
+                self.log.write(message)
                 logger.warning(message)
                 exc = WebhookJobOverMemoryLimitError(executor=self, message=message)
                 self.on_error(exc)
@@ -152,6 +160,7 @@ class WebhookJobExecutor():
             post_data = urllib.urlencode(post_dict, doseq=True)
 
             client = AsyncHTTPClient()
+            self.log.write('Sending request to %s\n' % self.payload_url)
             request = HTTPRequest(url=self.payload_url,
                                   method='POST',
                                   body=post_data)
@@ -180,6 +189,8 @@ class WebhookJobExecutor():
             if exc is not None:
                 self.on_error(WebhookJobFailedError(executor=self, message=str(exc), inner_exc=exc))
                 return
+            response = callback_future.result()
+            self.log.write(response.body + '\n')
         self.ioloop.call_later(self.send_msg_interval, self.send_next_msg)
 
 
@@ -232,7 +243,8 @@ class WebhookDaemon():
     def job_finised(self, future):
         try:
             job = future.result()
-            self.storage.finish_job(job.id)
+            log = self.current_job.log
+            self.storage.finish_job(job.id, log)
             self.current_job = None
             if os.path.exists(job.items_file) and os.path.dirname(job.items_file) == self.queue_file_dir:
                 os.remove(job.items_file)
@@ -246,11 +258,13 @@ class WebhookDaemon():
         except WebhookJobFailedError as e:
             executor = e.executor
             job = executor.job
-            self.job_failed(job)
+            self.job_failed(job, executor.log)
             logger.error(e)
 
     def job_failed(self, job):
-        self.storage.job_failed(job.id)
+        log = self.current_job
+        self.storage.job_failed(job.id, log)
+
         self.current_job = None
         if os.path.exists(job.items_file) and os.path.dirname(job.items_file) == self.queue_file_dir:
             os.remove(job.items_file)

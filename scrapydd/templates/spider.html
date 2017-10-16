@@ -73,6 +73,7 @@
                 <th>Log</th>
                 <th>Items</th>
                 <th>Status</th>
+                <th>Webhook Job</th>
             </tr>
             {% for job in running_jobs %}
                 <tr>
@@ -92,6 +93,7 @@
 
                     </td>
                     <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
+                    <td></td>
                 </tr>
             {% end %}
             {% for job in jobs %}
@@ -106,6 +108,11 @@
                         {% end %}
                     </td>
                     <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
+                    {% if job.webhook_job %}
+                        <td class="{{job.webhook_job.status_obj.name}}">{{job.webhook_job.status_obj.name.upper()}}</td>
+                    {% else %}
+                    <td></td>
+                    {% end %}
                 </tr>
             {% end %}
         </table>

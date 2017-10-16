@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, schema, Column, desc
-from sqlalchemy.types import Integer, String, DateTime
+from sqlalchemy.types import Integer, String, DateTime, Text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
@@ -113,12 +113,17 @@ class WebhookJob(Base):
     __tablename__ = 'webhook_jobs'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    job_id = Column(String(length=50))
+    job_id = Column(String(length=50), ForeignKey('job_history.id'))
+    job = relationship('HistoricalJob')
     spider_id = Column(Integer, ForeignKey('spiders.id'))
     payload_url = Column(String(length=50))
     items_file = Column(String(length=250))
     status = Column(Integer, ForeignKey('job_status.id'), default=0)
     status_obj = relationship('JobStatus')
+    log = Column(Text)
+
+HistoricalJob.webhook_job = relationship('WebhookJob', uselist=False)
+
 
 
 class SpiderSettings(Base):
