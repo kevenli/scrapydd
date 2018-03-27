@@ -5,7 +5,7 @@ The file will be looked up in the following locations:
 
 * /etc/scrapydd/scrapydd.conf
 * /etc/scrapyd/conf.d/*
-* scrapydd.conf
+* ./scrapydd.conf
 * ~/.scrapydd.conf
 
 
@@ -78,13 +78,14 @@ Request timeout in seconds when communicating to server. Default: ``60``
 
 Example
 --------
-
-Here is an example configuration file with all the defaults::
+Server configuration::
 
     [server]
     bind_address = 0.0.0.0
     bind_port = 6800
     debug = false
+
+Agent configuration::
 
     [agent]
     server = localhost
