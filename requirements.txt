@@ -1,4 +1,4 @@
-tornado>=4.4.2
+tornado>=4.4.2,<5.0
 apscheduler
 scrapyd
 sqlalchemy
