@@ -1,3 +1,13 @@
+v0.5.2:
+
+* fix: Task not removed from slot when deleted by server side.
+* fix: Do not execute pip install when project has no requirements
+
+v0.5.1:
+
+* fix: Fix a reference issue that tornado 5.0 need python 2.7.9 or 3.0, which is not necessary.
+* fix: attr depencency
+
 v0.5.0:
 
 * add tag system.
