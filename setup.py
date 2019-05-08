@@ -26,7 +26,7 @@ setup(
         ]
     },
     install_requires=[
-        'tornado>=4.4.2',
+        'tornado>=4.4.2,<5.0',
         'apscheduler',
         'scrapyd',
         'sqlalchemy',
@@ -35,5 +35,6 @@ setup(
         'service-identity',
         'virtualenv',
         'pysyncobj>=0.2.3',
+        'attrs>=17.4.0'
     ]
 )
