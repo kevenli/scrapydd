@@ -174,6 +174,7 @@ class Executor():
                     if task_to_kill:
                         logger.info('%s' % task_to_kill)
                         task_to_kill.kill()
+                        self.task_slots.remove_task(task_to_kill)
             self.check_header_new_task_on_server(res.headers)
         except urllib2.HTTPError as e:
             if e.code == 400:
@@ -384,16 +385,22 @@ class TaskExecutor():
             self.egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
             logger.debug('download egg done.')
             requirements = workspace.find_project_requirements(self.task.project_name, egg_storage=self.egg_storage)
-            yield workspace.pip_install(requirements)
+            if requirements:
+                logger.info('project requirements: %s' % requirements)
+                yield workspace.pip_install(requirements)
             result = yield self.execute_subprocess()
         except ProcessFailed as e:
-            logger.error(e)
+            logger.error('Process Failed when executing task %s: %s' % (self.task.id, e))
             error_log = e.message
             if e.std_output:
                 logger.error(e.std_output)
                 error_log += e.std_output
+            if e.err_output:
+                logger.error(e.err_output)
+                error_log += e.err_output
             result = self.complete_with_error(error_log)
         except Exception as e:
+            logger.error('Error when executing task %s: %s' % (self.task.id, e))
             logger.error(e)
             error_log = e.message
             result = self.complete_with_error(error_log)
@@ -470,11 +477,17 @@ class TaskExecutor():
     def kill(self):
         logger.info('killing job %s' % self.task.id)
         if self.p:
-            self.p.terminate()
+            try:
+                self.p.terminate()
+            except OSError as e:
+                logger.error('Caught OSError when try to terminate subprocess: %s' % e)
 
         gen.sleep(10)
         if self.p:
-            self.p.kill()
+            try:
+                self.p.kill()
+            except OSError as e:
+                logger.error('Caught OSError when try to kill subprocess: %s' % e)
 
 
 

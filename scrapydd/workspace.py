@@ -46,7 +46,7 @@ class ProjectWorkspace(object):
             future.set_result(self)
             return future
 
-        logger.debug('start creating virtualenv.')
+        logger.info('start creating virtualenv.')
         try:
             process = Popen(['virtualenv', '--system-site-packages', self.project_workspace_dir], stdout=PIPE, stderr=PIPE)
         except Exception as e:
