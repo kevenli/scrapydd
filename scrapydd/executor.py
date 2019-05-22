@@ -329,19 +329,6 @@ class Executor():
         if not self.task_slots.is_full():
             self.get_next_task()
 
-class TaskExecuteResult():
-    task = None
-    output_file = None
-    items_file = None
-    ret_code = None
-    executor = None
-
-    def __init__(self, task, log_file, items_file, ret_code):
-        self.task = task
-        self.output_file = log_file
-        self.items_file = items_file
-        self.ret_code = ret_code
-
 class TaskExecutor():
     def __init__(self, task, config=None):
         '''
@@ -437,7 +424,8 @@ class TaskExecutor():
                 self.on_subprocess_start(self.task, self.p.pid)
 
         except Exception as e:
-            return self.complete_with_error('Error when starting crawl subprocess : %s' % e)
+            future.set_exception(e)
+            return future
         logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
 
         def check_process():
