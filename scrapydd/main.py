@@ -261,6 +261,16 @@ class SpiderEggHandler(tornado.web.RequestHandler):
         session.close()
 
 
+class ProjectSpiderEggHandler(tornado.web.RequestHandler):
+    def get(self, project, spider):
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
+            version, f = ProjectWorkspace(spider.project.name).get_egg()
+            self.write(f.read())
+            session.close()
+
+
 class SpiderListHandler(tornado.web.RequestHandler):
     def get(self):
         session = Session()
@@ -764,6 +774,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
+        (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler, {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
