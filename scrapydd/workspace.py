@@ -11,6 +11,7 @@ import shutil
 import pkg_resources
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 import json
+from zipfile import ZipFile
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,8 @@ class ProjectWorkspace(object):
     project_check = None
     temp_dir = None
 
-    def __init__(self, project_name):
-        project_workspace_dir = os.path.abspath(os.path.join('workspace', project_name))
+    def __init__(self, project_name, base_workdir='.'):
+        project_workspace_dir = os.path.abspath(os.path.join(base_workdir, 'workspace', project_name))
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
         self.egg_storage = FilesystemEggStorage(scrapyd.config.Config())
@@ -73,23 +74,12 @@ class ProjectWorkspace(object):
             if egg_storage is None:
                 egg_storage = FilesystemEggStorage(scrapyd.config.Config())
             version, eggf = egg_storage.get(project)
-        try:
-            prefix = '%s-nover-' % (project)
-            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
-            logger.debug('tmp egg file saved to %s' % eggpath)
-            lf = os.fdopen(fd, 'wb')
-            eggf.seek(0)
-            shutil.copyfileobj(eggf, lf)
-            lf.close()
+        with ZipFile(eggf) as egg_zip_file:
             try:
-                d = pkg_resources.find_distributions(eggpath).next()
-            except StopIteration:
-                raise ValueError("Unknown or corrupt egg")
-            requirements = [str(x) for x in d.requires()]
-            return requirements
-        finally:
-            if eggpath:
-                os.remove(eggpath)
+                requires_fileinfo = egg_zip_file.getinfo('EGG-INFO/requires.txt')
+                return egg_zip_file.read(requires_fileinfo).split()
+            except KeyError:
+                return []
 
     def test_egg(self, eggf):
         future = Future()

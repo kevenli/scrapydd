@@ -331,12 +331,13 @@ class Executor():
             self.get_next_task()
 
 class TaskExecutor():
-    def __init__(self, task, egg_downloader):
+    def __init__(self, task, egg_downloader, base_workdir='.'):
         '''
         @type task: SpiderTask
         '''
         self.task = task
         self.egg_downloader = egg_downloader
+        self.base_workdir = base_workdir
         self._f_output = None
         self.output_file = None
         self.p = None
@@ -354,20 +355,20 @@ class TaskExecutor():
             os.mkdir(eggs_dir)
         self.egg_storage = FilesystemEggStorage(scrapyd.config.Config(values={'eggs_dir': eggs_dir}))
         self.on_subprocess_start = None
+        self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.base_workdir)
 
     @gen.coroutine
     def execute(self):
         try:
-            workspace = ProjectWorkspace(self.task.project_name)
-            yield workspace.init()
+            yield self.workspace.init()
             downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.spider_id)
             with open(downloaded_egg, 'rb') as egg_f:
                 self.egg_storage.put(egg_f, self.task.project_name, self.task.project_version)
             logger.debug('download egg done.')
-            requirements = workspace.find_project_requirements(self.task.project_name, egg_storage=self.egg_storage)
+            requirements = self.workspace.find_project_requirements(self.task.project_name, egg_storage=self.egg_storage)
             if requirements:
                 logger.info('project requirements: %s' % requirements)
-                yield workspace.pip_install(requirements)
+                yield self.workspace.pip_install(requirements)
             result = yield self.execute_subprocess()
         except ProcessFailed as e:
             logger.error('Process Failed when executing task %s: %s' % (self.task.id, e))

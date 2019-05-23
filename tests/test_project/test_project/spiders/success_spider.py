@@ -11,5 +11,4 @@ class SuccessSpiderSpider(scrapy.Spider):
     )
 
     def parse(self, response):
-        time.sleep(10)
-        pass
+        yield {'url':response.url, 'body':response.body}
