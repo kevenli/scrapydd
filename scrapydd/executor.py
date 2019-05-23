@@ -247,7 +247,8 @@ class Executor():
             logger.warning('Cannot connect to server')
 
     def execute_task(self, task):
-        executor = TaskExecutor(task, config=self.config)
+        egg_downloader = ProjectEggDownloader(tempfile.mktemp('.egg', 'de'), service_base=self.service_base)
+        executor = TaskExecutor(task, egg_downloader=egg_downloader)
         pid = None
         future = executor.execute()
         self.post_start_task(task, pid)
@@ -330,17 +331,12 @@ class Executor():
             self.get_next_task()
 
 class TaskExecutor():
-    def __init__(self, task, config=None):
+    def __init__(self, task, egg_downloader):
         '''
         @type task: SpiderTask
         '''
         self.task = task
-        if config is None:
-            config = AgentConfig()
-        if config.get('server_https_port'):
-            self.service_base = 'https://%s:%d' % (config.get('server'), config.getint('server_https_port'))
-        else:
-            self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
+        self.egg_downloader = egg_downloader
         self._f_output = None
         self.output_file = None
         self.p = None
@@ -364,12 +360,9 @@ class TaskExecutor():
         try:
             workspace = ProjectWorkspace(self.task.project_name)
             yield workspace.init()
-            logger.debug('begin download egg.')
-            egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
-            request = HTTPRequest(egg_request_url)
-            client = AsyncHTTPClient()
-            response = yield client.fetch(request)
-            self.egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
+            downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.spider_id)
+            with open(downloaded_egg, 'rb') as egg_f:
+                self.egg_storage.put(egg_f, self.task.project_name, self.task.project_version)
             logger.debug('download egg done.')
             requirements = workspace.find_project_requirements(self.task.project_name, egg_storage=self.egg_storage)
             if requirements:
@@ -478,5 +471,34 @@ class TaskExecutor():
                 logger.error('Caught OSError when try to kill subprocess: %s' % e)
 
 
+class ProjectEggDownloader(object):
+    def __init__(self, download_path, service_base):
+        self.download_path = download_path
+        self._fd = open(self.download_path, 'wb')
+        self.service_base = service_base
 
+    def download_egg_future(self, spider_id):
+        ret_future = Future()
+
+        logger.debug('begin download egg.')
+        egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % spider_id)
+        request = HTTPRequest(egg_request_url, streaming_callback=self._handle_chunk)
+        client = AsyncHTTPClient()
+        def done_callback(future):
+            ex = future.exception()
+            if ex:
+                return ret_future.set_exception(ex)
+
+            self._fd.close()
+            return ret_future.set_result(self.download_path)
+        client.fetch(request).add_done_callback(done_callback)
+        return ret_future
+
+    def _handle_chunk(self, chunk):
+        self._fd.write(chunk)
+        self._fd.flush()
+
+    def __del__(self):
+        if os.path.exists(self.download_path):
+            os.remove(self.download_path)
 
