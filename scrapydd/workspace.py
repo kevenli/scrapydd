@@ -2,16 +2,20 @@ import sys
 import os, os.path
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
+from tornado import gen
+from tornado.process import Subprocess
 from subprocess import Popen, PIPE
 import logging
 import tempfile
 import scrapyd.config
 from scrapyd.eggstorage import FilesystemEggStorage
 import shutil
-import pkg_resources
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 import json
 from zipfile import ZipFile
+import pkg_resources
+from w3lib.url import path_to_file_uri
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +27,13 @@ class ProjectWorkspace(object):
     project_check = None
     temp_dir = None
 
-    def __init__(self, project_name, base_workdir='.'):
+    def __init__(self, project_name, base_workdir=None):
+        if not base_workdir:
+            base_workdir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         project_workspace_dir = os.path.abspath(os.path.join(base_workdir, 'workspace', project_name))
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
-        self.egg_storage = FilesystemEggStorage(scrapyd.config.Config())
+        self.egg_storage = FilesystemEggStorage({'eggs_dir':os.path.join(project_workspace_dir, 'eggs')})
         if sys.platform.startswith('linux'):
             self.pip = os.path.join(project_workspace_dir, 'bin', 'pip')
             self.python = os.path.join(project_workspace_dir, 'bin', 'python')
@@ -72,7 +78,7 @@ class ProjectWorkspace(object):
     def find_project_requirements(self, project, egg_storage=None, eggf=None):
         if eggf is None:
             if egg_storage is None:
-                egg_storage = FilesystemEggStorage(scrapyd.config.Config())
+                egg_storage = self.egg_storage
             version, eggf = egg_storage.get(project)
         with ZipFile(eggf) as egg_zip_file:
             try:
@@ -86,7 +92,7 @@ class ProjectWorkspace(object):
         temp_dir = tempfile.mkdtemp('scrapydd-egg-%s' % self.project_name)
         self.temp_dir = temp_dir
         eggf.seek(0)
-        egg_storage = FilesystemEggStorage(scrapyd.config.Config({'eggs_dir': os.path.join(temp_dir, 'eggs')}))
+        egg_storage = self.egg_storage
         egg_storage.put(eggf, project=self.project_name, version='1')
         eggf.seek(0)
 
@@ -109,7 +115,7 @@ class ProjectWorkspace(object):
                 future.set_exception(exc)
                 return
 
-            self.spider_list(self.project_name, cwd=temp_dir).add_done_callback(after_spider_list)
+            self.spider_list().add_done_callback(after_spider_list)
 
         self.pip_install(requirements).add_done_callback(after_pip_install)
 
@@ -134,6 +140,13 @@ class ProjectWorkspace(object):
             if eggpath:
                 os.remove(eggpath)
 
+    @gen.coroutine
+    def install_requirements(self):
+        requirements = self.find_project_requirements(self.project_name)
+        if requirements:
+            yield self.pip_install(requirements)
+
+        raise gen.Return()
 
     def pip_install(self, requirements):
         logger.debug('installing requirements: %s' % requirements)
@@ -159,11 +172,12 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
-    def spider_list(self, project, cwd=None):
+    def spider_list(self):
         future = Future()
+        cwd = self.project_workspace_dir
         try:
             env = os.environ.copy()
-            env['SCRAPY_PROJECT'] = project
+            env['SCRAPY_PROJECT'] = self.project_name
             process = Popen([self.python, '-m', 'scrapyd.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
         except Exception as e:
             logger.error(e)
@@ -185,8 +199,39 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
+    def run_spider(self, spider, spider_parameters=None, f_output=None):
+        ret_future = Future()
+        items_file = os.path.join(self.project_workspace_dir, 'items.jl')
+        runner = 'scrapyd.runner'
+        pargs = [self.python, '-m', runner, 'crawl', spider]
+        if spider_parameters:
+            for spider_parameter_key, spider_parameter_value in spider_parameters.items():
+                pargs += [
+                            '-s',
+                            '%s=%s' % (spider_parameter_key, spider_parameter_value)
+                          ]
+
+        env = os.environ.copy()
+        env['SCRAPY_PROJECT'] = str(self.project_name)
+        #env['SCRAPY_JOB'] = str(self.task.id)
+        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(items_file))
+
+        p = Subprocess(pargs, env = env, stdout = f_output, cwd = self.project_workspace_dir, stderr = f_output)
+        #return p.wait_for_exit()
+
+        def done(exit_code):
+            if exit_code:
+                return ret_future.set_exception(ProcessFailed())
+
+            return ret_future.set_result(items_file)
+
+        p.set_exit_callback(done)
+        return ret_future
+
+
+
     def find_project_settings(self, project):
-        cwd = None
+        cwd = self.project_workspace_dir
         future = Future()
         try:
             env = os.environ.copy()
