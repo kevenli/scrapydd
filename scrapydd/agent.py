@@ -19,12 +19,17 @@ def init_logging(config):
         os.mkdir('logs')
     fh = logging.handlers.TimedRotatingFileHandler('logs/scrapydd-agent.log', when='D', backupCount=7)
     ch = logging.StreamHandler()
+    eh = logging.handlers.TimedRotatingFileHandler(os.path.join('logs/scrapydd-agent-error.log'), when='D',
+                                                   backupCount=30)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
+    eh.setFormatter(formatter)
+    eh.setLevel(logging.ERROR)
 
     logger.addHandler(fh)
     logger.addHandler(ch)
+    logger.addHandler(eh)
 
     if config.getboolean('debug'):
         logger.setLevel(logging.DEBUG)
