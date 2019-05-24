@@ -18,7 +18,7 @@ from tornado import gen
 from workspace import ProjectWorkspace
 import tempfile
 import shutil
-from exceptions import *
+from .exceptions import *
 
 logger = logging.getLogger(__name__)
 
