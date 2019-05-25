@@ -14,7 +14,7 @@ class DataReceiver(tornado.web.RequestHandler):
             for i, value in enumerate(values):
                 rows[i][key] = value
 
-        print '%s rows received' % len(rows)
+        print('%s rows received' % len(rows))
         #for row in rows:
         #    print row
 
@@ -32,7 +32,7 @@ def main():
     # future = executor.start()
     app = make_app()
     app.listen(6803)
-    print 'http://localhost:%d/webhook' % 6803
+    print('http://localhost:%d/webhook' % 6803)
     ioloop = tornado.ioloop.IOLoop.current()
     # def job_done(future):
     #     logging.debug('job finished.')
