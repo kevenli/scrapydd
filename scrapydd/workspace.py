@@ -216,16 +216,16 @@ class ProjectWorkspace(object):
         #env['SCRAPY_JOB'] = str(self.task.id)
         env['SCRAPY_FEED_URI'] = str(path_to_file_uri(items_file))
 
-        p = Subprocess(pargs, env = env, stdout = f_output, cwd = self.project_workspace_dir, stderr = f_output)
+        p = Popen(pargs, env = env, stdout = f_output, cwd = self.project_workspace_dir, stderr = f_output)
         #return p.wait_for_exit()
 
-        def done(exit_code):
-            if exit_code:
+        def done(process):
+            if process.returncode:
                 return ret_future.set_exception(ProcessFailed())
 
             return ret_future.set_result(items_file)
 
-        p.set_exit_callback(done)
+        wait_process(p, done)
         return ret_future
 
 
@@ -281,3 +281,10 @@ class ProjectWorkspace(object):
 
     def list_versions(self, project):
         return self.egg_storage.list(project)
+
+def wait_process(process, callback):
+    retcode = process.poll()
+    if retcode is not None:
+        return callback(process)
+
+    IOLoop.current().call_later(1, wait_process, process, callback)
