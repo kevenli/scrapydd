@@ -75,7 +75,6 @@ class UploadProject(tornado.web.RequestHandler):
             workspace.put_egg(eggf, version)
             yield workspace.install_requirements()
             spiders = yield workspace.spider_list()
-            workspace.put_egg(eggf, version)
             project_settings = yield workspace.find_project_settings(project_name)
             logger.debug(project_settings)
 
