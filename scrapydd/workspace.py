@@ -87,64 +87,10 @@ class ProjectWorkspace(object):
             except KeyError:
                 return []
 
-    def test_egg(self, eggf):
-        future = Future()
-        temp_dir = tempfile.mkdtemp('scrapydd-egg-%s' % self.project_name)
-        self.temp_dir = temp_dir
-        eggf.seek(0)
-        egg_storage = self.egg_storage
-        egg_storage.put(eggf, project=self.project_name, version='1')
-        eggf.seek(0)
-
-        # if current scrapydd is not install into global-system-site-packages, install it in current ENV
-        requirements = self._read_egg_requirements(eggf) + ['scrapyd', 'scrapydd']
-
-        def after_spider_list(callback_future):
-            logger.debug('after_spider_list')
-            exc = callback_future.exception()
-            if exc is not None:
-                future.set_exception(exc)
-                return
-            spider_list = callback_future.result()
-            #os.removedirs(temp_dir)
-            future.set_result(spider_list)
-
-        def after_pip_install(callback_future):
-            logger.debug('after_pip_install')
-            exc = callback_future.exception()
-            if exc is not None:
-                future.set_exception(exc)
-                return
-
-            self.spider_list().add_done_callback(after_spider_list)
-
-        self.pip_install(requirements).add_done_callback(after_pip_install)
-
-        return future
-
-    def _read_egg_requirements(self, eggf):
-        try:
-            prefix = '%s-%s-' % (self.project_name, 0)
-            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
-            logger.debug('tmp egg file saved to %s' % eggpath)
-            lf = os.fdopen(fd, 'wb')
-            eggf.seek(0)
-            shutil.copyfileobj(eggf, lf)
-            lf.close()
-            try:
-                d = pkg_resources.find_distributions(eggpath).next()
-            except StopIteration:
-                raise ValueError("Unknown or corrupt egg")
-            requirements = [str(x) for x in d.requires()]
-            return requirements
-        finally:
-            if eggpath:
-                os.remove(eggpath)
-
     @gen.coroutine
     def install_requirements(self):
         requirements = self.find_project_requirements(self.project_name)
-        requirements += ['scrapyd']
+        requirements += ['scrapyd', 'scrapydd']
         if requirements:
             yield self.pip_install(requirements)
 
