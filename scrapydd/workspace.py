@@ -96,7 +96,8 @@ class ProjectWorkspace(object):
         egg_storage.put(eggf, project=self.project_name, version='1')
         eggf.seek(0)
 
-        requirements = self._read_egg_requirements(eggf) + ['scrapyd']
+        # if current scrapydd is not install into global-system-site-packages, install it in current ENV
+        requirements = self._read_egg_requirements(eggf) + ['scrapyd', 'scrapydd']
 
         def after_spider_list(callback_future):
             logger.debug('after_spider_list')
