@@ -176,6 +176,14 @@ class SpiderEggHandlerTest(MainTest):
             project = spider.project
 
         self.assertIsNotNone(spider)
-        # TODO: this interface should be replaced by /projects/xxx/spiders/yyy/egg
         response = self.fetch('/spiders/%d/egg' % (spider.id, ))
+        self.assertEqual(200, response.code)
+
+    def test_get_egg_by_project_spider_name(self):
+        with session_scope() as session:
+            spider = session.query(Spider).first()
+            project = spider.project
+
+        self.assertIsNotNone(spider)
+        response = self.fetch('/projects/%s/spiders/%s/egg' % ('test_project', 'log_spider'))
         self.assertEqual(200, response.code)
