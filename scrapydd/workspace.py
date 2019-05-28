@@ -7,13 +7,11 @@ from tornado.process import Subprocess
 from subprocess import Popen, PIPE
 import logging
 import tempfile
-import scrapyd.config
 from scrapyd.eggstorage import FilesystemEggStorage
 import shutil
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 import json
 from zipfile import ZipFile
-import pkg_resources
 from w3lib.url import path_to_file_uri
 
 
@@ -176,8 +174,6 @@ class ProjectWorkspace(object):
         wait_process(p, done)
         return ret_future
 
-
-
     def find_project_settings(self, project):
         cwd = self.project_workspace_dir
         future = Future()
@@ -208,14 +204,6 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
-    def clearup(self):
-        '''
-        clean up temp files.
-        :return:
-        '''
-        if self.temp_dir and os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
-
     def put_egg(self, eggfile, version):
         eggfile.seek(0)
         self.egg_storage.put(eggfile=eggfile, project=self.project_name, version=version)
@@ -229,6 +217,10 @@ class ProjectWorkspace(object):
 
     def list_versions(self, project):
         return self.egg_storage.list(project)
+
+    def __del__(self):
+        if self.project_workspace_dir and os.path.exists(self.project_workspace_dir):
+            shutil.rmtree(self.project_workspace_dir)
 
 def wait_process(process, callback):
     retcode = process.poll()

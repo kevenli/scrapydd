@@ -127,22 +127,7 @@ class Executor():
         # client sill need to poll GET_TASK.
         self.checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval*1000)
 
-        # code for debuging memory leak
-        # import objgraph
-        # def check_memory():
-        #     logger.debug('Checking memory.')
-        #     logger.debug(objgraph.by_type('SpiderTask'))
-        #     logger.debug(objgraph.by_type('TaskExecutor'))
-        #     logger.debug(objgraph.by_type('Future'))
-        #     logger.debug(objgraph.by_type('PeriodicCallback'))
-        #     future_objs = objgraph.by_type('Future')
-        #     if future_objs:
-        #         objgraph.show_chain(
-        #             objgraph.find_backref_chain(future_objs[-1], objgraph.is_proper_module),
-        #             filename='chain.png'
-        #         )
-        # self.check_memory_callback = PeriodicCallback(check_memory, 1*1000)
-        # self.check_memory_callback.start()
+
 
         self.ioloop.start()
 
@@ -247,7 +232,7 @@ class Executor():
             logger.warning('Cannot connect to server')
 
     def execute_task(self, task):
-        egg_downloader = ProjectEggDownloader(tempfile.mktemp('.egg', 'de'), service_base=self.service_base)
+        egg_downloader = ProjectEggDownloader(service_base=self.service_base)
         executor = TaskExecutor(task, egg_downloader=egg_downloader)
         pid = None
         future = executor.execute()
@@ -331,13 +316,12 @@ class Executor():
             self.get_next_task()
 
 class TaskExecutor():
-    def __init__(self, task, egg_downloader, base_workdir='.'):
+    def __init__(self, task, egg_downloader):
         '''
         @type task: SpiderTask
         '''
         self.task = task
         self.egg_downloader = egg_downloader
-        self.base_workdir = base_workdir
         self._f_output = None
         self.output_file = None
         self.p = None
@@ -349,13 +333,8 @@ class TaskExecutor():
             os.makedirs(self.workspace_dir)
         self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
         self._f_output = open(self.output_file, 'w')
-
-        eggs_dir = os.path.join(self.workspace_dir, 'eggs')
-        if not os.path.exists(eggs_dir):
-            os.mkdir(eggs_dir)
-        self.egg_storage = FilesystemEggStorage(scrapyd.config.Config(values={'eggs_dir': eggs_dir}))
         self.on_subprocess_start = None
-        self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.base_workdir)
+        self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.workspace_dir)
 
     @gen.coroutine
     def execute(self):
@@ -363,13 +342,11 @@ class TaskExecutor():
             yield self.workspace.init()
             downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.spider_id)
             with open(downloaded_egg, 'rb') as egg_f:
-                self.egg_storage.put(egg_f, self.task.project_name, self.task.project_version)
+                self.workspace.put_egg(egg_f, self.task.project_version)
             logger.debug('download egg done.')
-            requirements = self.workspace.find_project_requirements(self.task.project_name, egg_storage=self.egg_storage)
-            if requirements:
-                logger.info('project requirements: %s' % requirements)
-                yield self.workspace.pip_install(requirements)
-            result = yield self.execute_subprocess()
+            yield self.workspace.install_requirements()
+            self.items_file = yield self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters, f_output=self._f_output)
+            result = self.complete(0)
         except ProcessFailed as e:
             logger.error('Process Failed when executing task %s: %s' % (self.task.id, e))
             error_log = e.message
@@ -387,60 +364,12 @@ class TaskExecutor():
             result = self.complete_with_error(error_log)
         raise gen.Return(result)
 
-    def check_process(self):
-        execute_result = self.p.poll()
-        logger.debug('check process')
-        if execute_result is not None:
-            logger.info('task complete')
-            self.complete(execute_result)
-
-    def execute_subprocess(self):
-        future = Future()
-        # init items file
-        workspace = ProjectWorkspace(self.task.project_name)
-        self.items_file = os.path.join(self.workspace_dir, '%s.%s' % (self.task.id, 'jl'))
-        python = workspace.python
-        runner = 'scrapyd.runner'
-        pargs = [python, '-m', runner, 'crawl', self.task.spider_name]
-        for spider_parameter_key, spider_parameter_value in self.task.spider_parameters.items():
-            pargs += [
-                        '-s',
-                        '%s=%s' % (spider_parameter_key, spider_parameter_value)
-                      ]
-
-        env = os.environ.copy()
-        env['SCRAPY_PROJECT'] = str(self.task.project_name)
-        env['SCRAPY_JOB'] = str(self.task.id)
-        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.items_file))
-        try:
-            self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, cwd=self.workspace_dir, stderr=self._f_output)
-            if self.on_subprocess_start:
-                self.on_subprocess_start(self.task, self.p.pid)
-
-        except Exception as e:
-            future.set_exception(e)
-            return future
-        logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
-
-        def check_process():
-            execute_result = self.p.poll()
-            logger.debug('check process')
-            if execute_result is not None:
-                logger.info('task complete')
-                future.set_result(self.complete(execute_result))
-
-        self.check_process_callback = PeriodicCallback(check_process, 1*1000)
-        self.check_process_callback.start()
-        return future
-
     def result(self):
         return self
 
     def complete(self, ret_code):
         self._f_output.close()
         self.ret_code = ret_code
-        self.check_process_callback.stop()
-        self.check_process_callback = None
         return self.result()
 
     def complete_with_error(self, error_message):
@@ -473,24 +402,26 @@ class TaskExecutor():
 
 
 class ProjectEggDownloader(object):
-    def __init__(self, download_path, service_base):
-        self.download_path = download_path
-        self._fd = open(self.download_path, 'wb')
+    def __init__(self, service_base):
+        self.download_path = None
         self.service_base = service_base
 
     def download_egg_future(self, spider_id):
         ret_future = Future()
+
+        self.download_path = tempfile.mktemp()
+        self._fd = open(self.download_path, 'wb')
 
         logger.debug('begin download egg.')
         egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % spider_id)
         request = HTTPRequest(egg_request_url, streaming_callback=self._handle_chunk)
         client = AsyncHTTPClient()
         def done_callback(future):
+            self._fd.close()
             ex = future.exception()
             if ex:
                 return ret_future.set_exception(ex)
 
-            self._fd.close()
             return ret_future.set_result(self.download_path)
         client.fetch(request).add_done_callback(done_callback)
         return ret_future
@@ -499,7 +430,7 @@ class ProjectEggDownloader(object):
         self._fd.write(chunk)
         self._fd.flush()
 
+
     def __del__(self):
         if os.path.exists(self.download_path):
             os.remove(self.download_path)
-

@@ -98,9 +98,6 @@ class UploadProject(tornado.web.RequestHandler):
                                 "output": e.std_output,
                             })
             return
-        finally:
-            workspace.clearup()
-
 
         logger.debug('spiders: %s' % spiders)
         with session_scope() as session:
