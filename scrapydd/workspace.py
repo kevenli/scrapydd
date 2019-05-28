@@ -73,7 +73,8 @@ class ProjectWorkspace(object):
         wait_process(process, done)
         return future
 
-    def find_project_requirements(self, project, egg_storage=None, eggf=None):
+    def find_project_requirements(self, project=None, egg_storage=None, eggf=None):
+        project = self.project_name
         if eggf is None:
             if egg_storage is None:
                 egg_storage = self.egg_storage
