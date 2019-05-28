@@ -9,3 +9,6 @@ logs
 *.pyc
 executor_eggs
 scrapydd.conf
+
+.coverage
+.vagrant
