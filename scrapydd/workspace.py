@@ -3,7 +3,6 @@ import os, os.path
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 from tornado import gen
-from tornado.process import Subprocess
 from subprocess import Popen, PIPE
 import logging
 import tempfile
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ProjectWorkspace(object):
     pip = None
     python = None
-    process = None
+    processes = None
     project_workspace_dir = None
     project_check = None
     temp_dir = None
@@ -32,6 +31,7 @@ class ProjectWorkspace(object):
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
         self.egg_storage = FilesystemEggStorage({'eggs_dir':os.path.join(project_workspace_dir, 'eggs')})
+        self.processes = []
         if sys.platform.startswith('linux'):
             self.pip = os.path.join(project_workspace_dir, 'bin', 'pip')
             self.python = os.path.join(project_workspace_dir, 'bin', 'python')
@@ -54,12 +54,14 @@ class ProjectWorkspace(object):
         logger.info('start creating virtualenv.')
         try:
             process = Popen(['virtualenv', '--system-site-packages', self.project_workspace_dir], stdout=PIPE, stderr=PIPE)
+            self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
             return future
-        def check_process():
-            logger.debug('create virtualenv process poll.')
-            retcode = process.poll()
+
+        def done(process):
+            self.processes.remove(process)
+            retcode = process.returncode
             if retcode is not None:
                 if retcode == 0:
                     future.set_result(self)
@@ -67,10 +69,8 @@ class ProjectWorkspace(object):
                     std_output = process.stdout.read()
                     err_output = process.stderr.read()
                     future.set_exception(ProcessFailed('Error when init workspace virtualenv ', std_output=std_output, err_output=err_output))
-                return
-            IOLoop.current().call_later(1, check_process)
 
-        check_process()
+        wait_process(process, done)
         return future
 
     def find_project_requirements(self, project, egg_storage=None, eggf=None):
@@ -99,12 +99,14 @@ class ProjectWorkspace(object):
         future = Future()
         try:
             process = Popen([self.pip, 'install'] + requirements, stdout=PIPE, stderr=PIPE)
+            self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
             return future
-        def check_process():
-            logger.debug('poll')
-            retcode = process.poll()
+
+        def done(process):
+            self.processes.remove(process)
+            retcode = process.returncode
             if retcode is not None:
                 if retcode == 0:
                     future.set_result(self)
@@ -112,10 +114,8 @@ class ProjectWorkspace(object):
                     std_out = process.stdout.read()
                     err_out = process.stderr.read()
                     future.set_exception(ProcessFailed(std_output=std_out, err_output=err_out))
-                return
-            IOLoop.current().call_later(1, check_process)
 
-        check_process()
+        wait_process(process, done)
         return future
 
     def spider_list(self):
@@ -163,9 +163,10 @@ class ProjectWorkspace(object):
         env['SCRAPY_FEED_URI'] = str(path_to_file_uri(items_file))
 
         p = Popen(pargs, env = env, stdout = f_output, cwd = self.project_workspace_dir, stderr = f_output)
-        #return p.wait_for_exit()
+        self.processes.append(p)
 
         def done(process):
+            self.processes.remove(process)
             if process.returncode:
                 return ret_future.set_exception(ProcessFailed())
 
@@ -181,27 +182,25 @@ class ProjectWorkspace(object):
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = project
             process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings', project], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
+            self.processes.append(process)
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
             return future
 
-        def check_process():
-            logger.debug('find_project_settings process poll')
+        def done(process):
             retcode = process.poll()
-            if retcode is not None:
-                if retcode == 0:
-                    proc_output = process.stdout.read()
-                    logger.debug('find_project_settings output:')
-                    logger.debug(proc_output)
-                    future.set_result(json.loads(proc_output))
-                else:
-                    #future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
-                    future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
-                return
-            IOLoop.current().call_later(1, check_process)
+            self.processes.remove(process)
+            if retcode == 0:
+                proc_output = process.stdout.read()
+                logger.debug('find_project_settings output:')
+                logger.debug(proc_output)
+                return future.set_result(json.loads(proc_output))
+            else:
+                # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
+                return future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
 
-        check_process()
+        wait_process(process, done)
         return future
 
     def put_egg(self, eggfile, version):
@@ -217,6 +216,26 @@ class ProjectWorkspace(object):
 
     def list_versions(self, project):
         return self.egg_storage.list(project)
+
+    @gen.coroutine
+    def kill_process(self):
+        logger.info('killing process')
+        for process in self.processes:
+            if process.poll() is not None:
+                continue
+            try:
+                process.terminate()
+            except OSError as e:
+                logger.error('Caught OSError when try to terminate subprocess: %s' % e)
+
+            gen.sleep(10)
+
+            if process.poll() is not None:
+                continue
+            try:
+                process.kill()
+            except OSError as e:
+                logger.error('Caught OSError when try to kill subprocess: %s' % e)
 
     def __del__(self):
         if self.project_workspace_dir and os.path.exists(self.project_workspace_dir):

@@ -324,8 +324,6 @@ class TaskExecutor():
         self.egg_downloader = egg_downloader
         self._f_output = None
         self.output_file = None
-        self.p = None
-        self.check_process_callback = None
         self.items_file = None
         self.ret_code = None
         self.workspace_dir = tempfile.mkdtemp(prefix='ddjob-%s-%s-' % (task.project_name, task.id))
@@ -345,7 +343,11 @@ class TaskExecutor():
                 self.workspace.put_egg(egg_f, self.task.project_version)
             logger.debug('download egg done.')
             yield self.workspace.install_requirements()
-            self.items_file = yield self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters, f_output=self._f_output)
+            run_spider_future = self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters, f_output=self._f_output)
+            run_spider_pid = self.workspace.processes[0].pid
+            if self.on_subprocess_start:
+                self.on_subprocess_start(self.task, run_spider_pid)
+            self.items_file = yield run_spider_future
             result = self.complete(0)
         except ProcessFailed as e:
             logger.error('Process Failed when executing task %s: %s' % (self.task.id, e))
@@ -384,21 +386,8 @@ class TaskExecutor():
         if self.workspace_dir and os.path.exists(self.workspace_dir):
             shutil.rmtree(self.workspace_dir)
 
-    @gen.coroutine
     def kill(self):
-        logger.info('killing job %s' % self.task.id)
-        if self.p:
-            try:
-                self.p.terminate()
-            except OSError as e:
-                logger.error('Caught OSError when try to terminate subprocess: %s' % e)
-
-        gen.sleep(10)
-        if self.p:
-            try:
-                self.p.kill()
-            except OSError as e:
-                logger.error('Caught OSError when try to kill subprocess: %s' % e)
+        self.workspace.kill_process()
 
 
 class ProjectEggDownloader(object):
