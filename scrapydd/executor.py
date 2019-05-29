@@ -350,13 +350,13 @@ class TaskExecutor():
             self.items_file = yield run_spider_future
             result = self.complete(0)
         except ProcessFailed as e:
-            logger.debug('Process Failed when executing task %s: %s' % (self.task.id, e))
+            logger.warning('Process Failed when executing task %s: %s' % (self.task.id, e))
             error_log = e.message
             if e.std_output:
-                logger.debug(e.std_output)
+                logger.warning(e.std_output)
                 error_log += e.std_output
             if e.err_output:
-                logger.debug(e.err_output)
+                logger.warning(e.err_output)
                 error_log += e.err_output
             result = self.complete_with_error(error_log)
         except Exception as e:
