@@ -47,6 +47,14 @@ class ProjectWorkspaceTest(AsyncTestCase):
         target.put_egg(open(test_project_file, 'rb'), '1.0')
         self.assertEqual(target.find_project_requirements(), ['scrapy'])
 
+    @gen_test(timeout=30)
+    def test_install_requirements(self):
+        target = ProjectWorkspace('test_project')
+        target.put_egg(open(test_project_file, 'rb'), '1.0')
+        yield target.init()
+        yield target.install_requirements()
+
+
 def file_is_in_dir(dir, file):
     if os.path.dirname(file) == dir:
         return True
