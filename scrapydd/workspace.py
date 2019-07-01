@@ -2,31 +2,36 @@ import sys
 import os, os.path
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
+from tornado import gen
 from subprocess import Popen, PIPE
 import logging
 import tempfile
-import scrapyd.config
 from scrapyd.eggstorage import FilesystemEggStorage
 import shutil
-import pkg_resources
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 import json
+from zipfile import ZipFile
+from w3lib.url import path_to_file_uri
+
 
 logger = logging.getLogger(__name__)
 
 class ProjectWorkspace(object):
     pip = None
     python = None
-    process = None
+    processes = None
     project_workspace_dir = None
     project_check = None
     temp_dir = None
 
-    def __init__(self, project_name):
-        project_workspace_dir = os.path.abspath(os.path.join('workspace', project_name))
+    def __init__(self, project_name, base_workdir=None):
+        if not base_workdir:
+            base_workdir = tempfile.mkdtemp(prefix='scrapydd-tmp')
+        project_workspace_dir = os.path.abspath(os.path.join(base_workdir, 'workspace', project_name))
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
-        self.egg_storage = FilesystemEggStorage(scrapyd.config.Config())
+        self.egg_storage = FilesystemEggStorage({'eggs_dir':os.path.join(project_workspace_dir, 'eggs')})
+        self.processes = []
         if sys.platform.startswith('linux'):
             self.pip = os.path.join(project_workspace_dir, 'bin', 'pip')
             self.python = os.path.join(project_workspace_dir, 'bin', 'python')
@@ -46,15 +51,17 @@ class ProjectWorkspace(object):
             future.set_result(self)
             return future
 
-        logger.debug('start creating virtualenv.')
+        logger.info('start creating virtualenv.')
         try:
             process = Popen(['virtualenv', '--system-site-packages', '--always-copy', self.project_workspace_dir], stdout=PIPE, stderr=PIPE)
+            self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
             return future
-        def check_process():
-            logger.debug('create virtualenv process poll.')
-            retcode = process.poll()
+
+        def done(process):
+            self.processes.remove(process)
+            retcode = process.returncode
             if retcode is not None:
                 if retcode == 0:
                     future.set_result(self)
@@ -62,100 +69,45 @@ class ProjectWorkspace(object):
                     std_output = process.stdout.read()
                     err_output = process.stderr.read()
                     future.set_exception(ProcessFailed('Error when init workspace virtualenv ', std_output=std_output, err_output=err_output))
-                return
-            IOLoop.current().call_later(1, check_process)
 
-        check_process()
+        wait_process(process, done)
         return future
 
-    def find_project_requirements(self, project, egg_storage=None, eggf=None):
+    def find_project_requirements(self, project=None, egg_storage=None, eggf=None):
+        project = self.project_name
         if eggf is None:
             if egg_storage is None:
-                egg_storage = FilesystemEggStorage(scrapyd.config.Config())
+                egg_storage = self.egg_storage
             version, eggf = egg_storage.get(project)
-        try:
-            prefix = '%s-nover-' % (project)
-            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
-            logger.debug('tmp egg file saved to %s' % eggpath)
-            lf = os.fdopen(fd, 'wb')
-            eggf.seek(0)
-            shutil.copyfileobj(eggf, lf)
-            lf.close()
+        with ZipFile(eggf) as egg_zip_file:
             try:
-                d = pkg_resources.find_distributions(eggpath).next()
-            except StopIteration:
-                raise ValueError("Unknown or corrupt egg")
-            requirements = [str(x) for x in d.requires()]
-            return requirements
-        finally:
-            if eggpath:
-                os.remove(eggpath)
+                requires_fileinfo = egg_zip_file.getinfo('EGG-INFO/requires.txt')
+                return egg_zip_file.read(requires_fileinfo).split()
+            except KeyError:
+                return []
 
-    def test_egg(self, eggf):
-        future = Future()
-        temp_dir = tempfile.mkdtemp('scrapydd-egg-%s' % self.project_name)
-        self.temp_dir = temp_dir
-        eggf.seek(0)
-        egg_storage = FilesystemEggStorage(scrapyd.config.Config({'eggs_dir': os.path.join(temp_dir, 'eggs')}))
-        egg_storage.put(eggf, project=self.project_name, version='1')
-        eggf.seek(0)
+    @gen.coroutine
+    def install_requirements(self):
+        requirements = self.find_project_requirements(self.project_name)
+        requirements += ['scrapyd', 'scrapydd']
+        if requirements:
+            yield self.pip_install(requirements)
 
-        requirements = self._read_egg_requirements(eggf) + ['scrapyd']
-
-        def after_spider_list(callback_future):
-            logger.debug('after_spider_list')
-            exc = callback_future.exception()
-            if exc is not None:
-                future.set_exception(exc)
-                return
-            spider_list = callback_future.result()
-            #os.removedirs(temp_dir)
-            future.set_result(spider_list)
-
-        def after_pip_install(callback_future):
-            logger.debug('after_pip_install')
-            exc = callback_future.exception()
-            if exc is not None:
-                future.set_exception(exc)
-                return
-
-            self.spider_list(self.project_name, cwd=temp_dir).add_done_callback(after_spider_list)
-
-        self.pip_install(requirements).add_done_callback(after_pip_install)
-
-        return future
-
-    def _read_egg_requirements(self, eggf):
-        try:
-            prefix = '%s-%s-' % (self.project_name, 0)
-            fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
-            logger.debug('tmp egg file saved to %s' % eggpath)
-            lf = os.fdopen(fd, 'wb')
-            eggf.seek(0)
-            shutil.copyfileobj(eggf, lf)
-            lf.close()
-            try:
-                d = pkg_resources.find_distributions(eggpath).next()
-            except StopIteration:
-                raise ValueError("Unknown or corrupt egg")
-            requirements = [str(x) for x in d.requires()]
-            return requirements
-        finally:
-            if eggpath:
-                os.remove(eggpath)
-
+        raise gen.Return()
 
     def pip_install(self, requirements):
         logger.debug('installing requirements: %s' % requirements)
         future = Future()
         try:
             process = Popen([self.pip, 'install'] + requirements, stdout=PIPE, stderr=PIPE)
+            self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
             return future
-        def check_process():
-            logger.debug('poll')
-            retcode = process.poll()
+
+        def done(process):
+            self.processes.remove(process)
+            retcode = process.returncode
             if retcode is not None:
                 if retcode == 0:
                     future.set_result(self)
@@ -163,17 +115,16 @@ class ProjectWorkspace(object):
                     std_out = process.stdout.read()
                     err_out = process.stderr.read()
                     future.set_exception(ProcessFailed(std_output=std_out, err_output=err_out))
-                return
-            IOLoop.current().call_later(1, check_process)
 
-        check_process()
+        wait_process(process, done)
         return future
 
-    def spider_list(self, project, cwd=None):
+    def spider_list(self):
         future = Future()
+        cwd = self.project_workspace_dir
         try:
             env = os.environ.copy()
-            env['SCRAPY_PROJECT'] = project
+            env['SCRAPY_PROJECT'] = self.project_name
             process = Popen([self.python, '-m', 'scrapyd.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
         except Exception as e:
             logger.error(e)
@@ -195,43 +146,63 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
+    def run_spider(self, spider, spider_parameters=None, f_output=None):
+        ret_future = Future()
+        items_file = os.path.join(self.project_workspace_dir, 'items.jl')
+        runner = 'scrapyd.runner'
+        pargs = [self.python, '-m', runner, 'crawl', spider]
+        if spider_parameters:
+            for spider_parameter_key, spider_parameter_value in spider_parameters.items():
+                pargs += [
+                            '-s',
+                            '%s=%s' % (spider_parameter_key, spider_parameter_value)
+                          ]
+
+        env = os.environ.copy()
+        env['SCRAPY_PROJECT'] = str(self.project_name)
+        #env['SCRAPY_JOB'] = str(self.task.id)
+        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(items_file))
+
+        p = Popen(pargs, env = env, stdout = f_output, cwd = self.project_workspace_dir, stderr = f_output)
+        self.processes.append(p)
+
+        def done(process):
+            self.processes.remove(process)
+            if process.returncode:
+                return ret_future.set_exception(ProcessFailed())
+
+            return ret_future.set_result(items_file)
+
+        wait_process(p, done)
+        return ret_future
+
     def find_project_settings(self, project):
-        cwd = None
+        cwd = self.project_workspace_dir
         future = Future()
         try:
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = project
             process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings', project], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
+            self.processes.append(process)
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
             return future
 
-        def check_process():
-            logger.debug('find_project_settings process poll')
+        def done(process):
             retcode = process.poll()
-            if retcode is not None:
-                if retcode == 0:
-                    proc_output = process.stdout.read()
-                    logger.debug('find_project_settings output:')
-                    logger.debug(proc_output)
-                    future.set_result(json.loads(proc_output))
-                else:
-                    #future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
-                    future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
-                return
-            IOLoop.current().call_later(1, check_process)
+            self.processes.remove(process)
+            if retcode == 0:
+                proc_output = process.stdout.read()
+                logger.debug('find_project_settings output:')
+                logger.debug(proc_output)
+                return future.set_result(json.loads(proc_output))
+            else:
+                # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
+                return future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
 
-        check_process()
+        wait_process(process, done)
         return future
-
-    def clearup(self):
-        '''
-        clean up temp files.
-        :return:
-        '''
-        if self.temp_dir and os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
 
     def put_egg(self, eggfile, version):
         eggfile.seek(0)
@@ -246,3 +217,34 @@ class ProjectWorkspace(object):
 
     def list_versions(self, project):
         return self.egg_storage.list(project)
+
+    @gen.coroutine
+    def kill_process(self):
+        logger.info('killing process')
+        for process in self.processes:
+            if process.poll() is not None:
+                continue
+            try:
+                process.terminate()
+            except OSError as e:
+                logger.error('Caught OSError when try to terminate subprocess: %s' % e)
+
+            gen.sleep(10)
+
+            if process.poll() is not None:
+                continue
+            try:
+                process.kill()
+            except OSError as e:
+                logger.error('Caught OSError when try to kill subprocess: %s' % e)
+
+    def __del__(self):
+        if self.project_workspace_dir and os.path.exists(self.project_workspace_dir):
+            shutil.rmtree(self.project_workspace_dir)
+
+def wait_process(process, callback):
+    retcode = process.poll()
+    if retcode is not None:
+        return callback(process)
+
+    IOLoop.current().call_later(1, wait_process, process, callback)

@@ -1,3 +1,23 @@
+v0.6.0:
+
+* new project egg download api.
+* fix: error occured when project has no dependency.
+* fix: server and client side memory leak every time need to get project dependency keep importing egg in current
+  process, now read requirements in egg(zip) file directly.
+* move project operations into ProjectWorkspace, workspace execute in tmp folder on both server/agent side.
+* add agent error log file.
+* fix: requirement not correct when installing this package.
+
+v0.5.2:
+
+* fix: Task not removed from slot when deleted by server side.
+* fix: Do not execute pip install when project has no requirements
+
+v0.5.1:
+
+* fix: Fix a reference issue that tornado 5.0 need python 2.7.9 or 3.0, which is not necessary.
+* fix: attr depencency
+
 v0.5.0:
 
 * add tag system.

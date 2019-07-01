@@ -4,7 +4,7 @@ import urllib
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 import logging
 from tornado.concurrent import Future
-from models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSettings
+from .models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSettings
 import os, os.path, shutil
 import sys
 from .exceptions import *

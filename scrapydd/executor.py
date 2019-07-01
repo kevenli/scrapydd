@@ -18,7 +18,7 @@ from tornado import gen
 from workspace import ProjectWorkspace
 import tempfile
 import shutil
-from exceptions import *
+from .exceptions import *
 
 logger = logging.getLogger(__name__)
 
@@ -127,22 +127,7 @@ class Executor():
         # client sill need to poll GET_TASK.
         self.checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval*1000)
 
-        # code for debuging memory leak
-        # import objgraph
-        # def check_memory():
-        #     logger.debug('Checking memory.')
-        #     logger.debug(objgraph.by_type('SpiderTask'))
-        #     logger.debug(objgraph.by_type('TaskExecutor'))
-        #     logger.debug(objgraph.by_type('Future'))
-        #     logger.debug(objgraph.by_type('PeriodicCallback'))
-        #     future_objs = objgraph.by_type('Future')
-        #     if future_objs:
-        #         objgraph.show_chain(
-        #             objgraph.find_backref_chain(future_objs[-1], objgraph.is_proper_module),
-        #             filename='chain.png'
-        #         )
-        # self.check_memory_callback = PeriodicCallback(check_memory, 1*1000)
-        # self.check_memory_callback.start()
+
 
         self.ioloop.start()
 
@@ -174,6 +159,7 @@ class Executor():
                     if task_to_kill:
                         logger.info('%s' % task_to_kill)
                         task_to_kill.kill()
+                        self.task_slots.remove_task(task_to_kill)
             self.check_header_new_task_on_server(res.headers)
         except urllib2.HTTPError as e:
             if e.code == 400:
@@ -246,7 +232,8 @@ class Executor():
             logger.warning('Cannot connect to server')
 
     def execute_task(self, task):
-        executor = TaskExecutor(task, config=self.config)
+        egg_downloader = ProjectEggDownloader(service_base=self.service_base)
+        executor = TaskExecutor(task, egg_downloader=egg_downloader)
         pid = None
         future = executor.execute()
         self.post_start_task(task, pid)
@@ -328,35 +315,15 @@ class Executor():
         if not self.task_slots.is_full():
             self.get_next_task()
 
-class TaskExecuteResult():
-    task = None
-    output_file = None
-    items_file = None
-    ret_code = None
-    executor = None
-
-    def __init__(self, task, log_file, items_file, ret_code):
-        self.task = task
-        self.output_file = log_file
-        self.items_file = items_file
-        self.ret_code = ret_code
-
 class TaskExecutor():
-    def __init__(self, task, config=None):
+    def __init__(self, task, egg_downloader):
         '''
         @type task: SpiderTask
         '''
         self.task = task
-        if config is None:
-            config = AgentConfig()
-        if config.get('server_https_port'):
-            self.service_base = 'https://%s:%d' % (config.get('server'), config.getint('server_https_port'))
-        else:
-            self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
+        self.egg_downloader = egg_downloader
         self._f_output = None
         self.output_file = None
-        self.p = None
-        self.check_process_callback = None
         self.items_file = None
         self.ret_code = None
         self.workspace_dir = tempfile.mkdtemp(prefix='ddjob-%s-%s-' % (task.project_name, task.id))
@@ -364,85 +331,40 @@ class TaskExecutor():
             os.makedirs(self.workspace_dir)
         self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
         self._f_output = open(self.output_file, 'w')
-
-        eggs_dir = os.path.join(self.workspace_dir, 'eggs')
-        if not os.path.exists(eggs_dir):
-            os.mkdir(eggs_dir)
-        self.egg_storage = FilesystemEggStorage(scrapyd.config.Config(values={'eggs_dir': eggs_dir}))
         self.on_subprocess_start = None
+        self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.workspace_dir)
 
     @gen.coroutine
     def execute(self):
         try:
-            workspace = ProjectWorkspace(self.task.project_name)
-            yield workspace.init()
-            logger.debug('begin download egg.')
-            egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % self.task.spider_id)
-            request = HTTPRequest(egg_request_url)
-            client = AsyncHTTPClient()
-            response = yield client.fetch(request)
-            self.egg_storage.put(response.buffer, self.task.project_name, self.task.project_version)
+            yield self.workspace.init()
+            downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.spider_id)
+            with open(downloaded_egg, 'rb') as egg_f:
+                self.workspace.put_egg(egg_f, self.task.project_version)
             logger.debug('download egg done.')
-            requirements = workspace.find_project_requirements(self.task.project_name, egg_storage=self.egg_storage)
-            yield workspace.pip_install(requirements)
-            result = yield self.execute_subprocess()
+            yield self.workspace.install_requirements()
+            run_spider_future = self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters, f_output=self._f_output)
+            run_spider_pid = self.workspace.processes[0].pid
+            if self.on_subprocess_start:
+                self.on_subprocess_start(self.task, run_spider_pid)
+            self.items_file = yield run_spider_future
+            result = self.complete(0)
         except ProcessFailed as e:
-            logger.error(e)
+            logger.warning('Process Failed when executing task %s: %s' % (self.task.id, e))
             error_log = e.message
             if e.std_output:
-                logger.error(e.std_output)
+                logger.warning(e.std_output)
                 error_log += e.std_output
+            if e.err_output:
+                logger.warning(e.err_output)
+                error_log += e.err_output
             result = self.complete_with_error(error_log)
         except Exception as e:
+            logger.error('Error when executing task %s: %s' % (self.task.id, e))
             logger.error(e)
             error_log = e.message
             result = self.complete_with_error(error_log)
         raise gen.Return(result)
-
-    def check_process(self):
-        execute_result = self.p.poll()
-        logger.debug('check process')
-        if execute_result is not None:
-            logger.info('task complete')
-            self.complete(execute_result)
-
-    def execute_subprocess(self):
-        future = Future()
-        # init items file
-        workspace = ProjectWorkspace(self.task.project_name)
-        self.items_file = os.path.join(self.workspace_dir, '%s.%s' % (self.task.id, 'jl'))
-        python = workspace.python
-        runner = 'scrapyd.runner'
-        pargs = [python, '-m', runner, 'crawl', self.task.spider_name]
-        for spider_parameter_key, spider_parameter_value in self.task.spider_parameters.items():
-            pargs += [
-                        '-s',
-                        '%s=%s' % (spider_parameter_key, spider_parameter_value)
-                      ]
-
-        env = os.environ.copy()
-        env['SCRAPY_PROJECT'] = str(self.task.project_name)
-        env['SCRAPY_JOB'] = str(self.task.id)
-        env['SCRAPY_FEED_URI'] = str(path_to_file_uri(self.items_file))
-        try:
-            self.p = subprocess.Popen(pargs, env=env, stdout=self._f_output, cwd=self.workspace_dir, stderr=self._f_output)
-            if self.on_subprocess_start:
-                self.on_subprocess_start(self.task, self.p.pid)
-
-        except Exception as e:
-            return self.complete_with_error('Error when starting crawl subprocess : %s' % e)
-        logger.info('job %s started on pid: %d' % (self.task.id, self.p.pid))
-
-        def check_process():
-            execute_result = self.p.poll()
-            logger.debug('check process')
-            if execute_result is not None:
-                logger.info('task complete')
-                future.set_result(self.complete(execute_result))
-
-        self.check_process_callback = PeriodicCallback(check_process, 1*1000)
-        self.check_process_callback.start()
-        return future
 
     def result(self):
         return self
@@ -450,12 +372,10 @@ class TaskExecutor():
     def complete(self, ret_code):
         self._f_output.close()
         self.ret_code = ret_code
-        self.check_process_callback.stop()
-        self.check_process_callback = None
         return self.result()
 
     def complete_with_error(self, error_message):
-        logger.error(error_message)
+        logger.debug(error_message)
         self._f_output.write(error_message)
         self._f_output.close()
         self.ret_code = 1
@@ -466,16 +386,40 @@ class TaskExecutor():
         if self.workspace_dir and os.path.exists(self.workspace_dir):
             shutil.rmtree(self.workspace_dir)
 
-    @gen.coroutine
     def kill(self):
-        logger.info('killing job %s' % self.task.id)
-        if self.p:
-            self.p.terminate()
-
-        gen.sleep(10)
-        if self.p:
-            self.p.kill()
+        self.workspace.kill_process()
 
 
+class ProjectEggDownloader(object):
+    def __init__(self, service_base):
+        self.download_path = None
+        self.service_base = service_base
+
+    def download_egg_future(self, spider_id):
+        ret_future = Future()
+
+        self.download_path = tempfile.mktemp()
+        self._fd = open(self.download_path, 'wb')
+
+        logger.debug('begin download egg.')
+        egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % spider_id)
+        request = HTTPRequest(egg_request_url, streaming_callback=self._handle_chunk)
+        client = AsyncHTTPClient()
+        def done_callback(future):
+            self._fd.close()
+            ex = future.exception()
+            if ex:
+                return ret_future.set_exception(ex)
+
+            return ret_future.set_result(self.download_path)
+        client.fetch(request).add_done_callback(done_callback)
+        return ret_future
+
+    def _handle_chunk(self, chunk):
+        self._fd.write(chunk)
+        self._fd.flush()
 
 
+    def __del__(self):
+        if os.path.exists(self.download_path):
+            os.remove(self.download_path)

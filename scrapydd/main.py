@@ -70,9 +70,11 @@ class UploadProject(tornado.web.RequestHandler):
 
         try:
             workspace = ProjectWorkspace(project_name)
+
             yield workspace.init()
-            spiders = yield workspace.test_egg(eggf)
             workspace.put_egg(eggf, version)
+            yield workspace.install_requirements()
+            spiders = yield workspace.spider_list()
             project_settings = yield workspace.find_project_settings(project_name)
             logger.debug(project_settings)
 
@@ -96,11 +98,12 @@ class UploadProject(tornado.web.RequestHandler):
                                 "output": e.std_output,
                             })
             return
-        finally:
-            workspace.clearup()
 
         logger.debug('spiders: %s' % spiders)
         with session_scope() as session:
+            storage = FilesystemEggStorage({})
+            eggf.seek(0)
+            storage.put(eggf, project_name, version)
             project = session.query(Project).filter_by(name=project_name).first()
             if project is None:
                 project = Project()
@@ -109,6 +112,7 @@ class UploadProject(tornado.web.RequestHandler):
             session.add(project)
             session.commit()
             session.refresh(project)
+
 
             for spider_name in spiders:
                 spider = session.query(Spider).filter_by(project_id = project.id, name=spider_name).first()
@@ -256,9 +260,21 @@ class SpiderEggHandler(tornado.web.RequestHandler):
     def get(self, id):
         session = Session()
         spider = session.query(Spider).filter_by(id=id).first()
-        version, f = ProjectWorkspace(spider.project.name).get_egg()
+        storage = FilesystemEggStorage({})
+        version, f = storage.get(spider.project.name)
         self.write(f.read())
         session.close()
+
+
+class ProjectSpiderEggHandler(tornado.web.RequestHandler):
+    def get(self, project, spider):
+        with session_scope() as session:
+            project = session.query(Project).filter(Project.name == project).first()
+            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
+            storage = FilesystemEggStorage({})
+            version, f = storage.get(spider.project.name)
+            self.write(f.read())
+            session.close()
 
 
 class SpiderListHandler(tornado.web.RequestHandler):
@@ -601,7 +617,8 @@ class DeleteProjectHandler(tornado.web.RequestHandler):
                     session.delete(history_log)
                 session.delete(spider)
             session.delete(project)
-            ProjectWorkspace(project_name).delete_egg(project_name)
+            storage = FilesystemEggStorage({})
+            storage.delete(project_name)
         logger.info('project %s deleted' % project_name)
 
 
@@ -734,8 +751,8 @@ class ListProjectVersionsHandler(tornado.web.RequestHandler):
         except tornado.web.MissingArgumentError as e:
             return self.write({'status': 'error', 'message': e.arg_name})
 
-        workspace = ProjectWorkspace(project)
-        versions = workspace.list_versions(project)
+        storage = FilesystemEggStorage({})
+        versions = storage.list(project)
         return self.write({'status':'ok', 'versions': versions})
 
 
@@ -764,6 +781,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
+        (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler, {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),

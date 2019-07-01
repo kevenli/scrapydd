@@ -6,7 +6,6 @@ from poster.encode import multipart_encode
 from scrapydd.models import init_database
 import os.path
 import urllib
-import tempfile
 
 class MainTest(AsyncHTTPTestCase):
     @classmethod
@@ -19,12 +18,11 @@ class MainTest(AsyncHTTPTestCase):
 
     def get_app(self):
         config = Config()
-        self.scheduler_manager = scheduler_manager = SchedulerManager(config=config)
+        scheduler_manager = SchedulerManager(config=config)
         scheduler_manager.init()
-        self.node_manager= node_manager = NodeManager(scheduler_manager)
+        node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        self.webhook = webhook = WebhookDaemon(config, SpiderSettingLoader())
-        return make_app(scheduler_manager, node_manager, webhook)
+        return make_app(scheduler_manager, node_manager, None)
 
     def _delproject(self):
         postdata = {'project': 'test_project'}
@@ -40,8 +38,7 @@ class MainTest(AsyncHTTPTestCase):
 
         datagen, headers = multipart_encode(post_data)
         databuffer = ''.join(datagen)
-        response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
-        self.assertEquals(200, response.code)
+        self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
 
 
 class UploadTest(MainTest):
@@ -105,7 +102,6 @@ class AddScheduleHandlerTest(MainTest):
         super(AddScheduleHandlerTest, self).setUp()
         self._delproject()
         self._upload_test_project()
-        logger.info('setup')
 
     def test_add_scheduler(self):
         project = 'test_project'
@@ -180,227 +176,14 @@ class SpiderEggHandlerTest(MainTest):
             project = spider.project
 
         self.assertIsNotNone(spider)
-        # TODO: this interface should be replaced by /projects/xxx/spiders/yyy/egg
         response = self.fetch('/spiders/%d/egg' % (spider.id, ))
         self.assertEqual(200, response.code)
 
-
-class SpiderListHandlerTest(MainTest):
-    def setUp(self):
-        super(SpiderListHandlerTest, self).setUp()
-        self._upload_test_project()
-
-    def test_get(self):
-        response = self.fetch('/spiders')
-        self.assertEqual(200, response.code)
-
-
-class SpiderTriggersHandlerTest(MainTest):
-    def setUp(self):
-        super(SpiderTriggersHandlerTest, self).setUp()
-        self._upload_test_project()
-
-    def test_get(self):
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-        response = self.fetch('/projects/%s/spiders/%s/triggers' % (project_name, spider_name))
-        self.assertEqual(200, response.code)
-
-    def test_add_trigger(self):
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-        cron = '* * * * *'
-        post_data = {'cron' : cron}
-        response = self.fetch('/projects/%s/spiders/%s/triggers' % (project_name, spider_name), method="POST",
-                             body=urllib.urlencode(post_data) )
-        self.assertEqual(200, response.code)
-
+    def test_get_egg_by_project_spider_name(self):
         with session_scope() as session:
-            project= session.query(Project).first()
-            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
-            actual_trigger = session.query(Trigger).first()
+            spider = session.query(Spider).first()
+            project = spider.project
 
-        self.assertEqual(actual_trigger.spider_id, spider.id)
-        self.assertEqual(actual_trigger.cron_pattern, cron)
-
-        schedule_job = self.scheduler_manager.scheduler.get_job(str(actual_trigger.id))
-        self.assertIsNotNone(schedule_job)
-
-
-    def test_add_trigger_invalid_cron(self):
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-        cron = 'invalid cron'
-        post_data = {'cron': cron}
-        response = self.fetch('/projects/%s/spiders/%s/triggers' % (project_name, spider_name), method="POST",
-                              body=urllib.urlencode(post_data))
+        self.assertIsNotNone(spider)
+        response = self.fetch('/projects/%s/spiders/%s/egg' % ('test_project', 'log_spider'))
         self.assertEqual(200, response.code)
-        self.assertIn('Invalid cron expression', response.body)
-
-
-class DeleteSpiderTriggersHandlerTest(MainTest):
-    def setUp(self):
-        super(DeleteSpiderTriggersHandlerTest, self).setUp()
-        self._upload_test_project()
-
-    def test_delete_trigger(self):
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-        cron = '* * * * *'
-        post_data = {'cron' : cron}
-        # add a trigger
-        response = self.fetch('/projects/%s/spiders/%s/triggers' % (project_name, spider_name), method="POST",
-                             body=urllib.urlencode(post_data) )
-        self.assertEqual(200, response.code)
-
-        with session_scope() as session:
-            project= session.query(Project).first()
-            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
-            actual_trigger = session.query(Trigger).first()
-
-        self.assertEqual(actual_trigger.spider_id, spider.id)
-        self.assertEqual(actual_trigger.cron_pattern, cron)
-
-        schedule_job = self.scheduler_manager.scheduler.get_job(str(actual_trigger.id))
-        self.assertIsNotNone(schedule_job)
-
-        # delete the trigger
-        response =self.fetch('/projects/%s/spiders/%s/triggers/%s/delete' % (project_name,
-                                                                             spider_name,
-                                                                             actual_trigger.id), method='POST', body="")
-        self.assertEqual(200, response.code)
-        with session_scope() as session:
-            deleted_trigger = session.query(Trigger).filter(Trigger.id == actual_trigger.id).first()
-        self.assertIsNone(deleted_trigger)
-        deleted_schedule_job = self.scheduler_manager.scheduler.get_job(str(actual_trigger.id))
-        self.assertIsNone(deleted_schedule_job)
-
-
-class ExecuteNextHandlerTest(MainTest):
-    def setUp(self):
-        super(ExecuteNextHandlerTest, self).setUp()
-        self._upload_test_project()
-
-    def test_get_next_task_none(self):
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-        node = self.node_manager.create_node('127.0.0.1')
-        with session_scope() as session:
-            session.query(SpiderExecutionQueue).delete()
-
-        post_data = {'node_id' : str(node.id)}
-
-        response = self.fetch('/executing/next_task', method='POST', body=urllib.urlencode(post_data))
-        self.assertEqual(200, response.code)
-        respones_data = json.loads(response.body)
-        self.assertIsNone(respones_data['data'])
-
-    def test_get_next_task(self):
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-        node = self.node_manager.create_node('127.0.0.1')
-        with session_scope() as session:
-            session.query(SpiderExecutionQueue).delete()
-            project = session.query(Project).filter(Project.name == project_name).first()
-            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
-
-        task = self.scheduler_manager.add_task(project_name, spider_name)
-        post_data = {'node_id' : str(node.id)}
-        response = self.fetch('/executing/next_task', method='POST', body=urllib.urlencode(post_data))
-        self.assertEqual(200, response.code)
-        respones_data = json.loads(response.body)
-        self.assertIsNotNone(respones_data['data'])
-        self.assertEqual(task.id, respones_data['data']['task']['task_id'])
-        self.assertEqual(spider.id, respones_data['data']['task']['spider_id'])
-        self.assertEqual(spider_name, respones_data['data']['task']['spider_name'])
-        self.assertEqual(project_name, respones_data['data']['task']['project_name'])
-        self.assertEqual('1.0', respones_data['data']['task']['version'])
-        self.assertIsNotNone(respones_data['data']['task']['spider_parameters'])
-
-
-class NodeHeartbeatHandlerTest(MainTest):
-    def setUp(self):
-        super(NodeHeartbeatHandlerTest, self).setUp()
-        self._upload_test_project()
-        self.node = self.node_manager.create_node('127.0.0.1')
-        with session_scope() as session:
-            session.query(SpiderExecutionQueue).delete()
-
-
-    def test_heartbeat(self):
-        response = self.fetch('/nodes/%d/heartbeat' % self.node.id, method='POST', body='')
-        self.assertEqual(200, response.code)
-
-    def test_heartbeat_has_task(self):
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-
-        # add a task
-        self.scheduler_manager.add_task(project_name, spider_name)
-        response = self.fetch('/nodes/%d/heartbeat' % self.node.id, method='POST', body='')
-        self.assertEqual(200, response.code)
-        self.assertEqual('True', response.headers['X-DD-New-Task'])
-
-
-class JobExecutingTest(MainTest):
-    def setUp(self):
-        super(JobExecutingTest, self).setUp()
-        self._upload_test_project()
-        self.node = self.node_manager.create_node('127.0.0.1')
-        with session_scope() as session:
-            session.query(SpiderExecutionQueue).delete()
-
-    def test_run(self):
-        log_content = 'some log'
-        items_content = 'some item'
-        self.scheduler_manager.add_task('test_project', 'success_spider')
-        post_data = {'node_id': str(self.node.id)}
-        response = self.fetch('/executing/next_task', method='POST', body=urllib.urlencode(post_data))
-        self.assertEqual(200, response.code)
-        response_data = json.loads(response.body)
-        task_id = response_data['data']['task']['task_id']
-
-        logs_file = tempfile.mktemp()
-        with open(logs_file, 'wb') as f:
-            f.write(log_content)
-
-        items_file = tempfile.mktemp()
-        with open(items_file, 'wb') as f:
-            f.write(items_content)
-
-        # running
-        response = self.fetch('/nodes/%d/heartbeat' % self.node.id, method='POST', body='')
-        self.assertEqual(200, response.code)
-
-        post_data = {}
-        post_data['task_id'] = str(task_id)
-        post_data['status'] = 'success'
-        post_data['log'] = open(logs_file, 'rb')
-        post_data['items'] = open(items_file, 'rb')
-
-        datagen, headers = multipart_encode(post_data)
-        headers['X-Dd-Nodeid'] = str(self.node.id)
-        databuffer = ''.join(datagen)
-        #logger.debug(headers)
-        #logger.debug(len(databuffer))
-        #logger.debug(databuffer)
-        response = self.fetch('/executing/complete', method='POST', headers=headers, body=databuffer)
-        #logger.debug(response)
-        self.assertEquals(200, response.code)
-
-        with session_scope() as session:
-            task = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.id == task_id).first()
-            historical_task = session.query(HistoricalJob).filter(HistoricalJob.id == task_id).first()
-            self.assertIsNone(task)
-            self.assertIsNotNone(historical_task)
-            self.assertEqual(historical_task.status, 2)
-
-            with open(historical_task.log_file, 'rb') as f:
-                self.assertEqual(f.read(), log_content)
-
-            with open(historical_task.items_file, 'rb') as f:
-                self.assertEqual(f.read(), items_content)
-
-
-
-

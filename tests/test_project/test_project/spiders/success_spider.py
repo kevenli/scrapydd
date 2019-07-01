@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import time
-from ..items import TestProjectItem
 
 
 class SuccessSpiderSpider(scrapy.Spider):
@@ -12,7 +11,4 @@ class SuccessSpiderSpider(scrapy.Spider):
     )
 
     def parse(self, response):
-        time.sleep(10)
-        item = TestProjectItem()
-        item['name'] = 'test'
-        yield item
+        yield {'url':response.url, 'body':response.body}
