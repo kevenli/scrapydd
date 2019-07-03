@@ -4,7 +4,7 @@ from scrapy.dupefilters import BaseDupeFilter
 from scrapy.utils.request import request_fingerprint
 
 from . import defaults
-from connection import get_sss_from_settings
+from .connection import get_sss_from_settings
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class SSSDupeFilter(BaseDupeFilter):
         logger.info('SSSDupeFilter from_settings')
         project = settings.get('BOT_NAME')
         spider = 'spider'
-        server = get_sss_from_settings(settings)
+        server = get_sss_from_settings(settings, project_name=project, spider_name=spider)
         return cls(project, spider, server, settings)
 
     @classmethod
@@ -39,8 +39,9 @@ class SSSDupeFilter(BaseDupeFilter):
     @classmethod
     def from_spider(cls, spider):
         settings = spider.settings
-        server = get_sss_from_settings(settings)
         project = settings.get('BOT_NAME')
+        server = get_sss_from_settings(settings, project_name=project, spider_name=spider.name)
+
         debug = settings.getbool('DUPEFILTER_DEBUG')
         return cls(project, spider.name, server, settings, debug=debug)
 
@@ -58,7 +59,7 @@ class SSSDupeFilter(BaseDupeFilter):
         """
         fp = self.request_fingerprint(request)
         # This returns the number of values added, zero if already exists.
-        added = self.server.request_seen(self.project, self.spider, fp)
+        added = self.server.request_seen(fp)
         return added == 0
 
     def request_fingerprint(self, request):
@@ -76,19 +77,14 @@ class SSSDupeFilter(BaseDupeFilter):
         return request_fingerprint(request)
 
     def open(self):
-        self.server.create_spider(self.project, self.spider)
+        self.server.create_spider()
         seen_expire = self.settings.get('SSS_SEEN_EXPIRE', defaults.SSS_SEEN_EXPIRE)
         self.server.update_spider_setting(self.project, self.spider, 'seen_expire', seen_expire)
+        self.server.start_run()
 
     def close(self, reason=''):
-        """Delete data on close. Called by Scrapy's scheduler.
-
-        Parameters
-        ----------
-        reason : str, optional
-
-        """
-        self.clear()
+        if reason == 'finished':
+            self.server.complete_run()
 
     def clear(self):
         pass
