@@ -146,11 +146,13 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
-    def run_spider(self, spider, spider_parameters=None, f_output=None):
+    def run_spider(self, spider, spider_parameters=None, f_output=None, project=None):
         ret_future = Future()
         items_file = os.path.join(self.project_workspace_dir, 'items.jl')
         runner = 'scrapyd.runner'
         pargs = [self.python, '-m', runner, 'crawl', spider]
+        if project:
+            spider_parameters['BOT_NAME'] = project
         if spider_parameters:
             for spider_parameter_key, spider_parameter_value in spider_parameters.items():
                 pargs += [

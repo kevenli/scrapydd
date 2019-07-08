@@ -343,7 +343,7 @@ class TaskExecutor():
                 self.workspace.put_egg(egg_f, self.task.project_version)
             logger.debug('download egg done.')
             yield self.workspace.install_requirements()
-            run_spider_future = self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters, f_output=self._f_output)
+            run_spider_future = self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters, f_output=self._f_output, project=self.task.project_name)
             run_spider_pid = self.workspace.processes[0].pid
             if self.on_subprocess_start:
                 self.on_subprocess_start(self.task, run_spider_pid)
