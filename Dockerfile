@@ -2,7 +2,7 @@ FROM python:2.7-alpine
 
 WORKDIR /scrapydd
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN apk add python-dev
+RUN apk add python-dev gcc
 
 ADD . /scrapydd
 
