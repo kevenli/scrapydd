@@ -8,7 +8,7 @@ from migrate.versioning.api import version_control, upgrade
 from migrate.exceptions import DatabaseAlreadyControlledError
 import os
 from contextlib import contextmanager
-from scrapydd.config import Config
+from .config import Config
 
 metadata = schema.MetaData()
 Base = declarative_base(metadata=metadata)

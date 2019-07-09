@@ -2,8 +2,7 @@
 import tornado.ioloop
 import tornado.web
 import tornado.template
-from scrapyd.eggstorage import FilesystemEggStorage
-import scrapyd.config
+from .eggstorage import FilesystemEggStorage
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
     SpiderWebhook, session_scope, SpiderSettings, WebhookJob, SpiderParameter

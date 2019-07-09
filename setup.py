@@ -28,7 +28,7 @@ setup(
     install_requires=[
         'tornado>=4.4.2,<5.0',
         'apscheduler',
-        'scrapyd',
+        'scrapy',
         'sqlalchemy',
         'sqlalchemy-migrate',
         'poster>=0.8.1',

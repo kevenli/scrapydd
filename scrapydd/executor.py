@@ -3,8 +3,6 @@ from tornado.concurrent import Future
 from tornado.gen import coroutine
 import urllib2, urllib
 import json
-from scrapyd.eggstorage import FilesystemEggStorage
-import scrapyd.config
 import subprocess
 import os
 import urlparse

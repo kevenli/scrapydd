@@ -1,34 +1,9 @@
 import sys
 import os
-import shutil
-import tempfile
-from contextlib import contextmanager
 from scrapy.settings import overridden_settings, Settings, iter_default_settings
 from scrapy.utils.project import get_project_settings
-from scrapyd.eggutils import activate_egg
-from scrapyd.eggstorage import FilesystemEggStorage
-import scrapyd.config
+from .runner import FilesystemEggStorage, activate_egg, project_environment
 import json
-
-@contextmanager
-def project_environment(project):
-    eggstorage = FilesystemEggStorage(scrapyd.config.Config())
-    version, eggfile = eggstorage.get(project)
-    if eggfile:
-        prefix = '%s-%s-' % (project, version)
-        fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
-        lf = os.fdopen(fd, 'wb')
-        shutil.copyfileobj(eggfile, lf)
-        lf.close()
-        activate_egg(eggpath)
-    else:
-        eggpath = None
-    try:
-        assert 'scrapy.conf' not in sys.modules, "Scrapy settings already loaded"
-        yield
-    finally:
-        if eggpath:
-            os.remove(eggpath)
 
 def main():
     if len(sys.argv) > 0:
