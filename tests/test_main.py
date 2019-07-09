@@ -14,7 +14,7 @@ class MainTest(AsyncHTTPTestCase):
             os.remove('test.db')
         config = Config(values = {'database_url': 'sqlite:///test.db'})
         init_database(config)
-        os.environ['ASYNC_TEST_TIMEOUT'] = '30'
+        os.environ['ASYNC_TEST_TIMEOUT'] = '120'
 
     def get_app(self):
         config = Config()
@@ -38,7 +38,8 @@ class MainTest(AsyncHTTPTestCase):
 
         datagen, headers = multipart_encode(post_data)
         databuffer = ''.join(datagen)
-        self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        self.assertEqual(200, response.code)
 
 
 class UploadTest(MainTest):
