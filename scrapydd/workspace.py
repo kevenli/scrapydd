@@ -89,7 +89,7 @@ class ProjectWorkspace(object):
     @gen.coroutine
     def install_requirements(self):
         requirements = self.find_project_requirements(self.project_name)
-        requirements += ['scrapydd']
+        requirements += ['scrapydd', 'scrapyd']
         if requirements:
             yield self.pip_install(requirements)
 
@@ -125,7 +125,7 @@ class ProjectWorkspace(object):
         try:
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = self.project_name
-            process = Popen([self.python, '-m', 'scrapydd.utils.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
+            process = Popen([self.python, '-m', 'scrapyd.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
@@ -149,7 +149,7 @@ class ProjectWorkspace(object):
     def run_spider(self, spider, spider_parameters=None, f_output=None, project=None):
         ret_future = Future()
         items_file = os.path.join(self.project_workspace_dir, 'items.jl')
-        runner = 'scrapydd.utils.runner'
+        runner = 'scrapyd.runner'
         pargs = [self.python, '-m', runner, 'crawl', spider]
         if project:
             spider_parameters['BOT_NAME'] = project
