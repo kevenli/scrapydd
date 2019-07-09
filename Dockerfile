@@ -1,13 +1,10 @@
-FROM python:2.7-alpine
+FROM alpine
 
 WORKDIR /scrapydd
+RUN apk add python2 py2-pip py2-twisted py2-cffi
+ADD . /scrapydd_src
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN apk add python-dev gcc
-
-ADD . /scrapydd
-
 RUN pip install -r requirements.txt
-RUN python setup.py install
+RUN python /scrapydd_src/setup.py install
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["scrapydd"]
-
