@@ -7,6 +7,8 @@ from ConfigParser import SafeConfigParser, NoSectionError, NoOptionError
 import glob
 from os.path import expanduser
 
+def str2bool(v):
+  return v.lower() in ("yes", "true", "t", "1")
 
 class Config(object):
     """A ConfigParser wrapper to support defaults when calling instance
@@ -49,25 +51,26 @@ class Config(object):
         sources += [expanduser('~/.scrapydd.conf')]
         return sources
 
-    def _getany(self, method, option, default):
+    def get(self, option, default=None):
+        env_key = 'SCRAPYDD_' + option.replace('.', '_').upper()
         try:
-            return method(self.SECTION, option)
+            return os.getenv(env_key) or self.cp.get(self.SECTION, option)
         except (NoSectionError, NoOptionError):
             if default is not None:
                 return default
             raise
 
-    def get(self, option, default=None):
-        return self._getany(self.cp.get, option, default)
+    def _get(self, option, conv, default=None):
+        return conv(self.get(option, default))
 
     def getint(self, option, default=None):
-        return self._getany(self.cp.getint, option, default)
-
-    def getfloat(self, option, default=None):
-        return self._getany(self.cp.getfloat, option, default)
+        return self._get(option, int, default)
 
     def getboolean(self, option, default=None):
-        return self._getany(self.cp.getboolean, option, default)
+        return self._get(option, str2bool, default)
+
+    def getfloat(self, option, default=None):
+        return self._get(option, float, default)
 
     def items(self, section, default=None):
         try:
