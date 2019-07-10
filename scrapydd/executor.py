@@ -39,6 +39,7 @@ class SpiderTask():
     spider_name = None
     project_version = None
     spider_parameters = None
+    extra_requirements = None
 
 
 class TaskSlotContainer():
@@ -221,6 +222,9 @@ class Executor():
                 task.project_name = response_data['data']['task']['project_name']
                 task.project_version = response_data['data']['task']['version']
                 task.spider_name = response_data['data']['task']['spider_name']
+                if 'extra_requirements' in response_data['data']['task']:
+                    task.extra_requirements = [x for x in
+                                               response_data['data']['task']['extra_requirements'].split(';') if x]
                 if 'spider_parameters' in response_data['data']['task']:
                     task.spider_parameters = response_data['data']['task']['spider_parameters']
                 else:
@@ -340,8 +344,7 @@ class TaskExecutor():
             with open(downloaded_egg, 'rb') as egg_f:
                 self.workspace.put_egg(egg_f, self.task.project_version)
             logger.debug('download egg done.')
-            extra_requirements = [x for x in self.task.spider_parameters.get('extra_requirements', '').split(';') if x]
-            yield self.workspace.install_requirements(extra_requirements)
+            yield self.workspace.install_requirements(self.task.extra_requirements)
             run_spider_future = self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters, f_output=self._f_output, project=self.task.project_name)
             run_spider_pid = self.workspace.processes[0].pid
             if self.on_subprocess_start:

@@ -51,6 +51,10 @@
         <label>Webhook Batch Size</label>
         <input name="webhook_batch_size" value="{{settings.get('webhook_batch_size', '')}}">
     </div>
+    <div>
+        <label>Extra Requirements(; seperated)</label>
+        <input name="extra_requirements" value="{{settings.get('extra_requirements', '')}}">
+    </div>
     <div id="spider_parameters">
         <label>Spider Parameters:</label><span id="btnadd" class="ui-icon ui-icon-plus"></span>
         {% for spider_parameter in spider_parameters %}

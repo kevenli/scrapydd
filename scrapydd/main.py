@@ -349,12 +349,18 @@ class  ExecuteNextHandler(tornado.web.RequestHandler):
                     session.query(SpiderExecutionQueue).filter_by(id=next_task.id).delete()
                     self.write({'data': None})
                     return
+
+                extra_requirements_setting = session.query(SpiderSettings).filter_by(spider_id= spider.id,
+                                                             setting_key='extra_requirements').first()
+
+                extra_requirements = extra_requirements_setting.value if extra_requirements_setting else ''
                 response_data['data'] = {'task':{
                     'task_id': next_task.id,
                     'spider_id':  next_task.spider_id,
                     'spider_name': next_task.spider_name,
                     'project_name': next_task.project_name,
                     'version': project.version,
+                    'extra_requirements': extra_requirements,
                     'spider_parameters': {parameter.parameter_key: parameter.value for parameter in spider.parameters}
                 }}
             self.write(json.dumps(response_data))
@@ -628,6 +634,7 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
         'webhook_payload': '.*',
         'webhook_batch_size': '\d+',
         'tag': '.*',
+        'extra_requirements': '.*'
     }
 
     def get(self, project, spider):
@@ -715,7 +722,16 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
             setting_tag.value = setting_tag_value
             session.add(setting_tag)
 
-
+            setting_extra_requirements_value = self.get_body_argument('extra_requirements', '').strip()
+            setting_extra_requirements_value = None if setting_extra_requirements_value == '' else setting_extra_requirements_value
+            setting_extra_requirements = session.query(SpiderSettings).filter_by(spider_id=spider.id,
+                                                                  setting_key='extra_requirements').first()
+            if not setting_extra_requirements:
+                setting_extra_requirements = SpiderSettings()
+                setting_extra_requirements.spider_id = spider.id
+                setting_extra_requirements.setting_key = 'extra_requirements'
+            setting_extra_requirements.value = setting_extra_requirements_value
+            session.add(setting_extra_requirements)
 
             spider_parameter_keys = self.get_body_arguments('SpiderParameterKey')
             spider_parameter_values = self.get_body_arguments('SpiderParameterValue')
