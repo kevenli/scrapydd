@@ -6,6 +6,6 @@ RUN apk add python2 py2-pip py2-twisted py2-cffi python2-dev libffi-dev \
     tzdata
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-RUN pip scrapydd
+RUN pip install scrapydd
 ENV TZ /usr/share/zoneinfo/Etc/UTC
 CMD ["scrapydd"]
