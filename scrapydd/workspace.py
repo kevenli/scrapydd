@@ -87,9 +87,11 @@ class ProjectWorkspace(object):
                 return []
 
     @gen.coroutine
-    def install_requirements(self):
+    def install_requirements(self, extra_requirements=None):
         requirements = self.find_project_requirements(self.project_name)
         requirements += ['scrapydd', 'scrapyd']
+        if extra_requirements:
+            requirements += extra_requirements
         if requirements:
             yield self.pip_install(requirements)
 
