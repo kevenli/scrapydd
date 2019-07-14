@@ -59,5 +59,29 @@ Docs
 ----
 The docs is hosted `here`_
 
+Docker-Compose
+--------------
+    version: '3'
+    services:
+      scrapydd-server:
+        image: "scrapydd:dev"
+        ports:
+          - "6800:6800"
+        volumes:
+          - "/scrapydd/server:/scrapydd"
+        command: scrapydd server
+        environment:
+          - SCRAPYDD_DEBUG=true
+
+
+      scrapydd-agent:
+        image: "scrapydd:dev"
+        volumes:
+          - "/scrapydd/server:/scrapydd"
+        links:
+          - scrapydd-server
+        environment:
+          - SCRAPYDD_SERVER=scrapydd-server
+        command: scrapydd agent
 
 .. _here: http://scrapydd.readthedocs.org
