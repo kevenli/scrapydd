@@ -32,6 +32,7 @@ from scrapydd.ssl_gen import SSLCertificateGenerator
 import ssl
 import re
 from .settting import SpiderSettingLoader
+from .restapi import *
 
 logger = logging.getLogger(__name__)
 
@@ -807,7 +808,9 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
         (r'/ca.crt', CACertHandler),
         (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': os.path.join(os.path.dirname(__file__), 'static')}),
-    ])
+
+        (r'/api/v1/nodes', RestNodesHandler),
+    ], node_manager=node_manager)
 
 def check_and_gen_ssl_keys(config):
     server_name = config.get('server_name')
