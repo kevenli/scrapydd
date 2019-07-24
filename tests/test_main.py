@@ -10,11 +10,11 @@ import urllib
 class MainTest(AsyncHTTPTestCase):
     @classmethod
     def setUpClass(cls):
+        os.environ['ASYNC_TEST_TIMEOUT'] = '300'
         if os._exists('test.db'):
             os.remove('test.db')
         config = Config(values = {'database_url': 'sqlite:///test.db'})
         init_database(config)
-        os.environ['ASYNC_TEST_TIMEOUT'] = '120'
 
     def get_app(self):
         config = Config()
@@ -51,7 +51,6 @@ class UploadTest(MainTest):
         self.assertEqual(200, response.code)
 
     def test_UploadProject_post(self):
-        os.environ['ASYNC_TEST_TIMEOUT'] = '30'
         post_data = {}
         post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
         post_data['project'] = 'test_project'
