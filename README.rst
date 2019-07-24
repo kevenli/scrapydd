@@ -61,7 +61,8 @@ The docs is hosted `here`_
 
 Docker-Compose
 --------------
-    
+.. code-block:: YML
+
     version: '3'
     services:
       scrapydd-server:
