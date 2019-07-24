@@ -8,6 +8,8 @@ The file will be looked up in the following locations:
 * ./scrapydd.conf
 * ~/.scrapydd.conf
 
+Config can be also overriden by environment variables, environment variables should have a "SCRAPYDD_" prefix and then the config name with upper case. 
+For example to override a server address on agent, an environment variable should be "SCRAPYDD_SERVER=xxx".
 
 Server
 ------
