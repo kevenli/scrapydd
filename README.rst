@@ -61,9 +61,7 @@ The docs is hosted `here`_.. _here: http://scrapydd.readthedocs.org
 
 Docker-Compose
 --------------
-    
 .. codeblock:: yml
-
     version: '3'
     services:
       scrapydd-server:
@@ -83,6 +81,4 @@ Docker-Compose
         environment:
           - SCRAPYDD_SERVER=scrapydd-server
         command: scrapydd agent
-    
-
 
