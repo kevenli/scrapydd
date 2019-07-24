@@ -57,11 +57,11 @@ Add --daemon parameter in commmand line to run in background.
 
 Docs
 ----
-The docs is hosted `here`_.. _here: http://scrapydd.readthedocs.org
+The docs is hosted `here`_
 
 Docker-Compose
 --------------
-.. codeblock:: yml
+    
     version: '3'
     services:
       scrapydd-server:
@@ -82,3 +82,7 @@ Docker-Compose
           - SCRAPYDD_SERVER=scrapydd-server
         command: scrapydd agent
 
+
+
+
+.. _here: http://scrapydd.readthedocs.org
