@@ -3,10 +3,11 @@ from os import path, makedirs, remove
 from datetime import datetime
 import re
 from shutil import copy
+import sys
+import os
 
-key_dir = path.join(path.dirname(path.realpath(__file__)), '..', 'keys')
-key_dir = key_dir.replace('\\', '/')
-index_file = key_dir + '/index.txt'
+key_dir = 'keys'
+index_file = os.path.join(key_dir, 'index.txt')
 
 
 class SSLCertificateGenerator:
@@ -334,8 +335,9 @@ class SSLCertificateGenerator:
         # Write CRL file
         self._write_crl_to_file(crl, ca_cert, ca_key, key_dir + '/crl.pem')
 
-
-if __name__ == '__main__':
+def run(argv=None):
+    if argv is None:
+        argv = sys.argv
     import argparse
 
     parser = argparse.ArgumentParser(description='SSL Certificate Generator')
@@ -354,9 +356,9 @@ if __name__ == '__main__':
     parser.add_argument('--cert-ou', help='Certificate organizational unit (required with --ca)')
     parser.add_argument('--alt-name', help='Subject Alternative Name', action='append')
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    sslgen = SSLCertificateGenerator()
+    sslgen = SSLCertificateGenerator(key_dir)
 
     if args.ca:
         error = False
@@ -415,3 +417,6 @@ if __name__ == '__main__':
     else:
         print("Error: Certificate type must be specified using [--ca|--server|--client|--pfx]")
         exit(1)
+
+if __name__ == '__main__':
+    run()

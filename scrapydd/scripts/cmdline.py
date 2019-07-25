@@ -2,6 +2,18 @@ import sys
 import scrapydd.main
 import scrapydd.scheduleutil
 import scrapydd.agent
+import scrapydd.ssl_gen
+
+usage = '''
+usage: scrapydd {command} [options]
+Available commands:
+    server:         run scrapydd server.
+    agent:          run scrapydd agent.
+    cert:           make certs.
+    add_schedule:   add a schedule to spider.
+
+use scrapydd {command} --help for further help.
+'''
 
 def main():
     argv = sys.argv
@@ -17,8 +29,10 @@ def main():
         scrapydd.main.run(argv)
     elif cmd == 'add_schedule':
         scrapydd.scheduleutil.add_schedule()
+    elif cmd == 'cert':
+        scrapydd.ssl_gen.run(argv[2:])
     elif cmd == '--help':
-        print_commands()
+        print_commands(argv)
     elif cmd == '--version' or cmd == '-v':
         print_version()
     else:
@@ -26,16 +40,10 @@ def main():
         print_commands()
 
 def print_commands():
-    print 'usage: scrapydd {command} [options]'
-    print 'Available commands:'
-    print '\tserver:\trun scrapydd server.'
-    print '\tagent:\trun scrapydd agent.'
-    print '\tadd_schedule:\tadd a schedule to spider.'
-    print ''
-    print 'use scrapydd {command} --help for further help.'
+    print(usage)
 
 def print_version():
-    print 'scrapydd v' + scrapydd.__version__
+    print('scrapydd version:', scrapydd.__version__)
 
 if __name__ == '__main__':
     main()
