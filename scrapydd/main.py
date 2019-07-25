@@ -40,6 +40,14 @@ def get_template_loader():
     return loader
 
 
+class WebBaseHandler(tornado.web.RequestHandler):
+    authentication_provider = None
+    def initialize(self):
+        self.authentication_provider = self.settings.get('authentication_provider')
+
+    def get_current_user(self):
+        return self.authentication_provider.authenticate()
+
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         session = Session()
@@ -47,6 +55,17 @@ class MainHandler(tornado.web.RequestHandler):
         loader = get_template_loader()
         self.write(loader.load("index.html").generate(projects=projects))
         session.close()
+
+
+class SigninHandler(tornado.web.RequestHandler):
+    def get(self):
+        loader = get_template_loader()
+
+        self.write(loader.load('signin.html').generate())
+
+    def post(self):
+        username = self.get_body_argument('username')
+        password = self.get_body_argument('password')
 
 
 class UploadProject(tornado.web.RequestHandler):
@@ -800,8 +819,16 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
 
     :return:
     '''
+
+    settings = {
+        "cookie_secret": "__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
+        "login_url": "/signin",
+        "xsrf_cookies": True,
+    }
+
     return tornado.web.Application([
         (r"/", MainHandler),
+        (r'/signin', SigninHandler),
         (r'/uploadproject', UploadProject),
         (r'/addversion.json', UploadProject),
         (r'/delproject.json', DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
@@ -832,7 +859,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': os.path.join(os.path.dirname(__file__), 'static')}),
 
         (r'/api/v1/nodes', RestNodesHandler),
-    ], node_manager=node_manager)
+    ], node_manager=node_manager, **settings)
 
 
 def check_and_gen_ssl_keys(config):

@@ -19,6 +19,15 @@ engine = create_engine(database_url)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 _Session = None
 
+class User(Base):
+    __tablename__ = 'user'
+    id = Column(Integer, primary_key=True)
+    username = Column(String(length=50), nullable=False, unique=True)
+    nickname = Column(String(length=50))
+    password = Column(String(length=50))
+    create_at = Column(DateTime)
+    last_login = Column(DateTime)
+
 
 class Project(Base):
     __tablename__ = 'projects'
