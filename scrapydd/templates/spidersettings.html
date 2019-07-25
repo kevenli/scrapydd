@@ -1,8 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Spider settings</title>
+{% extends "base.html" %}
+{% block content %}
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.0/themes/smoothness/jquery-ui.css">
     <script
   src="https://code.jquery.com/jquery-1.12.4.min.js"
@@ -74,5 +71,4 @@
         <a href="/projects/{{project.name}}/spiders/{{spider.name}}">返回</a>
     </div>
     </form>
-</body>
-</html>
+{% end %}

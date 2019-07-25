@@ -1,10 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends "base.html" %}
+{% block content %}
     <form method="POST">
     <div>
         <label>Project</label>
@@ -25,5 +20,4 @@
             <font style="color:red">{{errormsg}}</font>
         </div>
     {% end %}
-</body>
-</html>
+{% end %}

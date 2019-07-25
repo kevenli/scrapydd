@@ -1,24 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Scrapydd</title>
-    <style>
-        td.success {
-            color:white;
-            background-color:green;
-        }
-        td.fail {
-            background-color:red;
-            color:#fff;
-        }
-        td.warning {
-            background-color:orange;
-            color:#fff;
-        }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
+{% block content %}
     Welcome.
 
     <ul>
@@ -100,5 +81,4 @@
                     {% end %}
         {% end %}
     </table>
-</body>
-</html>
+{% end %}
