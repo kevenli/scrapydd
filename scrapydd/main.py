@@ -823,7 +823,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
     settings = {
         "cookie_secret": "__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
         "login_url": "/signin",
-        "xsrf_cookies": True,
+        #"xsrf_cookies": True,
     }
 
     return tornado.web.Application([
