@@ -1,6 +1,7 @@
 from ..models import User, session_scope, init_database
 from ..config import Config
 import hashlib
+from getpass import getpass
 
 class ResetPasswordCommand():
     def run(self):
@@ -10,7 +11,7 @@ class ResetPasswordCommand():
         username = raw_input()
 
         print('Plase input new password:')
-        password = raw_input()
+        password = getpass()
 
         with session_scope() as session:
             user = session.query(User).filter_by(username=username).first()
