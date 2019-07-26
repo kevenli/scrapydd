@@ -3,6 +3,7 @@ import scrapydd.main
 import scrapydd.scheduleutil
 import scrapydd.agent
 import scrapydd.ssl_gen
+from scrapydd.commands.resetpassword import ResetPasswordCommand
 
 usage = '''
 usage: scrapydd {command} [options]
@@ -11,6 +12,7 @@ Available commands:
     agent:          run scrapydd agent.
     cert:           make certs.
     add_schedule:   add a schedule to spider.
+    reset_password: reset user password.
 
 use scrapydd {command} --help for further help.
 '''
@@ -31,6 +33,8 @@ def main():
         scrapydd.scheduleutil.add_schedule()
     elif cmd == 'cert':
         scrapydd.ssl_gen.run(argv[2:])
+    elif cmd == 'reset_password':
+        ResetPasswordCommand().run()
     elif cmd == '--help':
         print_commands(argv)
     elif cmd == '--version' or cmd == '-v':
