@@ -38,6 +38,11 @@ debug
 Whether run server on debug mode. Debug mode will set logging level to DEBUG.
 Default: ``false``.
 
+enable_authentication
+~~~~~~~~~~~~~~~~~~~~~
+Whether enable authentication, once this option is on, user need to login to make operation.
+Default: ``false``
+
 https_port
 ~~~~~~~~~~~
 HTTPS port to listen on, specify this key will enable SSL mode.
