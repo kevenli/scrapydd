@@ -603,6 +603,19 @@ class JobStartHandler(RestBaseHandler):
         self.scheduler_manager.job_start(jobid, pid)
 
 
+class JobEggHandler(RestBaseHandler):
+    def get(self, jobid):
+        with session_scope() as session:
+            job = session.query(SpiderExecutionQueue).filter_by(id=jobid).first()
+            if not job:
+                raise tornado.web.HTTPError(404)
+            spider = session.query(Spider).filter_by(id=job.spider_id).first()
+            storage = FilesystemEggStorage({})
+            version, f = storage.get(spider.project.name)
+            self.write(f.read())
+            session.close()
+
+
 class SpiderWebhookHandler(AppBaseHandler):
     @authenticated
     def get(self, project_name, spider_name):
@@ -878,6 +891,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
          {'node_manager': node_manager, 'scheduler_manager': scheduler_manager}),
         (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),
         (r'/jobs/(\w+)/start', JobStartHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/jobs/(\w+)/egg', JobEggHandler),
         (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
         (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
         (r'/ca.crt', CACertHandler),

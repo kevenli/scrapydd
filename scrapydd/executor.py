@@ -222,7 +222,8 @@ class Executor():
                 task.project_name = response_data['data']['task']['project_name']
                 task.project_version = response_data['data']['task']['version']
                 task.spider_name = response_data['data']['task']['spider_name']
-                if 'extra_requirements' in response_data['data']['task']:
+                if 'extra_requirements' in response_data['data']['task'] and \
+                        response_data['data']['task']['extra_requirements']:
                     task.extra_requirements = [x for x in
                                                response_data['data']['task']['extra_requirements'].split(';') if x]
                 if 'spider_parameters' in response_data['data']['task']:
@@ -340,7 +341,7 @@ class TaskExecutor():
     def execute(self):
         try:
             yield self.workspace.init()
-            downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.spider_id)
+            downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.id)
             with open(downloaded_egg, 'rb') as egg_f:
                 self.workspace.put_egg(egg_f, self.task.project_version)
             logger.debug('download egg done.')
@@ -397,14 +398,14 @@ class ProjectEggDownloader(object):
         self.download_path = None
         self.service_base = service_base
 
-    def download_egg_future(self, spider_id):
+    def download_egg_future(self, job_id):
         ret_future = Future()
 
         self.download_path = tempfile.mktemp()
         self._fd = open(self.download_path, 'wb')
 
         logger.debug('begin download egg.')
-        egg_request_url = urlparse.urljoin(self.service_base, '/spiders/%d/egg' % spider_id)
+        egg_request_url = urlparse.urljoin(self.service_base, '/jobs/%s/egg' % job_id)
         request = HTTPRequest(egg_request_url, streaming_callback=self._handle_chunk)
         client = AsyncHTTPClient()
         def done_callback(future):
