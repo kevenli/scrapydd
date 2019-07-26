@@ -1,4 +1,20 @@
 {% extends "base.html" %}
+{% block header %}
+<style>
+        td.success {
+            color:white;
+            background-color:green;
+        }
+        td.fail {
+            background-color:red;
+            color:#fff;
+        }
+        td.warning {
+            background-color:orange;
+            color:#fff;
+        }
+    </style>
+{% end %}
 {% block content %}
     Welcome.
 
