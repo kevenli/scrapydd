@@ -261,8 +261,7 @@ class WebhookDaemon():
             self.job_failed(job, executor.log)
             logger.error(e)
 
-    def job_failed(self, job):
-        log = self.current_job
+    def job_failed(self, job, log=None):
         self.storage.job_failed(job.id, log)
 
         self.current_job = None
