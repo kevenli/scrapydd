@@ -189,7 +189,7 @@ class ScheduleHandler(AppBaseHandler):
 
 class AddScheduleHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
-        super(ScheduleHandler, self).initialize()
+        super(AddScheduleHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
     @authenticated
