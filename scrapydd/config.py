@@ -8,7 +8,7 @@ import glob
 from os.path import expanduser
 
 def str2bool(v):
-  return v.lower() in ("yes", "true", "t", "1")
+  return v.lower() in ("yes", "true", "t", "1", 'on')
 
 class Config(object):
     """A ConfigParser wrapper to support defaults when calling instance

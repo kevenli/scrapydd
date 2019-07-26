@@ -5,11 +5,12 @@ import tornado.web
 import tornado.template
 import tornado.httpserver
 import tornado.netutil
+from tornado.web import authenticated
 from tornado import gen
 from .eggstorage import FilesystemEggStorage
 from cStringIO import StringIO
 from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
-    SpiderWebhook, session_scope, SpiderSettings, WebhookJob, SpiderParameter
+    SpiderWebhook, session_scope, SpiderSettings, WebhookJob, SpiderParameter, User
 from schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
@@ -31,6 +32,10 @@ from .cluster import ClusterNode
 from .ssl_gen import SSLCertificateGenerator
 from .settting import SpiderSettingLoader
 from .restapi import *
+from .security import NoAuthenticationProvider, CookieAuthenticationProvider
+from .handlers.auth import LogoutHandler, SigninHandler, SignupHandler
+import hashlib
+from .handlers.base import AppBaseHandler
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +45,8 @@ def get_template_loader():
     return loader
 
 
-class WebBaseHandler(tornado.web.RequestHandler):
-    authentication_provider = None
-    def initialize(self):
-        self.authentication_provider = self.settings.get('authentication_provider')
-
-    def get_current_user(self):
-        return self.authentication_provider.authenticate()
-
-class MainHandler(tornado.web.RequestHandler):
+class MainHandler(AppBaseHandler):
+    @authenticated
     def get(self):
         session = Session()
         projects = list(session.query(Project).order_by(Project.name))
@@ -57,18 +55,7 @@ class MainHandler(tornado.web.RequestHandler):
         session.close()
 
 
-class SigninHandler(tornado.web.RequestHandler):
-    def get(self):
-        loader = get_template_loader()
-
-        self.write(loader.load('signin.html').generate())
-
-    def post(self):
-        username = self.get_body_argument('username')
-        password = self.get_body_argument('password')
-
-
-class UploadProject(tornado.web.RequestHandler):
+class UploadProject(AppBaseHandler):
     except_project_settings = ['NEWSPIDER_MODULE',
                                'SPIDER_MODULES',
                                'BOT_NAME',
@@ -78,6 +65,7 @@ class UploadProject(tornado.web.RequestHandler):
                                'SETTINGS_MODULE',
                                ]
 
+    @authenticated
     @gen.coroutine
     def post(self):
         project_name = self.request.arguments['project'][0]
@@ -166,15 +154,18 @@ class UploadProject(tornado.web.RequestHandler):
                 loader = get_template_loader()
                 self.write(loader.load("uploadproject.html").generate())
 
+    @authenticated
     def get(self):
         loader = get_template_loader()
         self.write(loader.load("uploadproject.html").generate())
 
 
-class ScheduleHandler(tornado.web.RequestHandler):
+class ScheduleHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
+        super(ScheduleHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def post(self):
         project = self.get_argument('project')
         spider = self.get_argument('spider')
@@ -196,10 +187,12 @@ class ScheduleHandler(tornado.web.RequestHandler):
             self.write(json.dumps(response_data))
 
 
-class AddScheduleHandler(tornado.web.RequestHandler):
+class AddScheduleHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
+        super(ScheduleHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def post(self):
         project = self.get_argument('project')
         spider = self.get_argument('spider')
@@ -234,7 +227,8 @@ class AddScheduleHandler(tornado.web.RequestHandler):
             self.write(json.dumps(response_data))
 
 
-class ProjectList(tornado.web.RequestHandler):
+class ProjectList(AppBaseHandler):
+    @authenticated
     def get(self):
         session = Session()
         projects = session.query(Project)
@@ -244,7 +238,8 @@ class ProjectList(tornado.web.RequestHandler):
         session.close()
 
 
-class SpiderInstanceHandler2(tornado.web.RequestHandler):
+class SpiderInstanceHandler2(AppBaseHandler):
+    @authenticated
     def get(self, project, spider):
         session = Session()
         project = session.query(Project).filter(Project.name == project).first()
@@ -276,7 +271,8 @@ class SpiderInstanceHandler2(tornado.web.RequestHandler):
         session.close()
 
 
-class SpiderEggHandler(tornado.web.RequestHandler):
+class SpiderEggHandler(AppBaseHandler):
+    @authenticated
     def get(self, id):
         session = Session()
         spider = session.query(Spider).filter_by(id=id).first()
@@ -286,7 +282,8 @@ class SpiderEggHandler(tornado.web.RequestHandler):
         session.close()
 
 
-class ProjectSpiderEggHandler(tornado.web.RequestHandler):
+class ProjectSpiderEggHandler(AppBaseHandler):
+    @authenticated
     def get(self, project, spider):
         with session_scope() as session:
             project = session.query(Project).filter(Project.name == project).first()
@@ -297,7 +294,8 @@ class ProjectSpiderEggHandler(tornado.web.RequestHandler):
             session.close()
 
 
-class SpiderListHandler(tornado.web.RequestHandler):
+class SpiderListHandler(AppBaseHandler):
+    @authenticated
     def get(self):
         session = Session()
         spiders = session.query(Spider)
@@ -306,14 +304,16 @@ class SpiderListHandler(tornado.web.RequestHandler):
         session.close()
 
 
-class SpiderTriggersHandler(tornado.web.RequestHandler):
+class SpiderTriggersHandler(AppBaseHandler):
     scheduler_manager = None
 
     def initialize(self, scheduler_manager=None):
         assert isinstance(scheduler_manager, SchedulerManager)
         assert scheduler_manager
+        super(SpiderTriggersHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def get(self, project, spider):
         with session_scope() as session:
             project = session.query(Project).filter(Project.name == project).first()
@@ -322,6 +322,7 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
             context = {'spider': spider, 'errormsg': None}
             self.write(loader.load("spidercreatetrigger.html").generate(**context))
 
+    @authenticated
     def post(self, project, spider):
         cron = self.get_argument('cron')
         with session_scope() as session:
@@ -337,15 +338,14 @@ class SpiderTriggersHandler(tornado.web.RequestHandler):
                 return self.write(loader.load("spidercreatetrigger.html").generate(**context))
 
 
-class DeleteSpiderTriggersHandler(tornado.web.RequestHandler):
-    def data_received(self, chunk):
-        pass
-
+class DeleteSpiderTriggersHandler(AppBaseHandler):
     scheduler_manager = None
 
     def initialize(self, scheduler_manager=None):
+        super(DeleteSpiderTriggersHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def post(self, project_name, spider_name, trigger_id):
         self.scheduler_manager.remove_schedule(project_name, spider_name, trigger_id)
         self.redirect('/projects/%s/spiders/%s' % (project_name, spider_name))
@@ -405,7 +405,7 @@ MAX_STREAMED_SIZE = 1 * GB
 
 
 @tornado.web.stream_request_body
-class ExecuteCompleteHandler(tornado.web.RequestHandler):
+class ExecuteCompleteHandler(RestBaseHandler):
     webhook_daemon = None
     scheduler_manager = None
     ps = None
@@ -418,6 +418,7 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         @type scheduler_manager: SchedulerManager
         :return:
         """
+        super(ExecuteCompleteHandler, self).initialize()
         self.webhook_daemon = webhook_daemon
         self.scheduler_manager = scheduler_manager
 
@@ -515,8 +516,9 @@ class ExecuteCompleteHandler(tornado.web.RequestHandler):
         self.ps.receive(chunk)
 
 
-class NodesHandler(tornado.web.RequestHandler):
+class NodesHandler(RestBaseHandler):
     def initialize(self, node_manager):
+        super(NodesHandler, self).initialize()
         self.node_manager = node_manager
 
     def post(self):
@@ -527,8 +529,9 @@ class NodesHandler(tornado.web.RequestHandler):
         self.write(json.dumps({'id': node.id}))
 
 
-class NodeHeartbeatHandler(tornado.web.RequestHandler):
+class NodeHeartbeatHandler(RestBaseHandler):
     def initialize(self, node_manager, scheduler_manager):
+        super(NodeHeartbeatHandler, self).initialize()
         self.node_manager = node_manager
         self.scheduler_manager = scheduler_manager
 
@@ -551,8 +554,9 @@ class NodeHeartbeatHandler(tornado.web.RequestHandler):
         self.write(json.dumps(response_data))
 
 
-class JobsHandler(tornado.web.RequestHandler):
+class JobsHandler(RestBaseHandler):
     def initialize(self, scheduler_manager):
+        super(JobsHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
     def get(self):
@@ -566,7 +570,8 @@ class JobsHandler(tornado.web.RequestHandler):
         self.write(loader.load("jobs.html").generate(**context))
 
 
-class LogsHandler(tornado.web.RequestHandler):
+class LogsHandler(AppBaseHandler):
+    @authenticated
     def get(self, project, spider, jobid):
         with session_scope() as session:
             job = session.query(HistoricalJob).filter_by(id=jobid).first()
@@ -577,7 +582,8 @@ class LogsHandler(tornado.web.RequestHandler):
             self.write(loader.load("log.html").generate(log=log))
 
 
-class ItemsFileHandler(tornado.web.RequestHandler):
+class ItemsFileHandler(AppBaseHandler):
+    @authenticated
     def get(self, project, spider, jobid):
         with session_scope() as session:
             job = session.query(HistoricalJob).filter_by(id=jobid).first()
@@ -586,8 +592,9 @@ class ItemsFileHandler(tornado.web.RequestHandler):
             self.write(open(items_file, 'r').read())
 
 
-class JobStartHandler(tornado.web.RequestHandler):
+class JobStartHandler(RestBaseHandler):
     def initialize(self, scheduler_manager):
+        super(JobStartHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
     def post(self, jobid):
@@ -596,7 +603,8 @@ class JobStartHandler(tornado.web.RequestHandler):
         self.scheduler_manager.job_start(jobid, pid)
 
 
-class SpiderWebhookHandler(tornado.web.RequestHandler):
+class SpiderWebhookHandler(AppBaseHandler):
+    @authenticated
     def get(self, project_name, spider_name):
         session = Session()
         project = session.query(Project).filter(Project.name == project_name).first()
@@ -606,6 +614,7 @@ class SpiderWebhookHandler(tornado.web.RequestHandler):
         if webhook_setting:
             self.write(webhook_setting.value)
 
+    @authenticated
     def post(self, project_name, spider_name):
         payload_url = self.get_argument('payload_url')
         with session_scope() as session:
@@ -623,9 +632,11 @@ class SpiderWebhookHandler(tornado.web.RequestHandler):
             session.add(webhook_setting)
             session.commit()
 
+    @authenticated
     def put(self, project_name, spider_name):
         self.post(project_name, spider_name)
 
+    @authenticated
     def delete(self, project_name, spider_name):
         with session_scope() as session:
             project = session.query(Project).filter(Project.name == project_name).first()
@@ -634,10 +645,12 @@ class SpiderWebhookHandler(tornado.web.RequestHandler):
             session.commit()
 
 
-class DeleteProjectHandler(tornado.web.RequestHandler):
+class DeleteProjectHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
+        super(DeleteProjectHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def post(self):
         project_name = self.get_argument('project')
         with session_scope() as session:
@@ -667,7 +680,7 @@ class DeleteProjectHandler(tornado.web.RequestHandler):
         logger.info('project %s deleted' % project_name)
 
 
-class SpiderSettingsHandler(tornado.web.RequestHandler):
+class SpiderSettingsHandler(AppBaseHandler):
     available_settings = {
         'concurrency': '\d+',
         'timeout': '\d+',
@@ -677,6 +690,7 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
         'extra_requirements': '.*'
     }
 
+    @authenticated
     def get(self, project, spider):
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project).first()
@@ -704,6 +718,7 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
 
             return self.write(template.generate(**context))
 
+    @authenticated
     def post(self, project, spider):
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project).first()
@@ -792,13 +807,13 @@ class SpiderSettingsHandler(tornado.web.RequestHandler):
             self.redirect('/projects/%s/spiders/%s' % (project.name, spider.name))
 
 
-class CACertHandler(tornado.web.RequestHandler):
+class CACertHandler(RestBaseHandler):
     def get(self):
         self.write(open('keys/ca.crt', 'rb').read())
         self.set_header('Content-Type', 'application/cert')
 
 
-class ListProjectVersionsHandler(tornado.web.RequestHandler):
+class ListProjectVersionsHandler(RestBaseHandler):
     def get(self):
         try:
             project = self.get_argument('project')
@@ -810,15 +825,16 @@ class ListProjectVersionsHandler(tornado.web.RequestHandler):
         return self.write({'status': 'ok', 'versions': versions})
 
 
-def make_app(scheduler_manager, node_manager, webhook_daemon):
-    '''
+def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_provider=None):
+    """
 
     @type scheduler_manager SchedulerManager
     @type node_manager NodeManager
     @type webhook_daemon: WebhookDaemon
+    @type authentication_provider: AuthenticationProvider
 
     :return:
-    '''
+    """
 
     settings = {
         "cookie_secret": "__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
@@ -826,9 +842,18 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         #"xsrf_cookies": True,
     }
 
+    settings['scheduler_manager'] = scheduler_manager
+
+    if authentication_provider is None:
+        authentication_provider = NoAuthenticationProvider()
+
+    settings['authentication_provider'] = authentication_provider
+    settings['node_manager'] = node_manager
+
     return tornado.web.Application([
         (r"/", MainHandler),
         (r'/signin', SigninHandler),
+        (r'/logout', LogoutHandler),
         (r'/uploadproject', UploadProject),
         (r'/addversion.json', UploadProject),
         (r'/delproject.json', DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
@@ -859,7 +884,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon):
         (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': os.path.join(os.path.dirname(__file__), 'static')}),
 
         (r'/api/v1/nodes', RestNodesHandler),
-    ], node_manager=node_manager, **settings)
+    ], **settings)
 
 
 def check_and_gen_ssl_keys(config):
@@ -922,7 +947,12 @@ def start_server(argv=None):
     webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
     webhook_daemon.init()
 
-    app = make_app(scheduler_manager, node_manager, webhook_daemon)
+    if config.getboolean('enable_authentication', True):
+        authentication_provider = CookieAuthenticationProvider()
+    else:
+        authentication_provider = NoAuthenticationProvider()
+
+    app = make_app(scheduler_manager, node_manager, webhook_daemon, authentication_provider)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)

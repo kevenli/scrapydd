@@ -1,7 +1,9 @@
 import tornado.web
 import json
+from .handlers.base import RestBaseHandler
 
-class RestNodesHandler(tornado.web.RequestHandler):
+
+class RestNodesHandler(RestBaseHandler):
     def initialize(self):
         self.node_manager = self.settings.get('node_manager')
 

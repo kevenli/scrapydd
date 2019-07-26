@@ -27,19 +27,22 @@ def authentication_check(method):
         return method(self, *args, **kwargs)
     return wrapper
 
-class NoAuthenticationProvider(object):
-    def authenticate(self, handler):
-        return User(username="")
 
-    # TODO: complate this
-    def get_user(self):
-        pass
+class AuthenticationProvider(object):
+    def get_user(self, handler):
+        raise NotImplementedError()
+
+
+class NoAuthenticationProvider(object):
+    def get_user(self, handler):
+        return 'admin'
 
 
 class CookieAuthenticationProvider(object):
-    def authenticate(self, handler):
+    def get_user(self, handler):
         user_cookie = handler.get_secure_cookie("user")
         if user_cookie:
-            return json.loads(user_cookie)
+            #return json.loads(user_cookie)
+            return user_cookie
         return None
 

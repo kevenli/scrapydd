@@ -1,16 +1,22 @@
 from unittest import TestCase
 from scrapydd.main import *
 from scrapydd.config import Config
-from tornado.testing import AsyncHTTPTestCase
-from poster.encode import multipart_encode
+from scrapydd.security import NoAuthenticationProvider, CookieAuthenticationProvider
 from scrapydd.models import init_database
+from tornado.testing import AsyncHTTPTestCase
+from tornado.web import create_signed_value
+from poster.encode import multipart_encode
 import os.path
 import urllib
+
+
+
+
 
 class MainTest(AsyncHTTPTestCase):
     @classmethod
     def setUpClass(cls):
-        os.environ['ASYNC_TEST_TIMEOUT'] = '300'
+        os.environ['ASYNC_TEST_TIMEOUT'] = '500'
         if os._exists('test.db'):
             os.remove('test.db')
         config = Config(values = {'database_url': 'sqlite:///test.db'})
@@ -39,6 +45,45 @@ class MainTest(AsyncHTTPTestCase):
         datagen, headers = multipart_encode(post_data)
         databuffer = ''.join(datagen)
         response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        self.assertEqual(200, response.code)
+
+
+class DefaultTest(MainTest):
+    def get_app(self):
+        config = Config()
+        scheduler_manager = SchedulerManager(config=config)
+        scheduler_manager.init()
+        node_manager = NodeManager(scheduler_manager)
+        node_manager.init()
+        return make_app(scheduler_manager, node_manager, None, authentication_provider=NoAuthenticationProvider())
+
+    def test_default_page(self):
+        response = self.fetch('/')
+        self.assertEqual(200, response.code)
+
+
+class SecurityTest(MainTest):
+    def get_app(self):
+        config = Config()
+        scheduler_manager = SchedulerManager(config=config)
+        scheduler_manager.init()
+        node_manager = NodeManager(scheduler_manager)
+        node_manager.init()
+        return make_app(scheduler_manager, node_manager, None, authentication_provider=CookieAuthenticationProvider())
+
+    def test_no_cookie(self):
+        response = self.fetch('/',follow_redirects=False)
+        self.assertEqual(302, response.code)
+
+    def test_with_cookie(self):
+        username = 'test'
+        cookie_name, cookie_value = 'user', username
+        secure_cookie = create_signed_value(
+            self.get_app().settings["cookie_secret"],
+            cookie_name,
+            cookie_value)
+        headers = {'Cookie': '='.join((cookie_name, secure_cookie))}
+        response = self.fetch('/', method='GET', headers=headers)
         self.assertEqual(200, response.code)
 
 
