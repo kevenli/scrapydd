@@ -39,6 +39,7 @@ from .handlers.base import AppBaseHandler
 
 logger = logging.getLogger(__name__)
 
+BASE_DIR = os.path.dirname(__file__)
 
 def get_template_loader():
     loader = tornado.template.Loader(os.path.join(os.path.dirname(__file__), "templates"))
@@ -852,6 +853,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
     settings = {
         "cookie_secret": "__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
         "login_url": "/signin",
+        "static_path": os.path.join(BASE_DIR, 'static'),
         #"xsrf_cookies": True,
     }
 
