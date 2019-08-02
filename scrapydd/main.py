@@ -352,6 +352,39 @@ class DeleteSpiderTriggersHandler(AppBaseHandler):
         self.redirect('/projects/%s/spiders/%s' % (project_name, spider_name))
 
 
+class DeleteSpiderJobHandler(AppBaseHandler):
+    @authenticated
+    def post(self, project_name, spider_name, job_id):
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project_name).first()
+            if not project:
+                return self.write_error(404, 'project not found.')
+
+            spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
+            if not project:
+                return self.write_error(404, 'spider not found.')
+
+            job = session.query(HistoricalJob).filter_by(spider_id = spider.id, id=job_id).first()
+            if not job:
+                return self.write_error(404, 'job not found.')
+
+            if job.log_file:
+                try:
+                    os.remove(job.log_file)
+                except Exception as e:
+                    logger.warning(e.message)
+
+            original_log_file = os.path.join('logs', job.project_name, job.spider_name, '%s.log' % job.id)
+            if os.path.exists(original_log_file):
+                os.remove(original_log_file)
+
+            original_items_file = os.path.join('items', job.project_name, job.spider_name, '%s.jl' % job.id)
+            if os.path.exists(original_items_file):
+                os.remove(original_items_file)
+            session.delete(job)
+            session.commit()
+
+
 class ExecuteNextHandler(tornado.web.RequestHandler):
     def data_received(self, chunk):
         pass
@@ -880,8 +913,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
         (r'/spiders/(\d+)/egg', SpiderEggHandler),
         (r'/projects/(\w+)/spiders/(\w+)', SpiderInstanceHandler2),
         (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
-        (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler,
-         {'scheduler_manager': scheduler_manager}),
+        (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler),
+        (r'/projects/(\w+)/spiders/(\w+)/jobs/(\w+)/delete', DeleteSpiderJobHandler),
         (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
         (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),

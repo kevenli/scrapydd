@@ -18,11 +18,11 @@
 <body>
     <div>
         <label>Project:</label>
-        <input value="{{project.name}}" />
+        <input id="project_name" value="{{project.name}}" />
     </div>
     <div>
         <label>Name:</label>
-        <input value="{{spider.name}}" />
+        <input id="spider_name" value="{{spider.name}}" />
     </div>
     <div>
         <label>Triggers:</label>
@@ -62,7 +62,7 @@
     </div>
     <div>
         <label>Jobs:</label>
-        <table border="1">
+        <table border="1" id="joblist" class="table">
             <tr>
                 <th>JobID</th>
                 <th>Start At</th>
@@ -74,7 +74,7 @@
             </tr>
             {% for job in running_jobs %}
                 <tr>
-                    <td>{{job.id}}</td>
+                    <td class="job_id">{{job.id}}</td>
                     <td>
                         {% if job.start_time %}
                         {{job.start_time}}
@@ -95,7 +95,7 @@
             {% end %}
             {% for job in jobs %}
                 <tr>
-                    <td>{{job.id}}</td>
+                    <td class="job_id">{{job.id}}</td>
                     <td>{{job.start_time}}</td>
                     <td>{{job.complete_time-job.start_time}}</td>
                     <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
@@ -131,4 +131,6 @@
         </table>
     </div>
     {% end %}
+
+    <script src="/static/js/spider.js" ></script>
 {% end %}
