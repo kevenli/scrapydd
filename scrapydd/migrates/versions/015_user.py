@@ -14,7 +14,7 @@ user = Table(
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
     user.create()
-    migrate_engine.execute(user.insert().values(username='admin', password='admin', nickname='admin'))
+    migrate_engine.execute(user.insert().values(id=1, username='admin', password='admin', nickname='admin'))
 
 def downgrade(migrate_engine):
     meta.bind = migrate_engine
