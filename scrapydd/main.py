@@ -41,18 +41,13 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(__file__)
 
-def get_template_loader():
-    loader = tornado.template.Loader(os.path.join(os.path.dirname(__file__), "templates"))
-    return loader
-
 
 class MainHandler(AppBaseHandler):
     @authenticated
     def get(self):
         session = Session()
         projects = list(session.query(Project).order_by(Project.name))
-        loader = get_template_loader()
-        self.write(loader.load("index.html").generate(projects=projects))
+        self.render('index.html', projects=projects)
         session.close()
 
 
@@ -132,13 +127,11 @@ class UploadProject(AppBaseHandler):
             if self.request.path.endswith('.json'):
                 self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
             else:
-                loader = get_template_loader()
-                self.write(loader.load("uploadproject.html").generate())
+                self.render("uploadproject.html")
 
     @authenticated
     def get(self):
-        loader = get_template_loader()
-        self.write(loader.load("uploadproject.html").generate())
+        self.render("uploadproject.html")
 
 
 class ScheduleHandler(AppBaseHandler):
@@ -247,8 +240,7 @@ class SpiderInstanceHandler2(AppBaseHandler):
             .filter_by(spider_id=spider.id) \
             .order_by(SpiderParameter.parameter_key)
         context['spider_parameters'] = {parameter.parameter_key: parameter.value for parameter in spider_parameters}
-        loader = get_template_loader()
-        self.write(loader.load("spider.html").generate(**context))
+        self.render("spider.html", **context)
         session.close()
 
 
@@ -280,8 +272,7 @@ class SpiderListHandler(AppBaseHandler):
     def get(self):
         session = Session()
         spiders = session.query(Spider)
-        loader = get_template_loader()
-        self.write(loader.load("spiderlist.html").generate(spiders=spiders))
+        self.render("spiderlist.html", spiders=spiders)
         session.close()
 
 
@@ -299,9 +290,8 @@ class SpiderTriggersHandler(AppBaseHandler):
         with session_scope() as session:
             project = session.query(Project).filter(Project.name == project).first()
             spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
-            loader = get_template_loader()
             context = {'spider': spider, 'errormsg': None}
-            self.write(loader.load("spidercreatetrigger.html").generate(**context))
+            self.render("spidercreatetrigger.html", **context)
 
     @authenticated
     def post(self, project, spider):
@@ -314,9 +304,9 @@ class SpiderTriggersHandler(AppBaseHandler):
                 self.scheduler_manager.add_schedule(project, spider, cron)
                 return self.redirect('/projects/%s/spiders/%s' % (project.name, spider.name))
             except InvalidCronExpression:
-                loader = get_template_loader()
+
                 context = {'spider': spider, 'errormsg': 'Invalid cron expression '}
-                return self.write(loader.load("spidercreatetrigger.html").generate(**context))
+                return self.render("spidercreatetrigger.html", **context)
 
 
 class DeleteSpiderTriggersHandler(AppBaseHandler):
@@ -580,8 +570,7 @@ class JobsHandler(RestBaseHandler):
             'running': running,
             'finished': finished,
         }
-        loader = get_template_loader()
-        self.write(loader.load("jobs.html").generate(**context))
+        self.render("jobs.html", **context)
 
 
 class LogsHandler(AppBaseHandler):
@@ -592,8 +581,7 @@ class LogsHandler(AppBaseHandler):
             log_file = job.log_file
             with open(log_file, 'r') as f:
                 log = f.read()
-            loader = get_template_loader()
-            self.write(loader.load("log.html").generate(log=log))
+            self.render("log.html", log=log)
 
 
 class ItemsFileHandler(AppBaseHandler):
@@ -732,7 +720,6 @@ class SpiderSettingsHandler(AppBaseHandler):
                 job_settings['timeout'] = 3600
             if 'tag' not in job_settings or job_settings['tag'] is None:
                 job_settings['tag'] = ''
-            template = get_template_loader().load('spidersettings.html')
             context = {}
             context['settings'] = job_settings
             context['project'] = project
@@ -743,7 +730,7 @@ class SpiderSettingsHandler(AppBaseHandler):
                 .order_by(SpiderParameter.parameter_key)
             context['spider_parameters'] = spider_parameters
 
-            return self.write(template.generate(**context))
+            return self.render('spidersettings.html', **context)
 
     @authenticated
     def post(self, project, spider):
@@ -867,6 +854,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
         "cookie_secret": "__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
         "login_url": "/signin",
         "static_path": os.path.join(BASE_DIR, 'static'),
+        "template_path": os.path.join(BASE_DIR, 'templates'),
         #"xsrf_cookies": True,
     }
 
