@@ -1,8 +1,10 @@
 from .base import AppBaseHandler
 from ..models import session_scope, Node
+from tornado.web import authenticated
 
 
 class AdminNodesHandler(AppBaseHandler):
+    @authenticated
     def get(self):
         if not self.current_user or not self.current_user.is_admin:
             return self.write_error(403, "No permission")
