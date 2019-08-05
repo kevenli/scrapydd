@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>IP Address</th>
+        <th>Is Alive</th>
+        <th>Last Heartbeat</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for node in nodes %}
+        <tr>
+          <td>{{node.id}}</td>
+          <td>{{node.client_ip}}</td>
+          <td>{{node.isalive}}</td>
+          <td>{{node.last_heartbeat}}</td>
+        </tr>
+      {% end %}
+    </tbody>
+  </table>
+{% end %}

@@ -13,7 +13,7 @@ class SignupHandler(AppBaseHandler):
 
 class SigninHandler(AppBaseHandler):
     def get(self):
-        self.write(self.template_loader.load('signin.html').generate())
+        self.render('signin.html')
 
     def post(self):
         username = self.get_body_argument('username')

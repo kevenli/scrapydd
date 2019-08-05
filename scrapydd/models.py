@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, schema, Column, desc
-from sqlalchemy.types import Integer, String, DateTime, Text
+from sqlalchemy.types import Integer, String, DateTime, Text, Boolean
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
@@ -27,6 +27,7 @@ class User(Base):
     password = Column(String(length=50))
     create_at = Column(DateTime)
     last_login = Column(DateTime)
+    is_admin = Column(Boolean, default=False)
 
 
 class Project(Base):

@@ -36,6 +36,7 @@ from .security import NoAuthenticationProvider, CookieAuthenticationProvider
 from .handlers.auth import LogoutHandler, SigninHandler, SignupHandler
 import hashlib
 from .handlers.base import AppBaseHandler
+from .handlers.admin import *
 
 logger = logging.getLogger(__name__)
 
@@ -890,6 +891,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
         (r'/executing/complete', ExecuteCompleteHandler,
          {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
+        (r'^/admin/nodes$', AdminNodesHandler),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler,
          {'node_manager': node_manager, 'scheduler_manager': scheduler_manager}),
         (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),
