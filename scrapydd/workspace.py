@@ -128,6 +128,8 @@ class ProjectWorkspace(object):
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = self.project_name
             process = Popen([self.python, '-m', 'scrapyd.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
+            # TODO: modify to python -m scrapydd.util.spider_list egg_path instead on next version.
+            # since travis run unittest in virtualenv, a subprocess just install a latest scrapydd from pypi.
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
@@ -152,6 +154,8 @@ class ProjectWorkspace(object):
         ret_future = Future()
         items_file = os.path.join(self.project_workspace_dir, 'items.jl')
         runner = 'scrapyd.runner'
+        # TODO: modify this to python -m scrapydd.util.runner crawl spider instead in next version.
+        # since travis run unittest in virtualenv, a subprocess just install a latest scrapydd from pypi.
         pargs = [self.python, '-m', runner, 'crawl', spider]
         if project:
             spider_parameters['BOT_NAME'] = project
