@@ -24,8 +24,8 @@ def main(egg_path=None):
     settings = Settings()
     settings.setmodule(settings_module)
     loader = SpiderLoader(settings)
-    print(loader.list())
+    for spider in loader.list():
+        print(spider)
 
 if __name__ == '__main__':
-    print(sys.argv)
     main(sys.argv[1])
