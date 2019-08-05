@@ -81,8 +81,6 @@ class UploadProject(AppBaseHandler):
             workspace.put_egg(eggf, version)
             yield workspace.install_requirements()
             spiders = yield workspace.spider_list()
-            project_settings = yield workspace.find_project_settings(project_name)
-            logger.debug(project_settings)
 
         except InvalidProjectEgg as e:
             logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
@@ -129,24 +127,6 @@ class UploadProject(AppBaseHandler):
                     session.commit()
                     session.refresh(spider)
 
-                logger.debug('project settings: %s' % project_settings)
-
-                for project_setting_key in project_settings.keys():
-                    if project_setting_key in UploadProject.except_project_settings:
-                        # skip except project settings.
-                        continue
-                    spider_parameter = session.query(SpiderParameter) \
-                        .filter_by(spider_id=spider.id, parameter_key=project_setting_key).first()
-
-                    if spider_parameter is None:
-                        spider_parameter = SpiderParameter()
-                        spider_parameter.spider_id = spider.id
-                        spider_parameter.parameter_key = project_setting_key
-                        spider_parameter.value = project_settings[project_setting_key]
-                        if not isinstance(spider_parameter.value, (basestring, int, float)):
-                            # support only string config now
-                            continue
-                        session.add(spider_parameter)
                 session.commit()
 
             if self.request.path.endswith('.json'):
