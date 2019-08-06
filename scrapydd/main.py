@@ -32,7 +32,7 @@ from .cluster import ClusterNode
 from .ssl_gen import SSLCertificateGenerator
 from .settting import SpiderSettingLoader
 from .restapi import *
-from .security import NoAuthenticationProvider, CookieAuthenticationProvider
+from .security import NoAuthenticationProvider, CookieAuthenticationProvider, HmacAuthorize
 from .handlers.auth import LogoutHandler, SigninHandler, SignupHandler
 import hashlib
 from .handlers.base import AppBaseHandler
@@ -841,7 +841,7 @@ class ListProjectVersionsHandler(RestBaseHandler):
         return self.write({'status': 'ok', 'versions': versions})
 
 
-def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_provider=None, debug=False):
+def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_providers=None, debug=False):
     """
 
     @type scheduler_manager SchedulerManager
@@ -863,10 +863,13 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
 
     settings['scheduler_manager'] = scheduler_manager
 
-    if authentication_provider is None:
-        authentication_provider = NoAuthenticationProvider()
+    if authentication_providers is None:
+        authentication_providers = []
 
-    settings['authentication_provider'] = authentication_provider
+    if len(authentication_providers) == 0:
+        authentication_providers.append(NoAuthenticationProvider())
+
+    settings['authentication_providers'] = authentication_providers
     settings['node_manager'] = node_manager
 
     return tornado.web.Application([
@@ -973,11 +976,12 @@ def start_server(argv=None):
     webhook_daemon.init()
 
     if config.getboolean('enable_authentication', True):
-        authentication_provider = CookieAuthenticationProvider()
-    else:
-        authentication_provider = NoAuthenticationProvider()
+        authentication_providers = [CookieAuthenticationProvider(), HmacAuthorize()]
 
-    app = make_app(scheduler_manager, node_manager, webhook_daemon, authentication_provider, debug=is_debug)
+    else:
+        authentication_providers = [NoAuthenticationProvider()]
+
+    app = make_app(scheduler_manager, node_manager, webhook_daemon, authentication_providers, debug=is_debug)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
@@ -1012,7 +1016,7 @@ def run(argv=None):
     init_logging(config)
 
     if opts.daemon:
-        print 'starting daemon.'
+        print('starting daemon.')
         daemon = Daemon(pidfile=pidfile)
         daemon.start()
         sys.exit(0)
