@@ -30,6 +30,18 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
 
 
+class UserKey(Base):
+    __tablename__ = 'user_keys'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.id'))
+    user = relationship('User')
+    app_key = Column(String(length=50), nullable=False, unique=True)
+    app_secret = Column(String(length=50))
+    enabled = Column(Boolean, default=True)
+    remark = Column(String(length=255))
+    create_at = Column(DateTime)
+
+
 class Project(Base):
     __tablename__ = 'projects'
 

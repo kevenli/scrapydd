@@ -1,0 +1,27 @@
+{% extends '../base_sidebar.html' %}
+{% block sidebar %}
+  {% include 'sidebar_profile.html' %}
+{% end sidebar %}
+{% block content %}
+  <form method="POST" action="/profile/keys">
+    <button type="submit" class="btn btn-primary" >Generate New Key</button>
+  </form>
+  <table class="table">
+    <thead>
+    <tr>
+      <th>AppKey</th>
+      <th>AppSecret</th>
+      <th>Enabled</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for key in user_keys %}
+      <tr>
+        <td>{{key.app_key}}</td>
+        <td>{{key.app_secret}}</td>
+        <td>{{key.enabled}}</td>
+      </tr>
+    {% end %}
+    </tbody>
+  </table>
+{% end %}

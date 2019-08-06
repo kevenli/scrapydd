@@ -1,0 +1,13 @@
+{% extends 'profile_base.html' %}
+{% block content %}
+<form class="needs-validation" novalidate>
+  <div class="mb-3">
+    <label for="firstName">App Key</label>
+    <input type="text" class="form-control" id="firstName" placeholder="" value="{{new_key.app_key}}" required>
+  </div>
+  <div class="mb-3">
+    <label for="lastName">Last name</label>
+    <input type="text" class="form-control" id="lastName" placeholder="" value="{{new_key.app_secret}}" required>
+  </div>
+</form>
+{% end %}

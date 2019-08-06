@@ -37,6 +37,7 @@ from .handlers.auth import LogoutHandler, SigninHandler, SignupHandler
 import hashlib
 from .handlers.base import AppBaseHandler
 from .handlers.admin import *
+from .handlers.profile import *
 
 logger = logging.getLogger(__name__)
 
@@ -840,7 +841,7 @@ class ListProjectVersionsHandler(RestBaseHandler):
         return self.write({'status': 'ok', 'versions': versions})
 
 
-def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_provider=None):
+def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_provider=None, debug=False):
     """
 
     @type scheduler_manager SchedulerManager
@@ -857,6 +858,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
         "static_path": os.path.join(BASE_DIR, 'static'),
         "template_path": os.path.join(BASE_DIR, 'templates'),
         #"xsrf_cookies": True,
+        'debug': debug,
     }
 
     settings['scheduler_manager'] = scheduler_manager
@@ -887,6 +889,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
         (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
         (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),
+        (r'/profile$', ProfileHomeHandler),
+        (r'/profile/keys$', ProfileKeysHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler,
          {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),
@@ -931,6 +935,7 @@ def start_server(argv=None):
     config = Config()
     logging.debug('starting server with argv : %s' % str(argv))
 
+    is_debug=config.getboolean('debug')
     init_database()
     bind_address = config.get('bind_address')
     bind_port = config.getint('bind_port')
@@ -947,10 +952,11 @@ def start_server(argv=None):
 
     # task_id is current process identifier when forked processes, start with 0
     task_id = None
-    if not sys.platform.startswith('win'):
-        task_id = fork_processes(config.getint('fork_proc_count'))
-    else:
-        logger.warning('Windows platform does not support forking process, running in single process mode.')
+    if not is_debug:
+        if not sys.platform.startswith('win'):
+            task_id = fork_processes(config.getint('fork_proc_count'))
+        else:
+            logger.warning('Windows platform does not support forking process, running in single process mode.')
 
     cluster_sync_obj = None
     if task_id is not None and config.get('cluster_bind_address'):
@@ -971,7 +977,7 @@ def start_server(argv=None):
     else:
         authentication_provider = NoAuthenticationProvider()
 
-    app = make_app(scheduler_manager, node_manager, webhook_daemon, authentication_provider)
+    app = make_app(scheduler_manager, node_manager, webhook_daemon, authentication_provider, debug=is_debug)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
