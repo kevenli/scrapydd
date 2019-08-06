@@ -34,10 +34,10 @@ from .settting import SpiderSettingLoader
 from .restapi import *
 from .security import NoAuthenticationProvider, CookieAuthenticationProvider, HmacAuthorize
 from .handlers.auth import LogoutHandler, SigninHandler, SignupHandler
-import hashlib
 from .handlers.base import AppBaseHandler
 from .handlers.admin import *
 from .handlers.profile import *
+from .handlers.rest import *
 
 logger = logging.getLogger(__name__)
 
@@ -841,7 +841,7 @@ class ListProjectVersionsHandler(RestBaseHandler):
         return self.write({'status': 'ok', 'versions': versions})
 
 
-def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_providers=None, debug=False):
+def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False):
     """
 
     @type scheduler_manager SchedulerManager
@@ -910,6 +910,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon, authentication_pro
         (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': os.path.join(os.path.dirname(__file__), 'static')}),
 
         (r'/api/v1/nodes', RestNodesHandler),
+        (r'/api/v1/jobs/next', GetNextJobHandler, {'scheduler_manager': scheduler_manager}),
     ], **settings)
 
 

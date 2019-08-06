@@ -92,16 +92,16 @@ class HmacAuthorize(object):
 
             if user_key is None:
                 logging.info("Invalid HMAC key {}".format(key))
-                raise None
+                return None
             secret = user_key.app_secret
             expected_digest = generate_digest(
-                secret, self.request.method, self.request.path, self.request.query,
-                self.request.body)
+                secret, handler.request.method, handler.request.path, handler.request.query,
+                handler.request.body)
 
             if not hmac.compare_digest(expected_digest, provided_digest):
                 logging.info("Invalid HMAC digest {}".format(provided_digest))
                 return None
 
-        return user_key.user.username
+            return user_key.user.username
 
 
