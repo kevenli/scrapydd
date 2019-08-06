@@ -17,8 +17,9 @@ setup(
             'scrapydd.default.conf',
             'scrapyddagent.default.conf',
             'templates/**/*.html',
+            'templates/*.html',
             'migrates/migrate.cfg',
-            'static/*',
+            'static/**/*',
         ],
     },
     entry_points = {
