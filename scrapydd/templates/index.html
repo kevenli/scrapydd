@@ -1,23 +1,11 @@
 {% extends "base.html" %}
 {% block header %}
-<style>
-        td.success {
-            color:white;
-            background-color:green;
-        }
-        td.fail {
-            background-color:red;
-            color:#fff;
-        }
-        td.warning {
-            background-color:orange;
-            color:#fff;
-        }
-    </style>
 {% end %}
 {% block content %}
     Welcome.
-
+    {% set status_labels = {'success': 'label bg-success text-white',
+                            'fail': 'label bg-danger text-white',
+                            'warning': 'label bg-warning text-dark'} %}
     <ul>
         <li><a href="/jobs">Jobs</a></li>
         <li><a href="/spiders">Spiders</a></li>
@@ -47,7 +35,7 @@
                     </td>
                 {% if spider.historical_jobs %}
                     {% set job = spider.historical_jobs[0] %}
-                    <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
+                    <td class="{{status_labels[job.status_obj.name]}}">{{job.status_obj.name.upper()}}</td>
                 {% else %}
                     <td>
                     </td>
@@ -78,7 +66,7 @@
                             </td>
                         {% if spider.historical_jobs %}
                             {% set job = spider.historical_jobs[0] %}
-                            <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
+                            <td class="{{status_labels[job.status_obj.name]}}">{{job.status_obj.name.upper()}}</td>
                         {% else %}
                             <td>
                             </td>
