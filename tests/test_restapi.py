@@ -2,37 +2,9 @@ from tornado.testing import AsyncHTTPTestCase
 import json
 from scrapydd.main import *
 from six.moves.urllib_parse import urlencode, urlparse
-from scrapydd.security import HmacAuthorize, generate_digest
+from scrapydd.security import HmacAuthorize, generate_digest, authenticated_request
 from tornado.httpclient import HTTPRequest
 
-
-def authenticated_request(*args, **kwargs):
-    app_key = kwargs.pop("app_key")
-    app_secret = kwargs.pop("app_secret")
-
-    if len(args) > 0:
-        url = args[0]
-    elif "url" in kwargs:
-        url = kwargs["url"]
-    else:
-        raise TypeError("Missing argument: 'url'")
-
-    parsed_url = urlparse(url)
-
-    path = parsed_url.path
-    query = parsed_url.query
-
-    body = kwargs.get("body", "")
-    if isinstance(body, str):
-        body = body.encode("utf-8")
-
-    digest = generate_digest(app_secret, kwargs.get("method", "GET"), path, query, body)
-
-    headers = kwargs.get("headers", {})
-    headers["Authorization"] = "HMAC {} {}".format(app_key, digest)
-    kwargs["headers"] = headers
-
-    return HTTPRequest(*args, **kwargs)
 
 class AppTest(AsyncHTTPTestCase):
     @classmethod
@@ -92,6 +64,7 @@ class GetNextJobSecureTest(AppTest):
 
         self.appkey = 'abc'
         self.appsecret = '123'
+        self.node_id = node_manager.create_node('127.0.0.1').id
 
         with session_scope() as session:
             existing_key = session.query(UserKey).filter_by(app_key=self.appkey).first()
@@ -105,7 +78,7 @@ class GetNextJobSecureTest(AppTest):
 
 
     def test_next_job(self):
-        post_data = {'node_id': '1'}
+        post_data = {'node_id': self.node_id}
         body = urlencode(post_data)
         path = '/api/v1/jobs/next'
         request = authenticated_request(url=self.get_url(path), method='POST', body=body, app_key=self.appkey,
@@ -114,7 +87,7 @@ class GetNextJobSecureTest(AppTest):
         self.assertEqual(200, response.code)
 
     def test_next_job_wrong_app_key(self):
-        post_data = {'node_id': '1'}
+        post_data = {'node_id': self.node_id}
         body = urlencode(post_data)
         path = '/api/v1/jobs/next'
         request = authenticated_request(url=self.get_url(path), method='POST', body=body, app_key='somethingwrong',
@@ -123,7 +96,7 @@ class GetNextJobSecureTest(AppTest):
         self.assertEqual(403, response.code)
 
     def test_next_job_wrong_app_secret(self):
-        post_data = {'node_id': '1'}
+        post_data = {'node_id': self.node_id}
         body = urlencode(post_data)
         path = '/api/v1/jobs/next'
         request = authenticated_request(url=self.get_url(path), method='POST', body=body, app_key=self.appkey,

@@ -1,7 +1,9 @@
 import functools
 from .models import User, UserKey, session_scope
 from six.moves.urllib.parse import urlsplit, urlencode
+from six.moves.urllib_parse import urlparse
 from tornado.web import HTTPError
+from tornado.httpclient import HTTPRequest
 import logging
 import hmac
 import hashlib
@@ -103,5 +105,34 @@ class HmacAuthorize(object):
                 return None
 
             return user_key.user.username
+
+
+def authenticated_request(*args, **kwargs):
+    app_key = kwargs.pop("app_key")
+    app_secret = kwargs.pop("app_secret")
+
+    if len(args) > 0:
+        url = args[0]
+    elif "url" in kwargs:
+        url = kwargs["url"]
+    else:
+        raise TypeError("Missing argument: 'url'")
+
+    parsed_url = urlparse(url)
+
+    path = parsed_url.path
+    query = parsed_url.query
+
+    body = kwargs.get("body", "")
+    if isinstance(body, str):
+        body = body.encode("utf-8")
+
+    digest = generate_digest(app_secret, kwargs.get("method", "GET"), path, query, body)
+
+    headers = kwargs.get("headers", {})
+    headers["Authorization"] = "HMAC {} {}".format(app_key, digest)
+    kwargs["headers"] = headers
+
+    return HTTPRequest(*args, **kwargs)
 
 
