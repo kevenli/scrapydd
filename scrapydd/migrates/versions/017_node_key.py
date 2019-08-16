@@ -19,9 +19,9 @@ def upgrade(migrate_engine):
 
     nodes_table = Table('nodes', meta, autoload=True)
     nodes_table_key_id = Column('node_key_id', Integer, ForeignKey('node_keys.id'))
-    nodes_table_is_deleted = Column('is_deleted', Boolean, default=False)
+    #nodes_table_is_deleted = Column('is_deleted', Boolean, default=False)
     nodes_table_key_id.create(nodes_table)
-    nodes_table_is_deleted.create(nodes_table)
+    #nodes_table_is_deleted.create(nodes_table)
 
 
 def downgrade(migrate_engine):
