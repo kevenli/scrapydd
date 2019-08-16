@@ -14,7 +14,7 @@ from six.moves.urllib.parse import urlparse, urljoin, urlencode
 from security import authenticated_request
 from tornado.httpclient import HTTPClient, HTTPError
 import json
-from ConfigParser import SafeConfigParser, NoSectionError, NoOptionError
+from ConfigParser import SafeConfigParser
 
 logger = logging.getLogger(__name__)
 

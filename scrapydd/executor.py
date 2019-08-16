@@ -3,20 +3,18 @@ from tornado.concurrent import Future
 from tornado.gen import coroutine
 import urllib2, urllib
 import json
-import subprocess
 import os
-import urlparse
 import logging
 from config import AgentConfig
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
 from stream import MultipartRequestBodyProducer
-from w3lib.url import path_to_file_uri
 import socket
 from tornado import gen
 from workspace import ProjectWorkspace
 import tempfile
 import shutil
 from .exceptions import *
+from six.moves.urllib.parse import urlparse, urljoin, urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -95,11 +93,13 @@ class Executor():
             config =AgentConfig()
         self.task_slots = TaskSlotContainer(config.getint('slots', 1))
         self.config = config
-        # if server_https_port is configured, prefer to use it.
-        if config.get('server_https_port'):
-            self.service_base = 'https://%s:%d'% (config.get('server'), config.getint('server_https_port'))
-        else:
-            self.service_base = 'http://%s:%d' % (config.get('server'), config.getint('server_port'))
+        server_base = config.get('server')
+        if urlparse(server_base).scheme == '':
+            if config.getint('server_https_port'):
+                server_base = 'https://%s:%d' % (server_base, config.getint('server_https_port'))
+            else:
+                server_base = 'http://%s:%d' % (server_base, config.getint('server_port'))
+        self.service_base = server_base
         client_cert = config.get('client_cert') or None
         client_key = config.get('client_key') or None
 
@@ -146,7 +146,7 @@ class Executor():
         if self.status == EXECUTOR_STATUS_OFFLINE:
             self.register_node()
             return
-        url = urlparse.urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
+        url = urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
         running_tasks = ','.join([task_executor.task.id for task_executor in self.task_slots.tasks()])
         request = HTTPRequest(url=url, method='POST', body='', headers={'X-DD-RunningJobs': running_tasks})
         try:
@@ -180,13 +180,13 @@ class Executor():
     def register_node(self):
         if self.service_base.startswith('https') and not os.path.exists('keys/ca.crt') :
             httpclient = AsyncHTTPClient(force_instance=True)
-            cacertrequest = HTTPRequest(urlparse.urljoin(self.service_base, 'ca.crt'), validate_cert=False)
+            cacertrequest = HTTPRequest(urljoin(self.service_base, 'ca.crt'), validate_cert=False)
             cacertresponse = yield httpclient.fetch(cacertrequest)
             if not os.path.exists('keys'):
                 os.mkdir('keys')
             open('keys/ca.crt', 'wb').write(cacertresponse.body)
         try:
-            url = urlparse.urljoin(self.service_base, '/nodes')
+            url = urljoin(self.service_base, '/nodes')
             register_postdata = urllib.urlencode({'tags': self.tags})
             request = HTTPRequest(url = url, method='POST', body=register_postdata)
             res = yield self.httpclient.fetch(request)
@@ -206,7 +206,7 @@ class Executor():
 
     @coroutine
     def get_next_task(self):
-        url = urlparse.urljoin(self.service_base, '/executing/next_task')
+        url = urljoin(self.service_base, '/executing/next_task')
         post_data = urllib.urlencode({'node_id': self.node_id})
         request = HTTPRequest(url=url, method='POST', body=post_data)
         try:
@@ -246,7 +246,7 @@ class Executor():
 
     @coroutine
     def post_start_task(self, task, pid):
-        url = urlparse.urljoin(self.service_base, '/jobs/%s/start' % task.id)
+        url = urljoin(self.service_base, '/jobs/%s/start' % task.id)
         post_data = urllib.urlencode({'pid':pid or ''})
         try:
             request = HTTPRequest(url=url, method='POST', body=post_data)
@@ -260,7 +260,7 @@ class Executor():
         '''
         @type task_executor: TaskExecutor
         '''
-        url = urlparse.urljoin(self.service_base, '/executing/complete')
+        url = urljoin(self.service_base, '/executing/complete')
 
         log_file = open(task_executor.output_file, 'rb')
 
@@ -405,7 +405,7 @@ class ProjectEggDownloader(object):
         self._fd = open(self.download_path, 'wb')
 
         logger.debug('begin download egg.')
-        egg_request_url = urlparse.urljoin(self.service_base, '/jobs/%s/egg' % job_id)
+        egg_request_url = urljoin(self.service_base, '/jobs/%s/egg' % job_id)
         request = HTTPRequest(egg_request_url, streaming_callback=self._handle_chunk)
         client = AsyncHTTPClient()
         def done_callback(future):
