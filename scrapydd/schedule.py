@@ -40,7 +40,7 @@ class SchedulerManager():
             'default': ThreadPoolExecutor(20),
             'processpool': ProcessPoolExecutor(5)
         }
-        self.scheduler = TornadoScheduler(executors=executors)
+        self.scheduler = TornadoScheduler(executors=executors, timezone=config.get('timezone'))
 
         self.poll_task_queue_callback = None
         self.pool_task_queue_interval = 10
