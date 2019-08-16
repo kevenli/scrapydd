@@ -11,7 +11,7 @@
           <li class="nav-item">
             <a class="nav-link" href="/jobs">Jobs</a>
           </li>
-          {% if current_user %}
+          {% if current_user.is_admin %}
             <li class="nav-item">
             <a class="nav-link" href="/admin/nodes">Nodes</a>
           </li>

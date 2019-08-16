@@ -93,6 +93,7 @@ class SpiderExecutionQueue(Base):
     pid = Column(Integer)
     tag = Column(String(length=50))
 
+
 class Node(Base):
     __tablename__ = 'nodes'
 
@@ -102,6 +103,19 @@ class Node(Base):
     last_heartbeat = Column(DateTime)
     isalive = Column(Integer)
     tags = Column(String(length=200))
+    is_deleted = Column(Boolean, default=False)
+    node_key_id = Column(Integer, ForeignKey('node_keys.id'))
+
+
+class NodeKey(Base):
+    __tablename__ = 'node_keys'
+
+    id = Column(Integer, primary_key=True)
+    key = Column(String(length=50), unique=True, nullable=False)
+    secret_key = Column(String(length=50), nullable=False)
+    is_deleted = Column(Boolean, default=False)
+    used_node_id = Column(Integer)
+    create_at = Column(DateTime, nullable=False)
 
 
 class HistoricalJob(Base):

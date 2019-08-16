@@ -3,7 +3,7 @@ import tornado.template
 import os
 from ..models import session_scope, User, UserKey
 import logging
-import hmac
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -34,3 +34,11 @@ class AppBaseHandler(tornado.web.RequestHandler):
 class RestBaseHandler(AppBaseHandler):
     def check_xsrf_cookie(self):
         return None
+
+    def send_json(self, data):
+        self.set_header('Content-type','application/json')
+        if isinstance(data, str):
+            self.write(data)
+        elif isinstance(data, dict):
+            self.write(json.dumps(data))
+

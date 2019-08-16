@@ -912,8 +912,9 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/ca.crt', CACertHandler),
         (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': os.path.join(os.path.dirname(__file__), 'static')}),
 
-        (r'/api/v1/nodes', RestNodesHandler),
+        (r'/api/v1/nodes$', RestNodesHandler),
         (r'/api/v1/jobs/next', GetNextJobHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/api/v1/nodes/register', RestRegisterNodeHandler),
     ], **settings)
 
 

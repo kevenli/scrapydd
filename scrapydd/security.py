@@ -7,6 +7,8 @@ from tornado.httpclient import HTTPRequest
 import logging
 import hmac
 import hashlib
+import string
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +17,11 @@ try:
 except ImportError:
     from urlparse import parse_qs
     from urllib import quote
+
+
+def generate_random_string(length):
+    letters = string.ascii_letters
+    return ''.join(random.choice(letters) for _ in range(length))
 
 
 def generate_digest(secret, method, path, query, body):

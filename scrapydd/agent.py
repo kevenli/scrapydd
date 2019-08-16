@@ -9,6 +9,12 @@ from optparse import OptionParser
 import subprocess
 import tornado
 import scrapydd
+from six.moves import input
+from six.moves.urllib.parse import urlparse, urljoin, urlencode
+from security import authenticated_request
+from tornado.httpclient import HTTPClient, HTTPError
+import json
+from ConfigParser import SafeConfigParser, NoSectionError, NoOptionError
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +86,7 @@ def run(argv=None):
     if argv is None:
         argv = sys.argv
     parser = OptionParser(prog  = 'scrapydd agent')
+    parser.add_option('-g', '--register', action='store_true', help='register this agent.')
     parser.add_option('--daemon', action='store_true', help='run scrapydd agent in daemon mode')
     parser.add_option('--pidfile', help='pid file will be created when daemon started, \
 default: scrapydd-agent.pid')
@@ -87,11 +94,48 @@ default: scrapydd-agent.pid')
 
     pidfile = opts.pidfile or 'scrapydd-agent.pid'
 
-    if opts.daemon:
+    if opts.register:
+        run_register()
+    elif opts.daemon:
         daemon = Daemon(pidfile=pidfile)
         daemon.start()
     else:
         start()
+
+def run_register():
+    key = input('Please input node key:')
+    key_secret = input('Please input node key_secret:')
+    config = AgentConfig()
+    server_base = config.get('server')
+    if urlparse(server_base).scheme == '':
+        if config.getint('server_https_port'):
+            server_base = 'https://%s:%d' % (server_base, config.getint('server_https_port'))
+        else:
+            server_base = 'http://%s:%d' % (server_base, config.getint('server_port'))
+
+    register_url = urljoin(server_base, '/api/v1/nodes/register')
+    post_data = {'node_key':key}
+    request = authenticated_request(url=register_url, method="POST", app_key=key, app_secret=key_secret,
+                                    body=urlencode(post_data))
+    client = HTTPClient()
+    try:
+        response = client.fetch(request)
+        response_data = json.loads(response.body)
+        if not os.path.exists('conf'):
+            os.makedirs('conf')
+        with open('conf/node.conf', 'w') as f:
+            cp = SafeConfigParser()
+            cp.add_section('agent')
+            cp.set('agent', 'node_id', str(response_data['id']))
+            cp.set('agent', 'node_key', key)
+            cp.set('agent', 'secret_key', key_secret)
+            cp.write(f)
+        print('Register succeed!')
+
+    except HTTPError as e:
+        print("Error when registering.")
+        print(e.message)
+
 
 def start():
     config = AgentConfig()
