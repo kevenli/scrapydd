@@ -892,8 +892,11 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
         (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),
+
         (r'/profile$', ProfileHomeHandler),
         (r'/profile/keys$', ProfileKeysHandler),
+
+        (r'/admin$', AdminHomeHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler,
          {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),

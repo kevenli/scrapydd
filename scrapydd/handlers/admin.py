@@ -1,7 +1,6 @@
 from .base import AppBaseHandler
-from ..models import session_scope, Node
+from ..models import *
 from tornado.web import authenticated
-
 
 class AdminNodesHandler(AppBaseHandler):
     @authenticated
@@ -10,4 +9,12 @@ class AdminNodesHandler(AppBaseHandler):
             return self.write_error(403, "No permission")
         with session_scope() as session:
             nodes = list(session.query(Node))
-            self.render('nodes.html', nodes=nodes)
+            self.render('admin/nodes.html', nodes=nodes)
+
+
+class AdminHomeHandler(AppBaseHandler):
+    @authenticated
+    def get(self):
+        with session_scope() as session:
+            user_count = session.query(User).count()
+            self.render('admin/home.html', user_count = user_count)
