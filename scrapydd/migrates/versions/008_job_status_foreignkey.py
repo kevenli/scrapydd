@@ -5,7 +5,7 @@ meta = MetaData()
 
 jobStatus = Table(
     'job_status', meta,
-    Column('id', Integer, primary_key=True),
+    Column('id', Integer, primary_key=True, autoincrement=False),
     Column('name', String(length=50), nullable=False),
     Column('desc', String(length=200)),
 )
@@ -13,7 +13,7 @@ jobStatus = Table(
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
     jobStatus.create()
-    migrate_engine.execute(jobStatus.insert().values(id = 0, name='pending',desc='job is not started'))
+    migrate_engine.execute(jobStatus.insert().values(id = 0, name='pending', desc='job is not started'))
     migrate_engine.execute(jobStatus.insert().values(id = 1, name='running', desc='job is running'))
     migrate_engine.execute(jobStatus.insert().values(id = 2, name='success', desc='job is finished successfully'))
     migrate_engine.execute(jobStatus.insert().values(id = 3, name='fail', desc='job is finished with error'))
