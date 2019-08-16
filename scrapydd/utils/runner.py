@@ -3,9 +3,10 @@ import os
 import shutil
 import tempfile
 from contextlib import contextmanager
-
 from ..eggstorage import FilesystemEggStorage
-import os, pkg_resources
+import os
+import pkg_resources
+
 
 def activate_egg(eggpath):
     """Activate a Scrapy egg file. This is meant to be used from egg runners
@@ -19,6 +20,7 @@ def activate_egg(eggpath):
     d.activate()
     settings_module = d.get_entry_info('scrapy', 'settings').module_name
     os.environ.setdefault('SCRAPY_SETTINGS_MODULE', settings_module)
+
 
 @contextmanager
 def project_environment(project):
@@ -40,11 +42,17 @@ def project_environment(project):
         if eggpath:
             os.remove(eggpath)
 
+
 def main():
+    from scrapy.cmdline import execute
+    egg_path = os.environ.get('SCRAPY_EGG')
+    if egg_path:
+        activate_egg(egg_path)
+        return execute()
     project = os.environ['SCRAPY_PROJECT']
     with project_environment(project):
-        from scrapy.cmdline import execute
         execute()
+
 
 if __name__ == '__main__':
     main()
