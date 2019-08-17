@@ -1,20 +1,20 @@
-from executor import Executor
+from .executor import Executor
 import logging
 import sys
-from daemonize import daemonize
+from .daemonize import daemonize
 import signal
 import os
-from config import AgentConfig
+from .config import AgentConfig
 from optparse import OptionParser
 import subprocess
 import tornado
 import scrapydd
 from six.moves import input
 from six.moves.urllib.parse import urlparse, urljoin, urlencode
-from security import authenticated_request
+from .security import authenticated_request
 from tornado.httpclient import HTTPClient, HTTPError
 import json
-from ConfigParser import SafeConfigParser
+from six.moves.configparser import SafeConfigParser
 
 logger = logging.getLogger(__name__)
 
@@ -68,14 +68,14 @@ class Daemon():
             os.remove(self.pidfile)
 
     def on_signal(self, signum, frame):
-        print 'closing'
+        print('closing')
         if self.subprocess_p:
             self.subprocess_p.terminate()
         self.try_remove_pidfile()
         tornado.ioloop.IOLoop.instance().stop()
 
     def start(self):
-        print 'Starting scrapydd agent daemon.'
+        print('Starting scrapydd agent daemon.')
         signal.signal(signal.SIGINT, self.on_signal)
         signal.signal(signal.SIGTERM, self.on_signal)
         daemonize(pidfile=self.pidfile)
