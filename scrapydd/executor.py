@@ -5,12 +5,12 @@ import urllib2, urllib
 import json
 import os
 import logging
-from config import AgentConfig
+from .config import AgentConfig
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
-from stream import MultipartRequestBodyProducer
+from .stream import MultipartRequestBodyProducer
 import socket
 from tornado import gen
-from workspace import ProjectWorkspace
+from .workspace import ProjectWorkspace
 import tempfile
 import shutil
 from .exceptions import *
@@ -27,7 +27,6 @@ EXECUTOR_STATUS_ONLINE = 1
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
 register_openers()
-
 
 
 class SpiderTask():
@@ -79,9 +78,11 @@ class TaskSlotContainer():
     def max_size(self):
         return self._max_size
 
+
 class Executor():
     heartbeat_interval = 10
     checktask_interval = 10
+    custom_ssl_cert = False
 
     def __init__(self, config=None):
         self.ioloop = IOLoop.current()
@@ -104,12 +105,16 @@ class Executor():
         client_key = config.get('client_key') or None
 
         httpclient_defaults = {
-            'validate_cert': True,
-            'ca_certs' : 'keys/ca.crt',
-            'client_cert' : client_cert,
-            'client_key' : client_key,
             'request_timeout': config.getfloat('request_timeout', 60)
         }
+        if client_cert:
+            httpclient_defaults['client_cert'] = client_cert
+        if client_key:
+            httpclient_defaults['client_key'] = client_key
+        if os.path.exists('keys/ca.crt'):
+            self.custom_ssl_cert = True
+            httpclient_defaults['ca_certs'] = 'keys/ca.crt'
+            httpclient_defaults['validate_cert'] = True
         logger.debug(httpclient_defaults)
         self.httpclient = AsyncHTTPClient(defaults=httpclient_defaults)
 
@@ -178,17 +183,20 @@ class Executor():
 
     @coroutine
     def register_node(self):
-        if self.service_base.startswith('https') and not os.path.exists('keys/ca.crt') :
+        if self.custom_ssl_cert and self.service_base.startswith('https') and not os.path.exists('keys/ca.crt'):
             httpclient = AsyncHTTPClient(force_instance=True)
             cacertrequest = HTTPRequest(urljoin(self.service_base, 'ca.crt'), validate_cert=False)
-            cacertresponse = yield httpclient.fetch(cacertrequest)
-            if not os.path.exists('keys'):
-                os.mkdir('keys')
-            open('keys/ca.crt', 'wb').write(cacertresponse.body)
+            try:
+                cacertresponse = yield httpclient.fetch(cacertrequest)
+                if not os.path.exists('keys'):
+                    os.mkdir('keys')
+                open('keys/ca.crt', 'wb').write(cacertresponse.body)
+            except HTTPError:
+                logger.info('Custom ca cert retrieve failed.')
         try:
             url = urljoin(self.service_base, '/nodes')
             register_postdata = urllib.urlencode({'tags': self.tags})
-            request = HTTPRequest(url = url, method='POST', body=register_postdata)
+            request = HTTPRequest(url=url, method='POST', body=register_postdata)
             res = yield self.httpclient.fetch(request)
             self.status = EXECUTOR_STATUS_ONLINE
             self.node_id = json.loads(res.body)['id']
