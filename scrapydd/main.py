@@ -895,6 +895,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
 
         (r'/profile$', ProfileHomeHandler),
         (r'/profile/keys$', ProfileKeysHandler),
+        (r'/profile/change_password$', ProfileChangepasswordHandler),
 
         (r'/admin$', AdminHomeHandler),
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),

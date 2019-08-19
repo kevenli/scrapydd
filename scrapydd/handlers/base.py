@@ -42,3 +42,7 @@ class RestBaseHandler(AppBaseHandler):
         elif isinstance(data, dict):
             self.write(json.dumps(data))
 
+class InputValidationError(Exception):
+    def __init__(self, message=None):
+        super(InputValidationError, self).__init__()
+        self.message = message

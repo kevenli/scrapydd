@@ -1,9 +1,13 @@
-from .base import AppBaseHandler
-from ..models import UserKey, session_scope
+from .base import AppBaseHandler, InputValidationError
+from ..models import UserKey, session_scope, User
 from tornado.web import authenticated
 import datetime
 import random
 import string
+import logging
+import hashlib
+
+logger = logging.getLogger(__name__)
 
 
 def generate_random_string(length):
@@ -40,3 +44,50 @@ class ProfileKeysHandler(AppBaseHandler):
             session.commit()
 
             self.render('profile/profile_newkey.html', new_key=new_key)
+
+
+class ProfileChangepasswordHandler(AppBaseHandler):
+    @authenticated
+    def get(self):
+        return self.render('profile/change_password.html')
+
+    @authenticated
+    def post(self):
+        try:
+            old_password = self.get_body_argument('oldpassword')
+
+            new_password = self.get_body_argument('newpassword')
+            new_password2 = self.get_body_argument('newpassword2')
+            if not old_password:
+                raise InputValidationError("Please input password")
+
+            m = hashlib.md5()
+            m.update(old_password)
+            encrypted_password = m.hexdigest()
+            if encrypted_password != self.current_user.password:
+                raise InputValidationError("Invalid password.")
+
+            if not new_password:
+                raise InputValidationError("Please input a new password.")
+
+            if not new_password2:
+                raise InputValidationError("Please confirm the new password.")
+
+            new_password = new_password.strip()
+
+            if new_password != new_password2:
+                raise InputValidationError("Please confirm the new password.")
+
+            m = hashlib.md5()
+            m.update(new_password)
+            encrypted_new_password = m.hexdigest()
+            with session_scope() as session:
+                user = session.query(User).filter_by(id=self.current_user.id).first()
+                user.password =encrypted_new_password
+                session.add(user)
+                session.commit()
+
+            self.render('profile/change_password_success.html')
+
+        except InputValidationError as e:
+            self.render('profile/change_password.html', error_message=e.message)
