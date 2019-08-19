@@ -20,7 +20,8 @@
       <tr>
         <th>ID</th>
         <th>IP Address</th>
-        <th>Is Alive</th>
+        <th>Status</th>
+        <th>Tags</th>
         <th>Last Heartbeat</th>
       </tr>
     </thead>
@@ -29,7 +30,12 @@
         <tr>
           <td>{{node.id}}</td>
           <td>{{node.client_ip}}</td>
-          <td>{{node.isalive}}</td>
+          {% if node.isalive %}
+          <td class="bg-success text-white">Online</td>
+          {% else %}
+          <td class="bg-danger text-white">Offline</td>
+          {% end %}
+          <td>{{node.tags}}</td>
           <td>{{node.last_heartbeat}}</td>
         </tr>
       {% end %}

@@ -4,6 +4,7 @@ from tornado.web import authenticated
 from datetime import datetime, timedelta
 from ..security import generate_random_string
 import uuid
+from sqlalchemy import or_
 
 
 class AdminNodesHandler(AppBaseHandler):
@@ -12,7 +13,7 @@ class AdminNodesHandler(AppBaseHandler):
         if not self.current_user or not self.current_user.is_admin:
             return self.set_status(403, reason="No permission")
         with session_scope() as session:
-            nodes = list(session.query(Node))
+            nodes = list(session.query(Node).filter(or_(Node.node_key_id.isnot(None),Node.is_deleted.is_(False))))
             usable_key = self._get_new_node_key()
             self.render('admin/nodes.html', nodes=nodes, usable_key=usable_key)
 

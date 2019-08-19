@@ -25,6 +25,8 @@ class NodeManager():
             logger.info('node %d expired' % node.id)
             self.scheduler_manager.on_node_expired(node.id)
             node.isalive = 0
+            if not node.node_key_id:
+                node.is_deleted = True
             session.add(node)
         session.commit()
         session.close()
