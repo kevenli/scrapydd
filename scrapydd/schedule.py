@@ -12,7 +12,7 @@ import datetime
 from scrapydd.exceptions import *
 from Queue import Queue, Empty
 from config import Config
-from sqlalchemy import distinct, desc
+from sqlalchemy import distinct, desc, or_
 import os
 from .mail import MailSender
 
@@ -261,8 +261,11 @@ class SchedulerManager():
     def _get_next_task(self, session, agent_tags):
         agent_tags = self._regular_agent_tags(agent_tags)
         for tag in agent_tags:
-            next_task = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 0,
-                                                                   SpiderExecutionQueue.tag == tag).first()
+            query = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 0,
+                                                                   or_(SpiderExecutionQueue.tag == tag,
+                                                                       SpiderExecutionQueue.tag.is_(None)))
+            query = query.order_by(SpiderExecutionQueue.fire_time)
+            next_task = query.first()
             if next_task:
                 return next_task
 

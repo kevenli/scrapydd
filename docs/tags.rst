@@ -11,7 +11,7 @@ Matching rules see:
 +------------------------+----------+-----------+-----------+-------------+
 | Spider Tag, Agent Tags | None     | a         | b         | a, b        |
 +------------------------+----------+-----------+-----------+-------------+
-| None                   | True     | False     | False     | False       |
+| None                   | True     | True      | True      | True        |
 +------------------------+----------+-----------+-----------+-------------+
 | a                      | False    | True      | False     | True        |
 +------------------------+----------+-----------+-----------+-------------+
@@ -19,4 +19,4 @@ Matching rules see:
 +------------------------+----------+-----------+-----------+-------------+
 
 Tips:
-An agent with some tag will never match any none tag spider.
+Any spider without tag can run on all agent.
