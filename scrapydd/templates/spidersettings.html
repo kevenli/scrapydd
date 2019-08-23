@@ -50,7 +50,7 @@
     </div>
     <div>
         <label>Extra Requirements(; seperated)</label>
-        <input name="extra_requirements" value="{{settings.get('extra_requirements', '')}}">
+        <input name="extra_requirements" value="{{settings.get('extra_requirements', '') or ''}}">
     </div>
     <div id="spider_parameters">
         <label>Spider Parameters:</label><span id="btnadd" class="ui-icon ui-icon-plus"></span>
