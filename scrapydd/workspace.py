@@ -227,7 +227,7 @@ class ProjectWorkspace(object):
         return self.egg_storage.list(project)
 
     @gen.coroutine
-    def kill_process(self):
+    def kill_process(self, timeout=30):
         logger.info('killing process')
         for process in self.processes:
             if process.poll() is not None:
@@ -237,7 +237,7 @@ class ProjectWorkspace(object):
             except OSError as e:
                 logger.error('Caught OSError when try to terminate subprocess: %s' % e)
 
-            gen.sleep(10)
+            gen.sleep(timeout)
 
             if process.poll() is not None:
                 continue

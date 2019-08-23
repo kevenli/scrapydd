@@ -29,6 +29,7 @@ JOB_STATUS_RUNNING = 1
 JOB_STATUS_SUCCESS = 2
 JOB_STATUS_FAIL = 3
 JOB_STATUS_WARNING = 4
+JOB_STATUS_STOPPING = 5
 
 
 class SchedulerManager():
@@ -394,6 +395,7 @@ class SchedulerManager():
             self._remove_histical_job(job)
 
     def reset_timeout_job(self):
+        KILL_TIMEOUT = 120
         with session_scope() as session:
             timeout_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
             for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 1):
@@ -410,9 +412,8 @@ class SchedulerManager():
                     job.update_time = datetime.datetime.now()
                     session.add(job)
                     logger.info('Job %s is timeout, reseting.' % job.id)
-                elif (job.update_time - job.start_time).seconds > job_timeout:
+                elif (job.update_time - job.start_time).seconds > job_timeout + KILL_TIMEOUT:
                     # job is running too long, should be killed
-
                     historical_job = HistoricalJob()
                     historical_job.id = job.id
                     historical_job.spider_id = job.spider_id
@@ -425,6 +426,10 @@ class SchedulerManager():
                     session.delete(job)
                     session.add(historical_job)
                     logger.info('Job %s is timeout, killed.' % job.id)
+                elif (job.update_time - job.start_time).seconds > job_timeout:
+                    # let agent kill the job and continue submit a log.
+                    job.status = JOB_STATUS_STOPPING
+                    session.add(job)
             session.commit()
 
     def _remove_histical_job(self, job):

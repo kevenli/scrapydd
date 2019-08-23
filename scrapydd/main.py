@@ -457,7 +457,7 @@ class ExecuteCompleteHandler(RestBaseHandler):
 
             session = Session()
             query = session.query(SpiderExecutionQueue) \
-                .filter(SpiderExecutionQueue.id == task_id, SpiderExecutionQueue.status == 1)
+                .filter(SpiderExecutionQueue.id == task_id, SpiderExecutionQueue.status.in_([1,5]))
             # be compatible with old agent version
             if node_id:
                 query = query.filter(SpiderExecutionQueue.node_id == node_id)
