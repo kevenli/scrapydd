@@ -1,3 +1,22 @@
+v0.6.2:
+
+* continue commit job log when job timeout.
+* modify tag matching rule, no tag spider can run on any agent.
+* new ui style.
+* add permanent node type, node register process and cmdline, temp node will be deleted when expired.
+* new node support X-Real-IP header as clientip for reverse-proxying
+* new server address format, can support non-private ssl.
+* new spider runner (scrapydd.util.runner) for further use.
+* new package command to help user packaging scrapy project.
+* support running in docker.
+* add enable_authentication config, support authentication.
+* new reset_password command to reset user password.
+* stop extracting project settings when uploading.
+* fix webhook error when job failed.
+* new extra_requirement setting of spider.
+* add cert command to generate self-signed certs(private ssl).
+* add some api/v1 interfaces.
+
 v0.6.1:
 
 * add a new spider setting "extra_settings" to control installing additional requirement of spider.
