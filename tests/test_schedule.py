@@ -210,12 +210,11 @@ class ScheduleTagTest(AsyncHTTPTestCase):
         self.assertEqual(spider_tag, job.tag)
 
         # has task
-        self.assertFalse(target.has_task(node.id))
-        self.assertFalse(target.has_task(node.id))
+        self.assertTrue(target.has_task(node.id))
 
         # get a task
         actual_task = target.get_next_task(node.id)
-        self.assertIsNone(actual_task)
+        self.assertIsNotNone(actual_task)
 
     # agent tags: a, spider tag: None
     def test_none_a(self):
