@@ -19,7 +19,7 @@ v0.6.2:
 
 v0.6.1:
 
-* add a new spider setting "extra_settings" to control installing additional requirement of spider.
+* add a new spider setting "Extra Requirements" to control installing additional requirement of spider.
 * support read config from environment variables.
 * new docker build.
 * override BOT_NAME by the project_name on the server side.
