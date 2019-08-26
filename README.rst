@@ -20,10 +20,10 @@ Scrapydd is a system for scrapy spiders distributed running and scheduleing syst
 Advantages:
 ===========
 * Distributed, easily add runner(agent) to scale out.
-* Project requirements auto install.
+* Project requirements auto install on demand.
 * Cron expression time driven trigger, run your spider on time.
 * Webhook loosely couple the data crawling and data processing.
-* Spider status insight, system will look into the log to clarify spider health status.
+* Spider status insight, system will look into the log to clarify spider run status.
 
 
 Installing Scrapydd
