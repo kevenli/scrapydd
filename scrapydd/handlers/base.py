@@ -2,7 +2,7 @@ import tornado.web
 import tornado.template
 import os
 from ..models import session_scope, User
-from ..security import CookieAuthenticationProvider, HmacAuthorize
+from ..security import CookieAuthenticationProvider, HmacAuthorize, BasicAuthentication
 import logging
 import json
 
@@ -38,7 +38,7 @@ class AppBaseHandler(tornado.web.RequestHandler):
 
 
 class RestBaseHandler(AppBaseHandler):
-    authentication_providers = [HmacAuthorize()]
+    authentication_providers = [HmacAuthorize(),  BasicAuthentication()]
 
     def check_xsrf_cookie(self):
         return None

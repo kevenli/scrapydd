@@ -9,6 +9,7 @@ import hmac
 import hashlib
 import string
 import random
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,34 @@ class HmacAuthorize(object):
                 return None
 
             return user_key.user.username
+
+
+class BasicAuthentication(object):
+    def get_user(self, handler):
+        logger.debug('BasicAuthentication.get_user')
+        authorization = handler.request.headers.get("Authorization", "").split(" ")
+        if len(authorization) != 2:
+            logging.info("Invalid Authorization header {}".format(authorization))
+            return None
+
+        algorithm, encrapted = authorization
+        if algorithm != 'Basic':
+            return None
+
+        decrypted = base64.decodestring(encrapted)
+        username, password = decrypted.split(':', 1)
+        with session_scope() as session:
+            user = session.query(User).filter_by(username=username).first()
+            if not user:
+                return None
+
+            m = hashlib.md5()
+            m.update(password)
+            encrypted_password = m.hexdigest()
+            if user.password == encrypted_password:
+                return username
+
+        return None
 
 
 def authenticated_request(*args, **kwargs):

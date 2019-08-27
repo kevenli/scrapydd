@@ -52,7 +52,9 @@ class MainHandler(AppBaseHandler):
         self.render('index.html', projects=projects)
         session.close()
 
-
+# TODO: modify this handler as resthandler, and another handler for webview, to support
+#    scrapyd-deploy with basic authentication.
+#    and remove the check_xsrf_cookie method.
 class UploadProject(AppBaseHandler):
     except_project_settings = ['NEWSPIDER_MODULE',
                                'SPIDER_MODULES',
@@ -68,7 +70,7 @@ class UploadProject(AppBaseHandler):
             return None
         return super(UploadProject, self).check_xsrf_cookie()
 
-    #@authenticated
+    @authenticated
     @gen.coroutine
     def post(self):
         project_name = self.request.arguments['project'][0]
