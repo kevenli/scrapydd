@@ -55,7 +55,7 @@ class DefaultTest(MainTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None)
+        return make_app(scheduler_manager, node_manager, None, secret_key='123')
 
     def test_default_page(self):
         response = self.fetch('/')
@@ -69,7 +69,7 @@ class SecurityTest(MainTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None, enable_authentication=True)
+        return make_app(scheduler_manager, node_manager, None, enable_authentication=True, secret_key='123')
 
     def test_no_cookie(self):
         response = self.fetch('/',follow_redirects=False)
