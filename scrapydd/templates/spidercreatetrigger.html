@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
     <form method="POST">
+        {% module xsrf_form_html() %}
     <div>
         <label>Project</label>
         <input value="{{spider.project.name}}" />

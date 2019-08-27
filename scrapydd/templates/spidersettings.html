@@ -28,6 +28,7 @@
 </head>
 <body>
     <form method="POST">
+        {% module xsrf_form_html() %}
     <div>
         <label>Concurrency:</label>
         <input name="concurrency" value="{{settings['concurrency']}}">

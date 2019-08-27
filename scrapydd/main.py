@@ -361,7 +361,7 @@ class DeleteSpiderJobHandler(AppBaseHandler):
             session.commit()
 
 
-class ExecuteNextHandler(tornado.web.RequestHandler):
+class ExecuteNextHandler(RestBaseHandler):
     def data_received(self, chunk):
         pass
 
@@ -369,6 +369,9 @@ class ExecuteNextHandler(tornado.web.RequestHandler):
 
     def initialize(self, scheduler_manager=None):
         self.scheduler_manager = scheduler_manager
+
+    def check_xsrf_cookie(self):
+        return None
 
     def post(self):
         with session_scope() as session:
@@ -531,6 +534,9 @@ class NodesHandler(RestBaseHandler):
         super(NodesHandler, self).initialize()
         self.node_manager = node_manager
 
+    def check_xsrf_cookie(self):
+        return None
+
     def post(self):
         tags = self.get_argument('tags', '').strip()
         tags = None if tags == '' else tags
@@ -666,7 +672,7 @@ class SpiderWebhookHandler(AppBaseHandler):
             session.commit()
 
 
-class DeleteProjectHandler(AppBaseHandler):
+class DeleteProjectHandler(RestBaseHandler):
     def initialize(self, scheduler_manager):
         super(DeleteProjectHandler, self).initialize()
         self.scheduler_manager = scheduler_manager

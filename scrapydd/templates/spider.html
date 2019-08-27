@@ -4,11 +4,12 @@
 {% end %}
 {% block content %}
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            <h1 class="h3 mb-0 text-gray-800">Spider {{spider.name}}</h1>
-            <a href="#" id="btnRun" class="d-none d-sm-inline-block btn btn-primary shadow-sm"><i class="fas fa-download fa-sm text-white-50"></i> Run</a>
-          </div>
+  <h1 class="h3 mb-0 text-gray-800">Spider {{spider.name}}</h1>
+  <a href="#" id="btnRun" class="d-none d-sm-inline-block btn btn-primary shadow-sm"><i class="fas fa-download fa-sm text-white-50"></i> Run</a>
+</div>
 
 <form>
+  {% module xsrf_form_html() %}
   <div class="form-group row">
     <label for="projectName" class="col-sm-2 col-form-label">Project:</label>
     <div class="col-sm-10">
@@ -115,6 +116,7 @@
         <td>
           <form action="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers/{{trigger.id}}/delete"
                 method="post">
+            {% module xsrf_form_html() %}
             <button value="X">X</button>
           </form>
         </td>
@@ -122,7 +124,7 @@
       {% end %}
     </table>
     <div><a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers">Create Trigger</a>
-  </div>
+    </div>
   <div class="tab-pane fade" id="webhook" role="tabpanel">
     {%if webhook_jobs%}
     <div>
@@ -141,6 +143,7 @@
       </table>
     </div>
     {% end %}
+  </div>
   </div>
 </div>
 <script src="/static/js/spider.js"></script>

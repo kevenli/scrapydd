@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <form method="post" enctype="multipart/form-data">
-
+    {% module xsrf_form_html() %}
     <div>
         <label>project</label>
         <input id="project" name="project" />
