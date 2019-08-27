@@ -1,16 +1,15 @@
 from unittest import TestCase
 from scrapydd.main import *
 from scrapydd.config import Config
-from scrapydd.security import NoAuthenticationProvider, CookieAuthenticationProvider
 from scrapydd.models import init_database
-from tornado.testing import AsyncHTTPTestCase
+from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.web import create_signed_value
 from poster.encode import multipart_encode
 import os.path
 import urllib
+import logging
 
-
-
+logger = logging.getLogger(__name__)
 
 
 class MainTest(AsyncHTTPTestCase):
@@ -55,7 +54,7 @@ class DefaultTest(MainTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None, authentication_providers=[NoAuthenticationProvider()])
+        return make_app(scheduler_manager, node_manager, None)
 
     def test_default_page(self):
         response = self.fetch('/')
@@ -69,8 +68,7 @@ class SecurityTest(MainTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None,
-                        authentication_providers=[CookieAuthenticationProvider()])
+        return make_app(scheduler_manager, node_manager, None, enable_authentication=True)
 
     def test_no_cookie(self):
         response = self.fetch('/',follow_redirects=False)

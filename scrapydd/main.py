@@ -845,7 +845,8 @@ class ListProjectVersionsHandler(RestBaseHandler):
         return self.write({'status': 'ok', 'versions': versions})
 
 
-def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False):
+def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False,
+             enable_authentication=False):
     """
 
     @type scheduler_manager SchedulerManager
@@ -861,8 +862,10 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         "login_url": "/signin",
         "static_path": os.path.join(BASE_DIR, 'static'),
         "template_path": os.path.join(BASE_DIR, 'templates'),
+        # TODO: enable xsrf_cookie
         #"xsrf_cookies": True,
         'debug': debug,
+        'enable_authentication': enable_authentication,
     }
 
     settings['scheduler_manager'] = scheduler_manager
@@ -984,14 +987,10 @@ def start_server(argv=None):
 
     webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
     webhook_daemon.init()
-
-    if config.getboolean('enable_authentication', True):
-        authentication_providers = [CookieAuthenticationProvider(), HmacAuthorize()]
-
-    else:
-        authentication_providers = [NoAuthenticationProvider()]
-
-    app = make_app(scheduler_manager, node_manager, webhook_daemon, authentication_providers, debug=is_debug)
+    enable_authentication = config.getboolean('enable_authentication')
+    app = make_app(scheduler_manager, node_manager, webhook_daemon,
+                   debug=is_debug,
+                   enable_authentication=enable_authentication)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
