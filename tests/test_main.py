@@ -27,7 +27,7 @@ class MainTest(AsyncHTTPTestCase):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None)
+        return make_app(scheduler_manager, node_manager, None, secret_key='123')
 
     def _delproject(self):
         postdata = {'project': 'test_project'}
@@ -105,10 +105,6 @@ class UploadTest(MainTest):
         databuffer = ''.join(datagen)
         response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
 
-        self.assertEqual(200, response.code)
-
-    def test_UploadProject_get(self):
-        response = self.fetch('/addversion.json')
         self.assertEqual(200, response.code)
 
 class ScheduleHandlerTest(MainTest):

@@ -21,7 +21,7 @@ class AppTest(AsyncHTTPTestCase):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None)
+        return make_app(scheduler_manager, node_manager, None, secret_key='123')
 
     def fetch_request(self, request, **kwargs):
         self.http_client.fetch(request, self.stop, **kwargs)
