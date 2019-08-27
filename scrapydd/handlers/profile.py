@@ -5,7 +5,7 @@ import datetime
 import random
 import string
 import logging
-import hashlib
+from ..security import encrypt_password
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +61,7 @@ class ProfileChangepasswordHandler(AppBaseHandler):
             if not old_password:
                 raise InputValidationError("Please input password")
 
-            m = hashlib.md5()
-            m.update(old_password)
-            encrypted_password = m.hexdigest()
+            encrypted_password = encrypt_password(old_password, self.settings.get('cookie_secret', ''))
             if encrypted_password != self.current_user.password:
                 raise InputValidationError("Invalid password.")
 
@@ -78,9 +76,7 @@ class ProfileChangepasswordHandler(AppBaseHandler):
             if new_password != new_password2:
                 raise InputValidationError("Please confirm the new password.")
 
-            m = hashlib.md5()
-            m.update(new_password)
-            encrypted_new_password = m.hexdigest()
+            encrypted_new_password = encrypt_password(new_password, self.settings.get('cookie_secret', ''))
             with session_scope() as session:
                 user = session.query(User).filter_by(id=self.current_user.id).first()
                 user.password =encrypted_new_password

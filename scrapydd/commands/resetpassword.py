@@ -1,7 +1,7 @@
 from ..models import User, session_scope, init_database
 from ..config import Config
-import hashlib
 from getpass import getpass
+from ..security import encrypt_password
 
 class ResetPasswordCommand():
     def run(self):
@@ -19,9 +19,8 @@ class ResetPasswordCommand():
                 print('User does not exist.')
                 return
 
-            m = hashlib.md5()
-            m.update(password)
-            encrypted_password = m.hexdigest()
+            secret_key = config.get('secret_key')
+            encrypted_password = encrypt_password(password, secret_key)
             user.password = encrypted_password
             session.add(user)
             session.commit()

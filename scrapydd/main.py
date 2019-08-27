@@ -859,7 +859,7 @@ class ListProjectVersionsHandler(RestBaseHandler):
 
 
 def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False,
-             enable_authentication=False):
+             enable_authentication=False, secret_key=''):
     """
 
     @type scheduler_manager SchedulerManager
@@ -870,7 +870,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
     :return:
     """
 
-    settings = dict(cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
+    settings = dict(cookie_secret=secret_key,
                     login_url="/signin",
                     static_path=os.path.join(BASE_DIR, 'static'),
                     template_path=os.path.join(BASE_DIR, 'templates'),
@@ -998,9 +998,11 @@ def start_server(argv=None):
     webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
     webhook_daemon.init()
     enable_authentication = config.getboolean('enable_authentication')
+    secret_key = config.get('secret_key')
     app = make_app(scheduler_manager, node_manager, webhook_daemon,
                    debug=is_debug,
-                   enable_authentication=enable_authentication)
+                   enable_authentication=enable_authentication,
+                   secret_key=secret_key)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)

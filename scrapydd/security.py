@@ -123,20 +123,18 @@ class BasicAuthentication(object):
             logging.info("Invalid Authorization header {}".format(authorization))
             return None
 
-        algorithm, encrapted = authorization
+        algorithm, encrypted = authorization
         if algorithm != 'Basic':
             return None
 
-        decrypted = base64.decodestring(encrapted)
+        decrypted = base64.decodestring(encrypted)
         username, password = decrypted.split(':', 1)
         with session_scope() as session:
             user = session.query(User).filter_by(username=username).first()
             if not user:
                 return None
 
-            m = hashlib.md5()
-            m.update(password)
-            encrypted_password = m.hexdigest()
+            encrypted_password = encrypt_password(password, handler.settings.get('cookie_secret', ''))
             if user.password == encrypted_password:
                 return username
 
@@ -171,4 +169,8 @@ def authenticated_request(*args, **kwargs):
 
     return HTTPRequest(*args, **kwargs)
 
-
+def encrypt_password(origin_password, salt):
+    hash = hashlib.sha1()
+    hash.update(salt)
+    hash.update(origin_password)
+    return hash.hexdigest()

@@ -1,6 +1,6 @@
-import hashlib
 from .base import AppBaseHandler
 from ..models import session_scope, User
+from ..security import encrypt_password
 
 
 class SignupHandler(AppBaseHandler):
@@ -24,9 +24,7 @@ class SigninHandler(AppBaseHandler):
             if user is None:
                 return self.get()
 
-            m = hashlib.md5()
-            m.update(password)
-            encrypted_password = m.hexdigest()
+            encrypted_password = encrypt_password(password, self.settings.get('cookie_secret', ''))
 
             if user.password != encrypted_password:
                 return self.get()
