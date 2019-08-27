@@ -20,4 +20,20 @@ $(function(){
             delete_button.hide();
         });
     });
+
+    $("#btnRun").click(function(){
+        var project = $('#projectName').val();
+        var spider = $('#spiderName').val();
+        $.ajax({
+            url: '/schedule.json',
+            method: "POST",
+            data: {'project': project, 'spider': spider},
+            success: function(){
+                alert('Spider started.');
+            },
+            error: function(jqXHR, textStatus, errorThrown){
+                alert(textStatus + ':' + errorThrown);
+            }
+        });
+    })
 });

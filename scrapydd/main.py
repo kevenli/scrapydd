@@ -228,6 +228,10 @@ class SpiderInstanceHandler2(AppBaseHandler):
             .filter(SpiderExecutionQueue.spider_id == spider.id) \
             .order_by(desc(SpiderExecutionQueue.update_time))
 
+        jobs_count = session.query(HistoricalJob) \
+            .filter(HistoricalJob.spider_id == spider.id).count()
+
+
         webhook_jobs = session.query(WebhookJob).filter_by(spider_id=spider.id)
 
         context = {}
@@ -242,7 +246,7 @@ class SpiderInstanceHandler2(AppBaseHandler):
             .filter_by(spider_id=spider.id) \
             .order_by(SpiderParameter.parameter_key)
         context['spider_parameters'] = {parameter.parameter_key: parameter.value for parameter in spider_parameters}
-        self.render("spider.html", **context)
+        self.render("spider.html", jobs_count = jobs_count, **context)
         session.close()
 
 
