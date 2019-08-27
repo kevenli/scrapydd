@@ -1,3 +1,9 @@
+function getCookie(name) {
+    var r = document.cookie.match("\\b" + name + "=([^;]*)\\b");
+    return r ? r[1] : undefined;
+}
+
+
 $(function(){
     $("table#joblist tr td.job_id").each(function(i,e){
         var project_name = $('#project_name').val();
@@ -24,9 +30,11 @@ $(function(){
     $("#btnRun").click(function(){
         var project = $('#projectName').val();
         var spider = $('#spiderName').val();
+        xsrf = getCookie("_xsrf");
         $.ajax({
             url: '/schedule.json',
             method: "POST",
+            headers: {'X-XSRFToken': xsrf},
             data: {'project': project, 'spider': spider},
             success: function(){
                 alert('Spider started.');

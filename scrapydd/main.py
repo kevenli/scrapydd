@@ -63,6 +63,9 @@ class UploadProject(AppBaseHandler):
                                'SETTINGS_MODULE',
                                ]
 
+    def check_xsrf_cookie(self):
+        return None
+
     @authenticated
     @gen.coroutine
     def post(self):
@@ -140,6 +143,9 @@ class ScheduleHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
         super(ScheduleHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
+
+    def check_xsrf_cookie(self):
+        return None
 
     @authenticated
     def post(self):
@@ -863,18 +869,14 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
     :return:
     """
 
-    settings = {
-        "cookie_secret": "__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
-        "login_url": "/signin",
-        "static_path": os.path.join(BASE_DIR, 'static'),
-        "template_path": os.path.join(BASE_DIR, 'templates'),
-        # TODO: enable xsrf_cookie
-        #"xsrf_cookies": True,
-        'debug': debug,
-        'enable_authentication': enable_authentication,
-    }
-
-    settings['scheduler_manager'] = scheduler_manager
+    settings = dict(cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
+                    login_url="/signin",
+                    static_path=os.path.join(BASE_DIR, 'static'),
+                    template_path=os.path.join(BASE_DIR, 'templates'),
+                    xsrf_cookies=True,
+                    debug=debug,
+                    enable_authentication=enable_authentication,
+                    scheduler_manager=scheduler_manager)
 
     if authentication_providers is None:
         authentication_providers = []
@@ -900,7 +902,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/spiders/(\d+)/egg', SpiderEggHandler),
         (r'/projects/(\w+)/spiders/(\w+)', SpiderInstanceHandler2),
         (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
-        (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler),
+        (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler,
+            {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/jobs/(\w+)/delete', DeleteSpiderJobHandler),
         (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
