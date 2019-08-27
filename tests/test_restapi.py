@@ -74,7 +74,7 @@ class GetNextJobSecureTest(AppTest):
                 session.commit()
 
 
-        return make_app(scheduler_manager, node_manager, authentication_providers=[HmacAuthorize()])
+        return make_app(scheduler_manager, node_manager, enable_authentication=True)
 
 
     def test_next_job(self):
