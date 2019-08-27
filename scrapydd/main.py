@@ -66,7 +66,7 @@ class UploadProject(AppBaseHandler):
     def check_xsrf_cookie(self):
         return None
 
-    @authenticated
+    #@authenticated
     @gen.coroutine
     def post(self):
         project_name = self.request.arguments['project'][0]
@@ -688,6 +688,8 @@ class DeleteProjectHandler(RestBaseHandler):
         project_name = self.get_argument('project')
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project_name).first()
+            if not project:
+                return self.set_status(404, 'project not found.')
             spiders = session.query(Spider).filter_by(project_id=project.id)
             for spider in spiders:
                 triggers = session.query(Trigger).filter_by(spider_id=spider.id)

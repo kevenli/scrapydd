@@ -31,7 +31,8 @@ class MainTest(AsyncHTTPTestCase):
 
     def _delproject(self):
         postdata = {'project': 'test_project'}
-        self.fetch('/delproject.json', method='POST', body=urllib.urlencode(postdata))
+        response = self.fetch('/delproject.json', method='POST', body=urllib.urlencode(postdata))
+        self.assertIn(response.code, [404, 200])
 
     def _upload_test_project(self):
         # upload a project
@@ -155,10 +156,12 @@ class AddScheduleHandlerTest(MainTest):
         postdata = {
             'project':project,
             'spider':spider,
-            'cron':cron
+            'cron':cron,
+            '_xsrf':'dummy',
         }
 
-        response = self.fetch('/add_schedule.json', method='POST', body=urllib.urlencode(postdata))
+        response = self.fetch('/add_schedule.json', method='POST', body=urllib.urlencode(postdata),
+                              headers={"Cookie": "_xsrf=dummy"})
         self.assertEqual(200, response.code)
         self.assertIn('ok', response.body)
 
