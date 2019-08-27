@@ -64,7 +64,9 @@ class UploadProject(AppBaseHandler):
                                ]
 
     def check_xsrf_cookie(self):
-        return None
+        if not self.settings.get('enable_authentication', 'False'):
+            return None
+        return super(UploadProject, self).check_xsrf_cookie()
 
     #@authenticated
     @gen.coroutine
@@ -145,7 +147,9 @@ class ScheduleHandler(AppBaseHandler):
         self.scheduler_manager = scheduler_manager
 
     def check_xsrf_cookie(self):
-        return None
+        if not self.settings.get('enable_authentication', 'False'):
+            return None
+        return super(ScheduleHandler, self).check_xsrf_cookie()
 
     @authenticated
     def post(self):
