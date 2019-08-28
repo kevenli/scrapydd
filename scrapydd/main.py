@@ -575,7 +575,7 @@ class NodeHeartbeatHandler(RestBaseHandler):
         self.write(json.dumps(response_data))
 
 
-class JobsHandler(RestBaseHandler):
+class JobsHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
         super(JobsHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
