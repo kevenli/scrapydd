@@ -339,15 +339,15 @@ class DeleteSpiderJobHandler(AppBaseHandler):
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project_name).first()
             if not project:
-                return self.write_error(404, 'project not found.')
+                return self.set_status(404, 'project not found.')
 
             spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
             if not project:
-                return self.write_error(404, 'spider not found.')
+                return self.set_status(404, 'spider not found.')
 
             job = session.query(HistoricalJob).filter_by(spider_id = spider.id, id=job_id).first()
             if not job:
-                return self.write_error(404, 'job not found.')
+                return self.set_status(404, 'job not found.')
 
             if job.log_file:
                 try:

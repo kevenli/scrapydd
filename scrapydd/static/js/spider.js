@@ -6,12 +6,14 @@ function getCookie(name) {
 
 $(function(){
     $("table#joblist tr td.job_id").each(function(i,e){
-        var project_name = $('#project_name').val();
-        var spider_name = $('#spider_name').val();
+        var project_name = $('#projectName').val();
+        var spider_name = $('#spiderName').val();
         var job_id = $(e).text();
         var delete_button = $("<a href='#'>").text('Delete').click(function(){
+            xsrf = getCookie("_xsrf");
             $.ajax({
                 url: '/projects/' + project_name + '/spiders/' + spider_name + '/jobs/' + job_id + '/delete',
+                headers: {'X-XSRFToken': xsrf},
                 method: "POST",
                 success: function(){
                     location.reload();
