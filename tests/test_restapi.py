@@ -43,7 +43,7 @@ class SecureScheduleTest(SecureAppTest):
             'spider': 'success_spider'
         }
         headers = {}
-        self.populate_authorization_header(headers)
+        self.populate_basic_authorization_header(headers)
         response = self.fetch('/schedule.json', method="POST", body=urlencode(post_params), headers=headers)
         self.assertEqual(200, response.code)
 

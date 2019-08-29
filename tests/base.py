@@ -9,6 +9,8 @@ from scrapydd.schedule import SchedulerManager
 from scrapydd.nodes import NodeManager
 from scrapydd.main import make_app
 from scrapydd.eggstorage import FilesystemEggStorage
+from tornado.web import create_signed_value
+from tornado.httputil import HTTPHeaders
 
 
 class AppTest(AsyncHTTPTestCase):
@@ -56,8 +58,6 @@ class AppTest(AsyncHTTPTestCase):
 
                 session.commit()
 
-
-
     def get_app(self):
         config = Config()
         scheduler_manager = SchedulerManager(config=config)
@@ -66,13 +66,7 @@ class AppTest(AsyncHTTPTestCase):
         node_manager.init()
         return make_app(scheduler_manager, node_manager, None, secret_key='123')
 
-    def fetch_request(self, request, **kwargs):
-        self.http_client.fetch(request, self.stop, **kwargs)
-        return self.wait()
-
     def _upload_test_project(self):
-        # upload a project
-
         post_data = {}
         post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
         post_data['project'] = 'test_project'
@@ -84,6 +78,8 @@ class AppTest(AsyncHTTPTestCase):
         self.assertEqual(200, response.code)
 
 class SecureAppTest(AppTest):
+    secret_key = '123'
+
     def get_app(self):
         config = Config()
         scheduler_manager = SchedulerManager(config=config)
@@ -97,21 +93,46 @@ class SecureAppTest(AppTest):
             session.add(user)
             session.commit()
 
+            normal_user = session.query(User).filter_by(username='adam').first()
+            if not normal_user:
+                normal_user = User()
+                normal_user.username = 'adam'
+            normal_user.is_admin = False
+            normal_user.password = encrypt_password('passw0rd', secret_key)
+            session.add(normal_user)
+            session.commit()
+
         return make_app(scheduler_manager, node_manager, None, secret_key='123', enable_authentication=True)
 
-    def populate_authorization_header(self, headers):
+    def populate_basic_authorization_header(self, headers):
+        headers = HTTPHeaders(headers)
         headers['Authorization'] = basic_auth_header('admin', 'password')
+        return headers
+
+    def populate_cookie_header(self, headers, username='admin'):
+        cookie_name, cookie_value = 'user', username
+        secure_cookie = create_signed_value(
+            self.get_app().settings["cookie_secret"],
+            cookie_name,
+            cookie_value)
+        headers = HTTPHeaders(headers)
+        headers.add('Cookie', '='.join((cookie_name, secure_cookie)))
+        return headers
+
+    def populate_xsrf_cookie(self, headers):
+        headers = HTTPHeaders(headers)
+        headers.add("Cookie", "_xsrf=dummy")
+        headers.add('X-XSRFToken', 'dummy')
+        return headers
 
     def _upload_test_project(self):
-        # upload a project
-
         post_data = {}
         post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
         post_data['project'] = 'test_project'
         post_data['version'] = '1.0'
 
         datagen, headers = multipart_encode(post_data)
-        self.populate_authorization_header(headers)
+        self.populate_basic_authorization_header(headers)
         databuffer = ''.join(datagen)
         response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
         self.assertEqual(200, response.code)

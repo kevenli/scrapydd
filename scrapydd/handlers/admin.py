@@ -37,7 +37,7 @@ class AdminNodesHandler(AppBaseHandler):
                 usable_key.secret_key = generate_random_string(32)
                 session.add(usable_key)
             session.commit()
-            return unused_key
+            return usable_key
 
 
 class AdminHomeHandler(AppBaseHandler):
