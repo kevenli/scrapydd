@@ -4,6 +4,7 @@
 {% end sidebar %}
 {% block content %}
   <form>
+    {% module xsrf_form_html() %}
     <div class="form-row">
       <div class="form-group col-md-6">
         <label for="inputEmail4">New Node Key</label>

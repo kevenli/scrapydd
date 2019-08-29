@@ -4,6 +4,9 @@ from scrapydd.main import *
 from six.moves.urllib_parse import urlencode, urlparse
 from scrapydd.security import HmacAuthorize, generate_digest, authenticated_request
 from tornado.httpclient import HTTPRequest
+from poster.encode import multipart_encode
+from scrapydd.security import encrypt_password
+from w3lib.http import basic_auth_header
 
 
 class AppTest(AsyncHTTPTestCase):
@@ -21,11 +24,103 @@ class AppTest(AsyncHTTPTestCase):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None)
+        return make_app(scheduler_manager, node_manager, None, secret_key='123')
 
     def fetch_request(self, request, **kwargs):
         self.http_client.fetch(request, self.stop, **kwargs)
         return self.wait()
+
+    def _upload_test_project(self):
+        # upload a project
+
+        post_data = {}
+        post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
+        post_data['project'] = 'test_project'
+        post_data['version'] = '1.0'
+
+        datagen, headers = multipart_encode(post_data)
+        databuffer = ''.join(datagen)
+        response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        self.assertEqual(200, response.code)
+
+
+class SecureAppTest(AppTest):
+    def get_app(self):
+        config = Config()
+        scheduler_manager = SchedulerManager(config=config)
+        scheduler_manager.init()
+        node_manager = NodeManager(scheduler_manager)
+        node_manager.init()
+        secret_key = '123';
+        with session_scope() as session:
+            user = session.query(User).filter_by(username='admin').first()
+            user.password = encrypt_password('password', secret_key)
+            session.add(user)
+            session.commit()
+
+        return make_app(scheduler_manager, node_manager, None, secret_key='123', enable_authentication=True)
+
+    def populate_authorization_header(self, headers):
+        headers['Authorization'] = basic_auth_header('admin', 'password')
+
+    def _upload_test_project(self):
+        # upload a project
+
+        post_data = {}
+        post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
+        post_data['project'] = 'test_project'
+        post_data['version'] = '1.0'
+
+        datagen, headers = multipart_encode(post_data)
+        self.populate_authorization_header(headers)
+        databuffer = ''.join(datagen)
+        response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        self.assertEqual(200, response.code)
+
+
+class ScheduleTest(AppTest):
+    def test_schedule(self):
+        self._upload_test_project()
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            session.commit()
+
+        post_params = {
+            'project' : 'test_project',
+            'spider': 'success_spider'
+        }
+        response = self.fetch('/schedule.json', method="POST", body=urlencode(post_params))
+        self.assertEqual(200, response.code)
+
+
+class SecureScheduleTest(SecureAppTest):
+    def test_schedule_without_auth(self):
+        self._upload_test_project()
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            session.commit()
+
+        post_params = {
+            'project' : 'test_project',
+            'spider': 'success_spider'
+        }
+        response = self.fetch('/schedule.json', method="POST", body=urlencode(post_params))
+        self.assertEqual(403, response.code)
+
+    def test_schedule_with_auth(self):
+        self._upload_test_project()
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            session.commit()
+
+        post_params = {
+            'project': 'test_project',
+            'spider': 'success_spider'
+        }
+        headers = {}
+        self.populate_authorization_header(headers)
+        response = self.fetch('/schedule.json', method="POST", body=urlencode(post_params), headers=headers)
+        self.assertEqual(200, response.code)
 
 
 class NodesHandlerTest(AppTest):
@@ -74,7 +169,7 @@ class GetNextJobSecureTest(AppTest):
                 session.commit()
 
 
-        return make_app(scheduler_manager, node_manager, authentication_providers=[HmacAuthorize()])
+        return make_app(scheduler_manager, node_manager, enable_authentication=True)
 
 
     def test_next_job(self):

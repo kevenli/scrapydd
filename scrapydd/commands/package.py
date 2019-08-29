@@ -9,10 +9,11 @@ _SETUP_PY_TEMPLATE = """
 # Automatically created by: scrapydd
 from setuptools import setup, find_packages
 setup(
-    name         = 'project',
+    name         = '%(project)s',
     version      = '1.0',
     packages     = find_packages(),
     entry_points = {'scrapy': ['settings = %(settings)s']},
+    install_requires = [],
 )
 """.lstrip()
 
@@ -24,8 +25,10 @@ def _build_egg():
     closest = closest_scrapy_cfg()
     os.chdir(os.path.dirname(closest))
     if not os.path.exists('setup.py'):
-        settings = get_config().get('settings', 'default')
-        _create_default_setup_py(settings=settings)
+        scrapy_project_settings = get_config()
+        settings = scrapy_project_settings.get('settings', 'default')
+        project = scrapy_project_settings.get('deploy', 'project', 'project')
+        _create_default_setup_py(settings=settings, project=project)
     d = 'dist'
     retry_on_eintr(check_call, [sys.executable, 'setup.py', 'clean', '-a', 'bdist_egg', '-d', d],
                    stdout=sys.stdout, stderr=sys.stderr)

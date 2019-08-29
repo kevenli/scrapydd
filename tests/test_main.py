@@ -1,16 +1,15 @@
 from unittest import TestCase
 from scrapydd.main import *
 from scrapydd.config import Config
-from scrapydd.security import NoAuthenticationProvider, CookieAuthenticationProvider
 from scrapydd.models import init_database
-from tornado.testing import AsyncHTTPTestCase
+from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.web import create_signed_value
 from poster.encode import multipart_encode
 import os.path
 import urllib
+import logging
 
-
-
+logger = logging.getLogger(__name__)
 
 
 class MainTest(AsyncHTTPTestCase):
@@ -28,11 +27,12 @@ class MainTest(AsyncHTTPTestCase):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None)
+        return make_app(scheduler_manager, node_manager, None, secret_key='123')
 
     def _delproject(self):
         postdata = {'project': 'test_project'}
-        self.fetch('/delproject.json', method='POST', body=urllib.urlencode(postdata))
+        response = self.fetch('/delproject.json', method='POST', body=urllib.urlencode(postdata))
+        self.assertIn(response.code, [404, 200])
 
     def _upload_test_project(self):
         # upload a project
@@ -55,7 +55,7 @@ class DefaultTest(MainTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None, authentication_providers=[NoAuthenticationProvider()])
+        return make_app(scheduler_manager, node_manager, None, secret_key='123')
 
     def test_default_page(self):
         response = self.fetch('/')
@@ -69,8 +69,7 @@ class SecurityTest(MainTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None,
-                        authentication_providers=[CookieAuthenticationProvider()])
+        return make_app(scheduler_manager, node_manager, None, enable_authentication=True, secret_key='123')
 
     def test_no_cookie(self):
         response = self.fetch('/',follow_redirects=False)
@@ -106,10 +105,6 @@ class UploadTest(MainTest):
         databuffer = ''.join(datagen)
         response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
 
-        self.assertEqual(200, response.code)
-
-    def test_UploadProject_get(self):
-        response = self.fetch('/addversion.json')
         self.assertEqual(200, response.code)
 
 class ScheduleHandlerTest(MainTest):
@@ -157,10 +152,12 @@ class AddScheduleHandlerTest(MainTest):
         postdata = {
             'project':project,
             'spider':spider,
-            'cron':cron
+            'cron':cron,
+            '_xsrf':'dummy',
         }
 
-        response = self.fetch('/add_schedule.json', method='POST', body=urllib.urlencode(postdata))
+        response = self.fetch('/add_schedule.json', method='POST', body=urllib.urlencode(postdata),
+                              headers={"Cookie": "_xsrf=dummy"})
         self.assertEqual(200, response.code)
         self.assertIn('ok', response.body)
 

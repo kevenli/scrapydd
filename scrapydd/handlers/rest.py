@@ -1,3 +1,10 @@
+from StringIO import StringIO
+
+from tornado import gen
+
+from ..eggstorage import FilesystemEggStorage
+from ..exceptions import InvalidProjectEgg, ProcessFailed
+from ..workspace import ProjectWorkspace
 from .base import RestBaseHandler
 from ..models import session_scope, Spider, SpiderExecutionQueue, Project, SpiderSettings, NodeKey, Node
 import logging
@@ -5,6 +12,7 @@ import json
 from tornado.web import authenticated
 from ..security import generate_digest
 import hmac
+from ..schedule import JobRunning
 
 logger = logging.getLogger(__name__)
 
@@ -105,3 +113,96 @@ class RestRegisterNodeHandler(RestBaseHandler):
                 return None
 
             return user_key
+
+
+class AddVersionHandler(RestBaseHandler):
+    @authenticated
+    @gen.coroutine
+    def post(self):
+        project_name = self.request.arguments['project'][0]
+        version = self.request.arguments['version'][0]
+        eggfile = self.request.files['egg'][0]
+        eggf = StringIO(eggfile['body'])
+
+        try:
+            workspace = ProjectWorkspace(project_name)
+
+            yield workspace.init()
+            workspace.put_egg(eggf, version)
+            yield workspace.install_requirements()
+            spiders = yield workspace.spider_list()
+
+        except InvalidProjectEgg as e:
+            logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
+            self.set_status(400, reason=e.message)
+            self.finish("<html><title>%(code)d: %(message)s</title>"
+                        "<body><pre>%(output)s</pre></body></html>" % {
+                            "code": 400,
+                            "message": e.message,
+                            "output": e.detail,
+                        })
+            return
+        except ProcessFailed as e:
+            logger.error('Error when uploading project, %s, %s' % (e.message, e.std_output))
+            self.set_status(400, reason=e.message)
+            self.finish("<html><title>%(code)d: %(message)s</title>"
+                        "<body><pre>%(output)s</pre></body></html>" % {
+                            "code": 400,
+                            "message": e.message,
+                            "output": e.std_output,
+                        })
+            return
+
+        logger.debug('spiders: %s' % spiders)
+        with session_scope() as session:
+            storage = FilesystemEggStorage({})
+            eggf.seek(0)
+            storage.put(eggf, project_name, version)
+            project = session.query(Project).filter_by(name=project_name).first()
+            if project is None:
+                project = Project()
+                project.name = project_name
+            project.version = version
+            session.add(project)
+            session.commit()
+            session.refresh(project)
+
+            for spider_name in spiders:
+                spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
+                if spider is None:
+                    spider = Spider()
+                    spider.name = spider_name
+                    spider.project_id = project.id
+                    session.add(spider)
+                    session.commit()
+                    session.refresh(spider)
+
+                session.commit()
+            self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
+
+
+class ScheduleHandler(RestBaseHandler):
+    def initialize(self, scheduler_manager):
+        super(ScheduleHandler, self).initialize()
+        self.scheduler_manager = scheduler_manager
+
+    @authenticated
+    def post(self):
+        project = self.get_argument('project')
+        spider = self.get_argument('spider')
+
+        try:
+            job = self.scheduler_manager.add_task(project, spider)
+            jobid = job.id
+            response_data = {
+                'status': 'ok',
+                'jobid': jobid
+            }
+            self.write(json.dumps(response_data))
+        except JobRunning as e:
+            response_data = {
+                'status': 'error',
+                'errormsg': 'job is running with jobid %s' % e.jobid
+            }
+            self.set_status(400, 'job is running')
+            self.write(json.dumps(response_data))

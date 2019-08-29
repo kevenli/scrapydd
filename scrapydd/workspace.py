@@ -64,6 +64,7 @@ class ProjectWorkspace(object):
             retcode = process.returncode
             if retcode is not None:
                 if retcode == 0:
+                    logger.info('Create virtualenv done.')
                     future.set_result(self)
                 else:
                     std_output = process.stdout.read()
@@ -89,12 +90,13 @@ class ProjectWorkspace(object):
     @gen.coroutine
     def install_requirements(self, extra_requirements=None):
         requirements = self.find_project_requirements(self.project_name)
-        requirements += ['scrapydd', 'scrapyd']
+        requirements += ['scrapydd']
         if extra_requirements:
             requirements += extra_requirements
+        logger.info('start install requirements: %s.' % (requirements, ))
         if requirements:
             yield self.pip_install(requirements)
-
+        logger.info('install requirements done.')
         raise gen.Return()
 
     def pip_install(self, requirements):
@@ -127,9 +129,7 @@ class ProjectWorkspace(object):
         try:
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = self.project_name
-            process = Popen([self.python, '-m', 'scrapyd.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
-            # TODO: modify to python -m scrapydd.util.spider_list egg_path instead on next version.
-            # since travis run unittest in virtualenv, a subprocess just install a latest scrapydd from pypi.
+            process = Popen([self.python, '-m', 'scrapydd.utils.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
@@ -153,9 +153,7 @@ class ProjectWorkspace(object):
     def run_spider(self, spider, spider_parameters=None, f_output=None, project=None):
         ret_future = Future()
         items_file = os.path.join(self.project_workspace_dir, 'items.jl')
-        runner = 'scrapyd.runner'
-        # TODO: modify this to python -m scrapydd.util.runner crawl spider instead in next version.
-        # since travis run unittest in virtualenv, a subprocess just install a latest scrapydd from pypi.
+        runner = 'scrapydd.utils.runner'
         pargs = [self.python, '-m', runner, 'crawl', spider]
         if project:
             spider_parameters['BOT_NAME'] = project

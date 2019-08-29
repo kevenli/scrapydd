@@ -1,136 +1,150 @@
-{% extends "base.html" %}
+{% extends "base_sidebar.html" %}
+{% block sidebar %}
+{% include sidebars/sidebar_project.html %}
+{% end %}
 {% block content %}
-    <style>
-        td.success {
-            color:white;
-            background-color:green;
-        }
-        td.fail {
-            background-color:red;
-            color:#fff;
-        }
-        td.warning {
-            background-color:orange;
-            color:#fff;
-        }
-    </style>
-</head>
-<body>
-    <div>
-        <label>Project:</label>
-        <input id="project_name" value="{{project.name}}" />
-    </div>
-    <div>
-        <label>Name:</label>
-        <input id="spider_name" value="{{spider.name}}" />
-    </div>
-    <div>
-        <label>Triggers:</label>
-        <table>
-            {% for trigger in spider.triggers %}
-                <tr>
-                    <td>{{trigger.cron_pattern}}</td>
-                    <td>
-                        <form action="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers/{{trigger.id}}/delete" method="post">
-                            <button value="X">X</button>
-                        </form>
-                    </td>
-                </tr>
-            {% end %}
-        </table>
-        <div><a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers">Create Trigger</a>
-        <a href="/">Back</a></div>
-        <div>
-            <form action="/schedule.json" method="POST">
-                <input type="hidden" name="project" value="{{spider.project.name}}" />
-                <input type="hidden" name="spider" value="{{spider.name}}" />
-                <input type="submit" value="Schedule" />
-            </form>
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+  <h1 class="h3 mb-0 text-gray-800">Spider {{spider.name}}</h1>
+  <a href="#" id="btnRun" class="d-none d-sm-inline-block btn btn-primary shadow-sm"><i class="fas fa-download fa-sm text-white-50"></i> Run</a>
+</div>
 
-        </div>
+<form>
+  {% module xsrf_form_html() %}
+  <div class="form-group row">
+    <label for="projectName" class="col-sm-2 col-form-label">Project:</label>
+    <div class="col-sm-10">
+      <input type="text" readonly class="form-control-plaintext" id="projectName" value="{{project.name}}">
     </div>
-    <div>
-        <a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/settings">Settings</a>
-        <table>
-            {% for setting in settings %}
-                <tr>
-                    <td>{{setting.setting_key}}</td>
-                    <td>{{setting.value}}</td>
-                </tr>
-            {% end %}
-        </table>
+  </div>
+  <div class="form-group row">
+    <label for="spiderName" class="col-sm-2 col-form-label">Spider:</label>
+    <div class="col-sm-10">
+      <input type="text" class="form-control-plaintext" id="spiderName" value="{{spider.name}}">
     </div>
-    <div>
-        <label>Jobs:</label>
-        <table border="1" id="joblist" class="table">
-            <tr>
-                <th>JobID</th>
-                <th>Start At</th>
-                <th>Duration</th>
-                <th>Log</th>
-                <th>Items</th>
-                <th>Status</th>
-                <th>Webhook Job</th>
-            </tr>
-            {% for job in running_jobs %}
-                <tr>
-                    <td class="job_id">{{job.id}}</td>
-                    <td>
-                        {% if job.start_time %}
-                        {{job.start_time}}
-                        {% end %}
-                    </td>
-                    <td>
-                        {% if job.update_time and job.start_time %}
-                        {{job.update_time-job.start_time}}
-                        {% end %}
-                    </td>
-                    <td></td>
-                    <td>
+  </div>
+</form>
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+  <li class="nav-item">
+    <a class="nav-link active" id="home-tab" data-toggle="tab" href="#jobs" role="tab" aria-controls="home"
+       aria-selected="true">Jobs<span class="badge badge-light">{{jobs_count}}</span></a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="profile-tab" data-toggle="tab" href="#settings" role="tab" aria-controls="profile"
+       aria-selected="false">Settings</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="contact-tab" data-toggle="tab" href="#triggers" role="tab" aria-controls="contact"
+       aria-selected="false">Triggers <span class="badge badge-light">{{len(spider.triggers) or ''}}</span></a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="webhook-tab" data-toggle="tab" href="#webhook" role="tab" aria-controls="contact"
+       aria-selected="false">Webhook</a>
+  </li>
+</ul>
+<div class="tab-content" id="myTabContent">
+  <div class="tab-pane fade show active" id="jobs" role="tabpanel" aria-labelledby="home-tab">
+    <label>Jobs:</label>
+    <table border="1" id="joblist" class="table">
+      <tr>
+        <th>JobID</th>
+        <th>Start At</th>
+        <th>Duration</th>
+        <th>Log</th>
+        <th>Items</th>
+        <th>Status</th>
+        <th>Webhook Job</th>
+      </tr>
+      {% for job in running_jobs %}
+      <tr>
+        <td class="job_id">{{job.id}}</td>
+        <td>
+          {% if job.start_time %}
+          {{job.start_time}}
+          {% end %}
+        </td>
+        <td>
+          {% if job.update_time and job.start_time %}
+          {{job.update_time-job.start_time}}
+          {% end %}
+        </td>
+        <td></td>
+        <td>
 
-                    </td>
-                    <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
-                    <td></td>
-                </tr>
-            {% end %}
-            {% for job in jobs %}
-                <tr>
-                    <td class="job_id">{{job.id}}</td>
-                    <td>{{job.start_time}}</td>
-                    <td>{{job.complete_time-job.start_time}}</td>
-                    <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
-                    <td>
-                        {% if job.items_count %}
-                        <a href="/items/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.jl">{{job.items_count}}</a>
-                        {% end %}
-                    </td>
-                    <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
-                    {% if job.webhook_job %}
-                        <td class="{{job.webhook_job.status_obj.name}}">{{job.webhook_job.status_obj.name.upper()}}</td>
-                    {% else %}
-                    <td></td>
-                    {% end %}
-                </tr>
-            {% end %}
-        </table>
+        </td>
+        <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
+        <td></td>
+      </tr>
+      {% end %}
+      {% for job in jobs %}
+      <tr>
+        <td class="job_id">{{job.id}}</td>
+        <td>{{job.start_time}}</td>
+        <td>{{job.complete_time-job.start_time}}</td>
+        <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
+        <td>
+          {% if job.items_count %}
+          <a href="/items/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.jl">{{job.items_count}}</a>
+          {% end %}
+        </td>
+        <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
+        {% if job.webhook_job %}
+        <td class="{{job.webhook_job.status_obj.name}}">{{job.webhook_job.status_obj.name.upper()}}</td>
+        {% else %}
+        <td></td>
+        {% end %}
+      </tr>
+      {% end %}
+    </table>
+  </div>
+  <div class="tab-pane fade" id="settings" role="tabpanel" aria-labelledby="profile-tab">
+    <a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/settings">Settings</a>
+    <table>
+      {% for setting in settings %}
+      <tr>
+        <td>{{setting.setting_key}}</td>
+        <td>{{setting.value}}</td>
+      </tr>
+      {% end %}
+    </table>
+  </div>
+  <div class="tab-pane fade" id="triggers" role="tabpanel" aria-labelledby="contact-tab">
+    <label>Triggers:</label>
+    <table>
+      {% for trigger in spider.triggers %}
+      <tr>
+        <td>{{trigger.cron_pattern}}</td>
+        <td>
+          <form action="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers/{{trigger.id}}/delete"
+                method="post">
+            {% module xsrf_form_html() %}
+            <button value="X">X</button>
+          </form>
+        </td>
+      </tr>
+      {% end %}
+    </table>
+    <div><a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers">Create Trigger</a>
     </div>
+  <div class="tab-pane fade" id="webhook" role="tabpanel">
     {%if webhook_jobs%}
     <div>
-        <label>Webhook Jobs:</label>
-        <table border="1">
-            <tr>
-                <th>JobID</th>
-                <th>Status</th>
-            </tr>
-            {% for webhook_job in webhook_jobs %}
-                <tr>
-                    <td>{{webhook_job.id}}</td>
-                    <td class="{{webhook_job.status_obj.name}}">{{webhook_job.status_obj.name.upper()}}</td>
-                </tr>
-            {% end %}
-        </table>
+      <label>Webhook Jobs:</label>
+      <table border="1">
+        <tr>
+          <th>JobID</th>
+          <th>Status</th>
+        </tr>
+        {% for webhook_job in webhook_jobs %}
+        <tr>
+          <td>{{webhook_job.id}}</td>
+          <td class="{{webhook_job.status_obj.name}}">{{webhook_job.status_obj.name.upper()}}</td>
+        </tr>
+        {% end %}
+      </table>
     </div>
     {% end %}
-
-    <script src="/static/js/spider.js" ></script>
+  </div>
+  </div>
+</div>
+<script src="/static/js/spider.js"></script>
 {% end %}

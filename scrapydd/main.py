@@ -38,6 +38,7 @@ from .handlers.base import AppBaseHandler
 from .handlers.admin import *
 from .handlers.profile import *
 from .handlers.rest import *
+from handlers import webui
 
 logger = logging.getLogger(__name__)
 
@@ -135,34 +136,6 @@ class UploadProject(AppBaseHandler):
     def get(self):
         self.render("uploadproject.html")
 
-
-class ScheduleHandler(AppBaseHandler):
-    def initialize(self, scheduler_manager):
-        super(ScheduleHandler, self).initialize()
-        self.scheduler_manager = scheduler_manager
-
-    @authenticated
-    def post(self):
-        project = self.get_argument('project')
-        spider = self.get_argument('spider')
-
-        try:
-            job = self.scheduler_manager.add_task(project, spider)
-            jobid = job.id
-            response_data = {
-                'status': 'ok',
-                'jobid': jobid
-            }
-            self.write(json.dumps(response_data))
-        except JobRunning as e:
-            response_data = {
-                'status': 'error',
-                'errormsg': 'job is running with jobid %s' % e.jobid
-            }
-            self.set_status(400, 'job is running')
-            self.write(json.dumps(response_data))
-
-
 class AddScheduleHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
         super(AddScheduleHandler, self).initialize()
@@ -228,6 +201,10 @@ class SpiderInstanceHandler2(AppBaseHandler):
             .filter(SpiderExecutionQueue.spider_id == spider.id) \
             .order_by(desc(SpiderExecutionQueue.update_time))
 
+        jobs_count = session.query(HistoricalJob) \
+            .filter(HistoricalJob.spider_id == spider.id).count()
+
+
         webhook_jobs = session.query(WebhookJob).filter_by(spider_id=spider.id)
 
         context = {}
@@ -242,7 +219,7 @@ class SpiderInstanceHandler2(AppBaseHandler):
             .filter_by(spider_id=spider.id) \
             .order_by(SpiderParameter.parameter_key)
         context['spider_parameters'] = {parameter.parameter_key: parameter.value for parameter in spider_parameters}
-        self.render("spider.html", **context)
+        self.render("spider.html", jobs_count = jobs_count, **context)
         session.close()
 
 
@@ -330,15 +307,15 @@ class DeleteSpiderJobHandler(AppBaseHandler):
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project_name).first()
             if not project:
-                return self.write_error(404, 'project not found.')
+                return self.set_status(404, 'project not found.')
 
             spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
             if not project:
-                return self.write_error(404, 'spider not found.')
+                return self.set_status(404, 'spider not found.')
 
             job = session.query(HistoricalJob).filter_by(spider_id = spider.id, id=job_id).first()
             if not job:
-                return self.write_error(404, 'job not found.')
+                return self.set_status(404, 'job not found.')
 
             if job.log_file:
                 try:
@@ -357,14 +334,14 @@ class DeleteSpiderJobHandler(AppBaseHandler):
             session.commit()
 
 
-class ExecuteNextHandler(tornado.web.RequestHandler):
-    def data_received(self, chunk):
-        pass
-
+class ExecuteNextHandler(RestBaseHandler):
     scheduler_manager = None
 
     def initialize(self, scheduler_manager=None):
         self.scheduler_manager = scheduler_manager
+
+    def check_xsrf_cookie(self):
+        return None
 
     def post(self):
         with session_scope() as session:
@@ -527,6 +504,9 @@ class NodesHandler(RestBaseHandler):
         super(NodesHandler, self).initialize()
         self.node_manager = node_manager
 
+    def check_xsrf_cookie(self):
+        return None
+
     def post(self):
         tags = self.get_argument('tags', '').strip()
         tags = None if tags == '' else tags
@@ -560,7 +540,7 @@ class NodeHeartbeatHandler(RestBaseHandler):
         self.write(json.dumps(response_data))
 
 
-class JobsHandler(RestBaseHandler):
+class JobsHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
         super(JobsHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
@@ -662,7 +642,7 @@ class SpiderWebhookHandler(AppBaseHandler):
             session.commit()
 
 
-class DeleteProjectHandler(AppBaseHandler):
+class DeleteProjectHandler(RestBaseHandler):
     def initialize(self, scheduler_manager):
         super(DeleteProjectHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
@@ -672,6 +652,8 @@ class DeleteProjectHandler(AppBaseHandler):
         project_name = self.get_argument('project')
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project_name).first()
+            if not project:
+                return self.set_status(404, 'project not found.')
             spiders = session.query(Spider).filter_by(project_id=project.id)
             for spider in spiders:
                 triggers = session.query(Trigger).filter_by(spider_id=spider.id)
@@ -830,6 +812,7 @@ class CACertHandler(RestBaseHandler):
 
 
 class ListProjectVersionsHandler(RestBaseHandler):
+    @authenticated
     def get(self):
         try:
             project = self.get_argument('project')
@@ -841,7 +824,8 @@ class ListProjectVersionsHandler(RestBaseHandler):
         return self.write({'status': 'ok', 'versions': versions})
 
 
-def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False):
+def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False,
+             enable_authentication=False, secret_key=''):
     """
 
     @type scheduler_manager SchedulerManager
@@ -852,16 +836,14 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
     :return:
     """
 
-    settings = {
-        "cookie_secret": "__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
-        "login_url": "/signin",
-        "static_path": os.path.join(BASE_DIR, 'static'),
-        "template_path": os.path.join(BASE_DIR, 'templates'),
-        #"xsrf_cookies": True,
-        'debug': debug,
-    }
-
-    settings['scheduler_manager'] = scheduler_manager
+    settings = dict(cookie_secret=secret_key,
+                    login_url="/signin",
+                    static_path=os.path.join(BASE_DIR, 'static'),
+                    template_path=os.path.join(BASE_DIR, 'templates'),
+                    xsrf_cookies=True,
+                    debug=debug,
+                    enable_authentication=enable_authentication,
+                    scheduler_manager=scheduler_manager)
 
     if authentication_providers is None:
         authentication_providers = []
@@ -877,20 +859,25 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/signin', SigninHandler),
         (r'/logout', LogoutHandler),
         (r'/uploadproject', UploadProject),
-        (r'/addversion.json', UploadProject),
+
+        # scrapyd apis
+        (r'/addversion.json', AddVersionHandler),
         (r'/delproject.json', DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
         (r'/listversions.json', ListProjectVersionsHandler),
         (r'/schedule.json', ScheduleHandler, {'scheduler_manager': scheduler_manager}),
+
         (r'/add_schedule.json', AddScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects', ProjectList),
         (r'/spiders', SpiderListHandler),
         (r'/spiders/(\d+)/egg', SpiderEggHandler),
         (r'/projects/(\w+)/spiders/(\w+)', SpiderInstanceHandler2),
         (r'/projects/(\w+)/spiders/(\w+)/triggers', SpiderTriggersHandler, {'scheduler_manager': scheduler_manager}),
-        (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler),
+        (r'/projects/(\w+)/spiders/(\w+)/triggers/(\w+)/delete', DeleteSpiderTriggersHandler,
+            {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/jobs/(\w+)/delete', DeleteSpiderJobHandler),
         (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
+        (r'^/projects/(\w+)/spiders/(\w+)/run$', webui.RunSpiderHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),
 
         (r'/profile$', ProfileHomeHandler),
@@ -980,14 +967,12 @@ def start_server(argv=None):
 
     webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
     webhook_daemon.init()
-
-    if config.getboolean('enable_authentication', True):
-        authentication_providers = [CookieAuthenticationProvider(), HmacAuthorize()]
-
-    else:
-        authentication_providers = [NoAuthenticationProvider()]
-
-    app = make_app(scheduler_manager, node_manager, webhook_daemon, authentication_providers, debug=is_debug)
+    enable_authentication = config.getboolean('enable_authentication')
+    secret_key = config.get('secret_key')
+    app = make_app(scheduler_manager, node_manager, webhook_daemon,
+                   debug=is_debug,
+                   enable_authentication=enable_authentication,
+                   secret_key=secret_key)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)

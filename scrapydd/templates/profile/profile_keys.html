@@ -4,6 +4,7 @@
 {% end sidebar %}
 {% block content %}
   <form method="POST" action="/profile/keys">
+    {% module xsrf_form_html() %}
     <button type="submit" class="btn btn-primary" >Generate New Key</button>
   </form>
   <table class="table">
