@@ -12,6 +12,7 @@ import json
 from tornado.web import authenticated
 from ..security import generate_digest
 import hmac
+from ..schedule import JobRunning
 
 logger = logging.getLogger(__name__)
 
@@ -178,3 +179,30 @@ class AddVersionHandler(RestBaseHandler):
 
                 session.commit()
             self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
+
+
+class ScheduleHandler(RestBaseHandler):
+    def initialize(self, scheduler_manager):
+        super(ScheduleHandler, self).initialize()
+        self.scheduler_manager = scheduler_manager
+
+    @authenticated
+    def post(self):
+        project = self.get_argument('project')
+        spider = self.get_argument('spider')
+
+        try:
+            job = self.scheduler_manager.add_task(project, spider)
+            jobid = job.id
+            response_data = {
+                'status': 'ok',
+                'jobid': jobid
+            }
+            self.write(json.dumps(response_data))
+        except JobRunning as e:
+            response_data = {
+                'status': 'error',
+                'errormsg': 'job is running with jobid %s' % e.jobid
+            }
+            self.set_status(400, 'job is running')
+            self.write(json.dumps(response_data))

@@ -28,6 +28,20 @@ class AppTest(AsyncHTTPTestCase):
         return self.wait()
 
 
+class ScheduleTest(AppTest):
+    def test_schedule(self):
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            session.commit()
+
+        post_params = {
+            'project' : 'test_project',
+            'spider': 'success_spider'
+        }
+        response = self.fetch('/schedule.json', method="POST", body=urlencode(post_params))
+        self.assertEqual(200, response.code)
+
+
 class NodesHandlerTest(AppTest):
     def test_register(self):
         response = self.fetch('/api/v1/nodes', method="POST", body="")

@@ -38,6 +38,7 @@ from .handlers.base import AppBaseHandler
 from .handlers.admin import *
 from .handlers.profile import *
 from .handlers.rest import *
+from handlers import webui
 
 logger = logging.getLogger(__name__)
 
@@ -134,39 +135,6 @@ class UploadProject(AppBaseHandler):
     @authenticated
     def get(self):
         self.render("uploadproject.html")
-
-
-class ScheduleHandler(AppBaseHandler):
-    def initialize(self, scheduler_manager):
-        super(ScheduleHandler, self).initialize()
-        self.scheduler_manager = scheduler_manager
-
-    def check_xsrf_cookie(self):
-        if not self.settings.get('enable_authentication', 'False'):
-            return None
-        return super(ScheduleHandler, self).check_xsrf_cookie()
-
-    @authenticated
-    def post(self):
-        project = self.get_argument('project')
-        spider = self.get_argument('spider')
-
-        try:
-            job = self.scheduler_manager.add_task(project, spider)
-            jobid = job.id
-            response_data = {
-                'status': 'ok',
-                'jobid': jobid
-            }
-            self.write(json.dumps(response_data))
-        except JobRunning as e:
-            response_data = {
-                'status': 'error',
-                'errormsg': 'job is running with jobid %s' % e.jobid
-            }
-            self.set_status(400, 'job is running')
-            self.write(json.dumps(response_data))
-
 
 class AddScheduleHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
@@ -367,9 +335,6 @@ class DeleteSpiderJobHandler(AppBaseHandler):
 
 
 class ExecuteNextHandler(RestBaseHandler):
-    def data_received(self, chunk):
-        pass
-
     scheduler_manager = None
 
     def initialize(self, scheduler_manager=None):
@@ -893,10 +858,13 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/signin', SigninHandler),
         (r'/logout', LogoutHandler),
         (r'/uploadproject', UploadProject),
+
+        # scrapyd apis
         (r'/addversion.json', AddVersionHandler),
         (r'/delproject.json', DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
         (r'/listversions.json', ListProjectVersionsHandler),
         (r'/schedule.json', ScheduleHandler, {'scheduler_manager': scheduler_manager}),
+
         (r'/add_schedule.json', AddScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects', ProjectList),
         (r'/spiders', SpiderListHandler),
@@ -908,6 +876,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/projects/(\w+)/spiders/(\w+)/jobs/(\w+)/delete', DeleteSpiderJobHandler),
         (r'/projects/(\w+)/spiders/(\w+)/settings', SpiderSettingsHandler),
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
+        (r'^/projects/(\w+)/spiders/(\w+)/run$', webui.RunSpiderHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),
 
         (r'/profile$', ProfileHomeHandler),

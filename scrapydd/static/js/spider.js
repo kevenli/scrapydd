@@ -34,7 +34,7 @@ $(function(){
         var spider = $('#spiderName').val();
         xsrf = getCookie("_xsrf");
         $.ajax({
-            url: '/schedule.json',
+            url: '/projects/' + project + '/spiders/' + spider + '/run',
             method: "POST",
             headers: {'X-XSRFToken': xsrf},
             data: {'project': project, 'spider': spider},
