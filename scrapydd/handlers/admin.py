@@ -25,10 +25,11 @@ class AdminNodesHandler(AppBaseHandler):
             usable_key = None
             for unused_key in unused_node_keys:
                 if unused_key.create_at < new_node_key_expire:
-                    unused_key.is_delete = True
+                    unused_key.is_deleted = True
                     session.add(unused_key)
                 else:
                     usable_key = unused_key
+                    break
 
             if usable_key is None:
                 usable_key = NodeKey()
@@ -44,7 +45,7 @@ class AdminHomeHandler(AppBaseHandler):
     @authenticated
     def get(self):
         if not self.current_user or not self.current_user.is_admin:
-            return self.write_error(403, "No permission")
+            return self.set_status(403, "No permission")
 
         with session_scope() as session:
             user_count = session.query(User).count()
