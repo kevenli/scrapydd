@@ -812,6 +812,7 @@ class CACertHandler(RestBaseHandler):
 
 
 class ListProjectVersionsHandler(RestBaseHandler):
+    @authenticated
     def get(self):
         try:
             project = self.get_argument('project')
