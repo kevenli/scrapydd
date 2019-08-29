@@ -66,13 +66,13 @@ class NodesHandlerTest(AppTest):
         self.assertEqual(None, new_node.tags)
 
 
-class GetNextJobTest(AppTest):
-    def test_next_job(self):
-        post_data = {'node_id': '1'}
-        body = urlencode(post_data)
-        response = self.fetch('/api/v1/jobs/next', method="POST", body=body)
-        self.assertEqual(200, response.code)
-
+# class GetNextJobTest(AppTest):
+#     def test_next_job(self):
+#         post_data = {'node_id': '1'}
+#         body = urlencode(post_data)
+#         response = self.fetch('/api/v1/jobs/next', method="POST", body=body)
+#         self.assertEqual(200, response.code)
+#
 
 # class GetNextJobSecureTest(AppTest):
 #     def test_next_job(self):
