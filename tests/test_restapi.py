@@ -4,6 +4,7 @@ from scrapydd.main import *
 from six.moves.urllib_parse import urlencode, urlparse
 from scrapydd.security import HmacAuthorize, generate_digest, authenticated_request
 from tornado.httpclient import HTTPRequest
+from poster.encode import multipart_encode
 
 
 class AppTest(AsyncHTTPTestCase):
@@ -27,9 +28,23 @@ class AppTest(AsyncHTTPTestCase):
         self.http_client.fetch(request, self.stop, **kwargs)
         return self.wait()
 
+    def _upload_test_project(self):
+        # upload a project
+
+        post_data = {}
+        post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
+        post_data['project'] = 'test_project'
+        post_data['version'] = '1.0'
+
+        datagen, headers = multipart_encode(post_data)
+        databuffer = ''.join(datagen)
+        response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        self.assertEqual(200, response.code)
+
 
 class ScheduleTest(AppTest):
     def test_schedule(self):
+        self._upload_test_project()
         with session_scope() as session:
             session.query(SpiderExecutionQueue).delete()
             session.commit()
