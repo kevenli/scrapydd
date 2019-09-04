@@ -3,6 +3,7 @@ from subprocess import Popen, PIPE
 import sys
 import time
 
+
 class RunnerTest(unittest.TestCase):
     def test_run(self):
         env = {}
@@ -22,8 +23,9 @@ warning_spider'''.split())
         env = {}
         env['SCRAPY_EGG'] = 'tests/test_project-1.0-py2.7.egg'
         env['SCRAPY_EXTRA_SETTINGS_MODULE'] = 'tests.utils.testsettings'
-        p = Popen([sys.executable, '-m', 'scrapydd.utils.runner', 'settings', '--get', 'SOME_SETTING'], env=env, stdout=PIPE)
-        while p.poll() == None:
+        p = Popen([sys.executable, '-m', 'scrapydd.utils.runner', 'settings', '--get', 'SOME_SETTING'],
+                  env=env, stdout=PIPE)
+        while p.poll() is None:
             time.sleep(1)
         stdout, stderr = p.communicate()
         output = stdout
@@ -32,8 +34,9 @@ warning_spider'''.split())
     def test_project_settings(self):
         env = {}
         env['SCRAPY_EGG'] = 'tests/test_project-1.0-py2.7.egg'
-        p = Popen([sys.executable, '-m', 'scrapydd.utils.runner', 'settings', '--get', 'SOME_SETTING'], env=env, stdout=PIPE)
-        while p.poll() == None:
+        p = Popen([sys.executable, '-m', 'scrapydd.utils.runner', 'settings', '--get', 'SOME_SETTING'],
+                  env=env, stdout=PIPE)
+        while p.poll() is None:
             time.sleep(1)
         stdout, stderr = p.communicate()
         output = stdout
