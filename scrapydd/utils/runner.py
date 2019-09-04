@@ -45,10 +45,18 @@ def project_environment(project):
 
 def main():
     from scrapy.cmdline import execute
+    from scrapy.settings import Settings
+    settings = Settings()
     egg_path = os.environ.get('SCRAPY_EGG')
     if egg_path:
         activate_egg(egg_path)
-        return execute()
+        settings_module = os.environ.get('SCRAPY_SETTINGS_MODULE')
+        if settings_module:
+            settings.setmodule(settings_module, priority='project')
+        extra_settings_module = os.environ.get('SCRAPY_EXTRA_SETTINGS_MODULE')
+        if extra_settings_module:
+            settings.setmodule(extra_settings_module)
+        return execute(settings=settings)
     project = os.environ['SCRAPY_PROJECT']
     with project_environment(project):
         execute()
