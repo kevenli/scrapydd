@@ -8,7 +8,7 @@ class RunnerTest(unittest.TestCase):
         env = {}
         env['SCRAPY_EGG'] = 'tests/test_project-1.0-py2.7.egg'
         p = Popen([sys.executable, '-m', 'scrapydd.utils.runner', 'list'], env=env, stdout=PIPE)
-        while p.poll() == None:
+        while p.poll() is None:
             time.sleep(1)
         stdout, stderr = p.communicate()
         output = stdout
