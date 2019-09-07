@@ -61,7 +61,7 @@ The docs is hosted `here`_
 
 Docker-Compose
 --------------
-.. code-block:: YML
+.. code-block:: yaml
 
     version: '3'
     services:
@@ -87,3 +87,4 @@ Docker-Compose
 
 
 .. _here: http://scrapydd.readthedocs.org
+.. _`github releases`: https://github.com/kevenli/scrapydd/releases

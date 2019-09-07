@@ -23,7 +23,7 @@ setup(
     packages     = find_packages(exclude=('tests', 'tests.*')),
     description  = 'distributed scrapy spider scheduling system',
     long_description=read_file('README.rst'),
-    long_description_content_type="text/reStructuredText",
+    long_description_content_type="text/x-rst",
     package_data = {
         'scrapydd': [
             'scrapydd.default.conf',
