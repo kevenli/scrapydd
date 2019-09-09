@@ -1,5 +1,6 @@
 import sys
-import os, os.path
+import os
+import os.path
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 from tornado import gen
@@ -12,6 +13,7 @@ import json
 from zipfile import ZipFile
 from w3lib.url import path_to_file_uri
 from shutil import copyfileobj
+from six import ensure_str
 
 
 logger = logging.getLogger(__name__)
@@ -81,7 +83,7 @@ class ProjectWorkspace(object):
         with ZipFile(eggf) as egg_zip_file:
             try:
                 requires_fileinfo = egg_zip_file.getinfo('EGG-INFO/requires.txt')
-                return egg_zip_file.read(requires_fileinfo).split()
+                return ensure_str(egg_zip_file.read(requires_fileinfo)).split()
             except KeyError:
                 return []
 
