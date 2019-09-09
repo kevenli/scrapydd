@@ -351,7 +351,6 @@ class TaskExecutor():
             yield self.workspace.init()
             logger.info('start fetch spider egg.')
             downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.id)
-
             with open(downloaded_egg, 'rb') as egg_f:
                 self.workspace.put_egg(egg_f, self.task.project_version)
             logger.info('fetch spider egg done.')

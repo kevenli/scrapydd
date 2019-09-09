@@ -6,12 +6,12 @@ from tornado import gen
 from subprocess import Popen, PIPE
 import logging
 import tempfile
-from .eggstorage import FilesystemEggStorage
 import shutil
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 import json
 from zipfile import ZipFile
 from w3lib.url import path_to_file_uri
+from shutil import copyfileobj
 
 
 logger = logging.getLogger(__name__)
@@ -27,10 +27,9 @@ class ProjectWorkspace(object):
     def __init__(self, project_name, base_workdir=None):
         if not base_workdir:
             base_workdir = tempfile.mkdtemp(prefix='scrapydd-tmp')
-        project_workspace_dir = os.path.abspath(os.path.join(base_workdir, 'workspace', project_name))
+        project_workspace_dir = base_workdir
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
-        self.egg_storage = FilesystemEggStorage({'eggs_dir':os.path.join(project_workspace_dir, 'eggs')})
         self.processes = []
         if sys.platform.startswith('linux'):
             self.pip = os.path.join(project_workspace_dir, 'bin', 'pip')
@@ -51,6 +50,7 @@ class ProjectWorkspace(object):
             future.set_result(self)
             return future
 
+        logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
         try:
             process = Popen(['virtualenv', '--system-site-packages', self.project_workspace_dir], stdout=PIPE, stderr=PIPE)
@@ -77,9 +77,7 @@ class ProjectWorkspace(object):
     def find_project_requirements(self, project=None, egg_storage=None, eggf=None):
         project = self.project_name
         if eggf is None:
-            if egg_storage is None:
-                egg_storage = self.egg_storage
-            version, eggf = egg_storage.get(project)
+            eggf = open(os.path.join(self.project_workspace_dir, 'spider.egg'), 'rb')
         with ZipFile(eggf) as egg_zip_file:
             try:
                 requires_fileinfo = egg_zip_file.getinfo('EGG-INFO/requires.txt')
@@ -129,6 +127,7 @@ class ProjectWorkspace(object):
         try:
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = self.project_name
+            env['SCRAPY_EGG'] = 'spider.egg'
             process = Popen([self.python, '-m', 'scrapydd.utils.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
         except Exception as e:
             logger.error(e)
@@ -168,6 +167,7 @@ class ProjectWorkspace(object):
         env['SCRAPY_PROJECT'] = str(self.project_name)
         #env['SCRAPY_JOB'] = str(self.task.id)
         env['SCRAPY_FEED_URI'] = str(path_to_file_uri(items_file))
+        env['SCRAPY_EGG'] = 'spider.egg'
 
         p = Popen(pargs, env = env, stdout = f_output, cwd = self.project_workspace_dir, stderr = f_output)
         self.processes.append(p)
@@ -212,17 +212,9 @@ class ProjectWorkspace(object):
 
     def put_egg(self, eggfile, version):
         eggfile.seek(0)
-        self.egg_storage.put(eggfile=eggfile, project=self.project_name, version=version)
-
-    def get_egg(self, version=None):
-        return self.egg_storage.get(self.project_name, version=version)
-
-    def delete_egg(self, project, version=None):
-        logger.info('deleting project eggs')
-        return self.egg_storage.delete(project, version)
-
-    def list_versions(self, project):
-        return self.egg_storage.list(project)
+        eggpath = os.path.join(self.project_workspace_dir, 'spider.egg')
+        with open(eggpath, 'wb') as f:
+            copyfileobj(eggfile, f)
 
     @gen.coroutine
     def kill_process(self, timeout=30):
