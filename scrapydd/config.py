@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-import ConfigParser
-from cStringIO import StringIO
+from six.moves import StringIO
+from six import BytesIO
+from six import ensure_str
 import os
 from pkgutil import get_data
-from ConfigParser import SafeConfigParser, NoSectionError, NoOptionError
+from six.moves.configparser import ConfigParser, SafeConfigParser, NoSectionError, NoOptionError
 import glob
 from os.path import expanduser
 
@@ -20,17 +21,15 @@ class Config(object):
     def __init__(self, values=None, extra_sources=()):
         if values is None:
             sources = self._getsources()
+            self.cp = ConfigParser()
             if __package__:
-                default_config = get_data(__package__, 'scrapydd.default.conf')
-            else:
-                default_config = open(os.path.join(os.path.dirname(__file__), 'scrapydd.default.conf' )).read()
-            default_config_stream = StringIO()
-            default_config_stream.write(default_config)
-            default_config_stream.seek(0, os.SEEK_SET)
-            self.cp = SafeConfigParser()
-            self.cp.readfp(default_config_stream)
-            for loaded_file in self.cp.read(self._getsources()):
-                self._loaded_files.append(os.path.abspath(loaded_file))
+                default_config = ensure_str(get_data(__package__, 'scrapydd.default.conf'))
+                self.cp.readfp(StringIO(default_config))
+            for source in sources:
+                if os.path.exists(source):
+                    #self._load_config_file(open(source))
+                    with open(source, 'r') as f:
+                        self.cp.readfp(f)
         else:
             self.cp = SafeConfigParser(values)
             self.cp.add_section(self.SECTION)

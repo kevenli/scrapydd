@@ -8,7 +8,7 @@ from .models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSet
 import os, os.path, shutil
 import sys
 from .exceptions import *
-from cStringIO import StringIO
+from io import StringIO
 
 logger = logging.getLogger(__name__)
 

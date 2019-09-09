@@ -8,7 +8,7 @@ class ResetPasswordCommand():
         config = Config()
         init_database(config)
         print('Please input username:')
-        username = raw_input()
+        username = input()
 
         print('Plase input new password:')
         password = getpass()

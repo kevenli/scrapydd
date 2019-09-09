@@ -4,6 +4,7 @@ import os
 import re
 import random
 import tempfile
+from six import ensure_binary
 
 class SizeLimitError(Exception):
     pass
@@ -268,4 +269,4 @@ class MultipartRequestBodyProducer():
 
     def __call__(self, write):
         for part in self.datagen:
-            write(part)
+            write(ensure_binary(part))

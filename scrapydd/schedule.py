@@ -1,5 +1,5 @@
 
-from models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
+from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
     SpiderSettings, Node
 from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
@@ -9,9 +9,8 @@ from tornado.ioloop import IOLoop, PeriodicCallback
 import uuid
 import logging
 import datetime
-from scrapydd.exceptions import *
-from Queue import Queue, Empty
-from config import Config
+from .exceptions import *
+from .config import Config
 from sqlalchemy import distinct, desc, or_
 import os
 from .mail import MailSender
@@ -236,7 +235,7 @@ class SchedulerManager():
             session.close()
 
     def _regular_agent_tags(self, agent_tags):
-        if isinstance(agent_tags, basestring):
+        if isinstance(agent_tags, str):
             return agent_tags.split(',')
         if agent_tags is None:
             return [None]
@@ -275,6 +274,8 @@ class SchedulerManager():
     def has_task(self, node_id):
         with session_scope() as session:
             node = session.query(Node).filter(Node.id == node_id).first()
+            if node is None:
+                return None
             node_tags = node.tags
             next_task = self._get_next_task(session, node_tags)
         return next_task is not None

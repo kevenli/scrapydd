@@ -10,6 +10,7 @@ import hashlib
 import string
 import random
 import base64
+from six import ensure_binary
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,6 @@ def authenticated_request(*args, **kwargs):
 
 def encrypt_password(origin_password, salt):
     hash = hashlib.sha1()
-    hash.update(salt)
-    hash.update(origin_password)
+    hash.update(ensure_binary(salt))
+    hash.update(ensure_binary(origin_password))
     return hash.hexdigest()

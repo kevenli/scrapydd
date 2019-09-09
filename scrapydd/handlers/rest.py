@@ -1,7 +1,4 @@
-from StringIO import StringIO
-
 from tornado import gen
-
 from ..eggstorage import FilesystemEggStorage
 from ..exceptions import InvalidProjectEgg, ProcessFailed
 from ..workspace import ProjectWorkspace
@@ -13,6 +10,7 @@ from tornado.web import authenticated
 from ..security import generate_digest
 import hmac
 from ..schedule import JobRunning
+from six import BytesIO
 
 logger = logging.getLogger(__name__)
 
@@ -119,10 +117,10 @@ class AddVersionHandler(RestBaseHandler):
     @authenticated
     @gen.coroutine
     def post(self):
-        project_name = self.request.arguments['project'][0]
-        version = self.request.arguments['version'][0]
+        project_name = self.get_body_argument('project')
+        version = self.get_body_argument('version')
         eggfile = self.request.files['egg'][0]
-        eggf = StringIO(eggfile['body'])
+        eggf = BytesIO(eggfile['body'])
 
         try:
             workspace = ProjectWorkspace(project_name)

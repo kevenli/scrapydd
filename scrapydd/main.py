@@ -8,10 +8,10 @@ import tornado.netutil
 from tornado.web import authenticated
 from tornado import gen
 from .eggstorage import FilesystemEggStorage
-from cStringIO import StringIO
-from models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
+from io import StringIO, BytesIO
+from .models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
     SpiderWebhook, session_scope, SpiderSettings, WebhookJob, SpiderParameter, User
-from schedule import SchedulerManager
+from .schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
 from .config import Config
@@ -24,9 +24,9 @@ from sqlalchemy import desc
 from optparse import OptionParser
 import subprocess
 import signal
-from stream import PostDataStreamer
-from webhook import WebhookDaemon
-from daemonize import daemonize
+from .stream import PostDataStreamer
+from .webhook import WebhookDaemon
+from .daemonize import daemonize
 from .workspace import ProjectWorkspace
 from .cluster import ClusterNode
 from .ssl_gen import SSLCertificateGenerator
@@ -38,7 +38,7 @@ from .handlers.base import AppBaseHandler
 from .handlers.admin import *
 from .handlers.profile import *
 from .handlers.rest import *
-from handlers import webui
+from .handlers import webui
 
 logger = logging.getLogger(__name__)
 

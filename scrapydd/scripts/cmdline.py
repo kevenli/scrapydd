@@ -22,7 +22,7 @@ use scrapydd {command} --help for further help.
 def main():
     argv = sys.argv
     if len(argv) == 1:
-        print 'No command specified.'
+        print('No command specified.')
         print_commands()
         sys.exit(1)
         return
@@ -44,7 +44,7 @@ def main():
     elif cmd == '--version' or cmd == '-v':
         print_version()
     else:
-        print 'Invalid command.'
+        print('Invalid command.')
         print_commands()
 
 def print_commands():

@@ -1,7 +1,6 @@
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.concurrent import Future
 from tornado.gen import coroutine
-import urllib2, urllib
 import json
 import os
 import logging
@@ -15,6 +14,7 @@ import tempfile
 import shutil
 from .exceptions import *
 from six.moves.urllib.parse import urlparse, urljoin, urlencode
+from six.moves.urllib.error import URLError, HTTPError
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,8 @@ TASK_STATUS_FAIL = 'fail'
 EXECUTOR_STATUS_OFFLINE = 0
 EXECUTOR_STATUS_ONLINE = 1
 
-from poster.encode import multipart_encode
-from poster.streaminghttp import register_openers
+from .poster.encode import multipart_encode
+from .poster.streaminghttp import register_openers
 register_openers()
 
 
@@ -165,12 +165,12 @@ class Executor():
                         task_to_kill.kill()
                         self.task_slots.remove_task(task_to_kill)
             self.check_header_new_task_on_server(res.headers)
-        except urllib2.HTTPError as e:
+        except HTTPError as e:
             if e.code == 400:
                 logging.warning('Node expired, register now.')
                 self.status = EXECUTOR_STATUS_OFFLINE
                 self.register_node()
-        except urllib2.URLError as e:
+        except URLError as e:
             logging.warning('Cannot connect to server. %s' % e)
         except HTTPError as e:
             if e.code == 400:
@@ -195,13 +195,13 @@ class Executor():
                 logger.info('Custom ca cert retrieve failed.')
         try:
             url = urljoin(self.service_base, '/nodes')
-            register_postdata = urllib.urlencode({'tags': self.tags})
+            register_postdata = urlencode({'tags': self.tags})
             request = HTTPRequest(url=url, method='POST', body=register_postdata)
             res = yield self.httpclient.fetch(request)
             self.status = EXECUTOR_STATUS_ONLINE
             self.node_id = json.loads(res.body)['id']
             logger.info('node %d registered' % self.node_id)
-        except urllib2.URLError as e:
+        except URLError as e:
             logging.warning('Cannot connect to server, %s' % e )
         except socket.error as e:
             logging.warning('Cannot connect to server, %s' % e)
@@ -215,7 +215,7 @@ class Executor():
     @coroutine
     def get_next_task(self):
         url = urljoin(self.service_base, '/executing/next_task')
-        post_data = urllib.urlencode({'node_id': self.node_id})
+        post_data = urlencode({'node_id': self.node_id})
         request = HTTPRequest(url=url, method='POST', body=post_data)
         try:
             response = yield self.httpclient.fetch(request)
@@ -239,7 +239,7 @@ class Executor():
                 else:
                     task.spider_parameters = {}
                 self.on_new_task_reach(task)
-        except urllib2.URLError:
+        except URLError:
             logger.warning('Cannot connect to server')
 
     def execute_task(self, task):
@@ -255,13 +255,13 @@ class Executor():
     @coroutine
     def post_start_task(self, task, pid):
         url = urljoin(self.service_base, '/jobs/%s/start' % task.id)
-        post_data = urllib.urlencode({'pid':pid or ''})
+        post_data = urlencode({'pid':pid or ''})
         try:
             request = HTTPRequest(url=url, method='POST', body=post_data)
             respones = yield self.httpclient.fetch(request)
-        except urllib2.URLError as e:
+        except URLError as e:
             logger.error('Error when post_task_task: %s' % e)
-        except urllib2.HTTPError as e:
+        except HTTPError as e:
             logger.error('Error when post_task_task: %s' % e)
 
     def complete_task(self, task_executor, status):

@@ -4,11 +4,13 @@ from scrapydd.config import Config
 from scrapydd.models import init_database
 from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.web import create_signed_value
-from poster.encode import multipart_encode
+from scrapydd.poster.encode import multipart_encode
 import os.path
-import urllib
 import logging
-from base import AppTest
+from .base import AppTest
+from six import ensure_binary, ensure_str
+from six.moves.urllib.parse import urlencode
+from scrapydd.stream import MultipartRequestBodyProducer
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ class MainTest(AsyncHTTPTestCase):
 
     def _delproject(self):
         postdata = {'project': 'test_project'}
-        response = self.fetch('/delproject.json', method='POST', body=urllib.urlencode(postdata))
+        response = self.fetch('/delproject.json', method='POST', body=urlencode(postdata))
         self.assertIn(response.code, [404, 200])
 
     def _upload_test_project(self):
@@ -79,10 +81,10 @@ class SecurityTest(MainTest):
     def test_with_cookie(self):
         username = 'test'
         cookie_name, cookie_value = 'user', username
-        secure_cookie = create_signed_value(
+        secure_cookie = ensure_str(create_signed_value(
             self.get_app().settings["cookie_secret"],
             cookie_name,
-            cookie_value)
+            cookie_value))
         headers = {'Cookie': '='.join((cookie_name, secure_cookie))}
         response = self.fetch('/', method='GET', headers=headers)
         self.assertEqual(200, response.code)
@@ -99,12 +101,13 @@ class UploadTest(MainTest):
     def test_UploadProject_post(self):
         post_data = {}
         post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
-        post_data['project'] = 'test_project'
-        post_data['version'] = '1.0'
+        post_data['project'] = ensure_binary('test_project')
+        post_data['version'] = ensure_binary('1.0')
 
         datagen, headers = multipart_encode(post_data)
-        databuffer = ''.join(datagen)
-        response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+        #databuffer = b''.join([ensure_binary(x) for x in datagen])
+        response = self.fetch('/addversion.json', method='POST', headers=headers,
+                              body_producer=MultipartRequestBodyProducer(datagen))
 
         self.assertEqual(200, response.code)
 
@@ -117,7 +120,7 @@ class ScheduleHandlerTest(AppTest):
         # schedule once
         project = 'test_project'
         spider = 'success_spider'
-        postdata = urllib.urlencode({
+        postdata = urlencode({
             'project': project,
             'spider': spider
         })
@@ -127,14 +130,14 @@ class ScheduleHandlerTest(AppTest):
     def test_post_job_already_running(self):
         project = 'test_project'
         spider = 'success_spider'
-        postdata = urllib.urlencode({
+        postdata = urlencode({
             'project': project,
             'spider': spider
         })
         self.fetch('/schedule.json', method='POST', body=postdata)
         response = self.fetch('/schedule.json', method='POST', body=postdata)
         self.assertEqual(400, response.code)
-        self.assertIn('job is running', response.body)
+        self.assertIn(b'job is running', response.body)
 
 
 class AddScheduleHandlerTest(AppTest):
@@ -150,10 +153,10 @@ class AddScheduleHandlerTest(AppTest):
             '_xsrf':'dummy',
         }
 
-        response = self.fetch('/add_schedule.json', method='POST', body=urllib.urlencode(postdata),
+        response = self.fetch('/add_schedule.json', method='POST', body=urlencode(postdata),
                               headers={"Cookie": "_xsrf=dummy"})
         self.assertEqual(200, response.code)
-        self.assertIn('ok', response.body)
+        self.assertIn(b'ok', response.body)
 
 
 class ProjectListTest(MainTest):

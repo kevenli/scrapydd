@@ -1,4 +1,4 @@
-from models import Node, Session
+from .models import Node, Session
 from tornado.ioloop import IOLoop, PeriodicCallback
 import datetime
 import logging

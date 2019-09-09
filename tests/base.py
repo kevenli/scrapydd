@@ -1,5 +1,5 @@
 from tornado.testing import AsyncHTTPTestCase
-from poster.encode import multipart_encode
+from scrapydd.poster.encode import multipart_encode
 from scrapydd.security import encrypt_password
 from w3lib.http import basic_auth_header
 from scrapydd.models import init_database, session_scope, User, Project, Spider

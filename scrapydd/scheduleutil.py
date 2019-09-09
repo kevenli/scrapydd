@@ -1,14 +1,14 @@
 from optparse import OptionParser, OptionValueError
 from scrapy.utils.conf import closest_scrapy_cfg
-from ConfigParser import SafeConfigParser, Error
-import urllib2
-import urlparse
+from six.moves.configparser import ConfigParser, ParsingError
+from six.moves.urllib.parse import urlencode, urljoin
+from six.moves.urllib.request import urlopen
 import urllib
 import json
 
 def add_schedule():
     scrapy_cfg = closest_scrapy_cfg()
-    cp = SafeConfigParser()
+    cp = ConfigParser()
     if scrapy_cfg:
         cp.read(scrapy_cfg)
 
@@ -21,34 +21,34 @@ def add_schedule():
 
     try:
         project = opts.project or cp.get('deploy', 'project')
-    except Error:
-        print 'Error: project is required'
+    except ParsingError:
+        print('Error: project is required')
         parser.print_help()
         return
 
     spider = opts.spider
     if spider is None:
-        print 'Error: spider is required'
+        print('Error: spider is required')
         parser.print_help()
         return
 
     try:
         host = opts.host or cp.get('deploy', 'url')
-    except Error:
-        print 'Error: host is required'
+    except Exception:
+        print('Error: host is required')
         parser.print_help()
         return
 
     schedule = opts.schedule
     if schedule is None:
-        print 'Error: schedule is required'
+        print('Error: schedule is required')
         parser.print_help()
         return
-    url = urlparse.urljoin(host, '/add_schedule.json')
-    postdata = urllib.urlencode({
+    url = urljoin(host, '/add_schedule.json')
+    postdata = urlencode({
         'project':project,
         'spider':spider,
         'cron':schedule
     })
-    res = urllib2.urlopen(url, postdata)
-    print res.read()
+    res = urlopen(url, postdata)
+    print(res.read())
