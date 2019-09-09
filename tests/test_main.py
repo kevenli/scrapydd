@@ -8,6 +8,7 @@ from poster.encode import multipart_encode
 import os.path
 import urllib
 import logging
+from base import AppTest
 
 logger = logging.getLogger(__name__)
 
@@ -107,14 +108,12 @@ class UploadTest(MainTest):
 
         self.assertEqual(200, response.code)
 
-class ScheduleHandlerTest(MainTest):
-    def setUp(self):
-        super(ScheduleHandlerTest, self).setUp()
-        self._delproject()
-        self._upload_test_project()
-        logger.info('setup')
-
+class ScheduleHandlerTest(AppTest):
     def test_post(self):
+        from scrapydd.models import SpiderExecutionQueue
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            session.commit()
         # schedule once
         project = 'test_project'
         spider = 'success_spider'
@@ -138,12 +137,7 @@ class ScheduleHandlerTest(MainTest):
         self.assertIn('job is running', response.body)
 
 
-class AddScheduleHandlerTest(MainTest):
-    def setUp(self):
-        super(AddScheduleHandlerTest, self).setUp()
-        self._delproject()
-        self._upload_test_project()
-
+class AddScheduleHandlerTest(AppTest):
     def test_add_scheduler(self):
         project = 'test_project'
         spider = 'success_spider'
@@ -193,11 +187,7 @@ class NodesHandlerTest(MainTest):
         self.assertEqual(None, new_node.tags)
 
 
-class SpiderInstanceHandler2Test(MainTest):
-    def setUp(self):
-        super(SpiderInstanceHandler2Test, self).setUp()
-        self._upload_test_project()
-
+class SpiderInstanceHandler2Test(AppTest):
     def test_get(self):
         with session_scope() as session:
             spider = session.query(Spider).first()
@@ -208,11 +198,7 @@ class SpiderInstanceHandler2Test(MainTest):
         self.assertEqual(200, response.code)
 
 
-class SpiderEggHandlerTest(MainTest):
-    def setUp(self):
-        super(SpiderEggHandlerTest, self).setUp()
-        self._upload_test_project()
-
+class SpiderEggHandlerTest(AppTest):
     def test_get(self):
         with session_scope() as session:
             spider = session.query(Spider).first()
