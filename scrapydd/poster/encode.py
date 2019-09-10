@@ -31,6 +31,7 @@ except ImportError:
 
 from six.moves.urllib.parse import quote_plus
 from six import next
+from six import ensure_binary
 
 def encode_and_quote(data):
     """If ``data`` is unicode, return urllib.parse.quote_plus(data.encode("utf-8"))
@@ -86,7 +87,7 @@ class MultipartParam(object):
     def __init__(self, name, value=None, filename=None, filetype=None,
                         filesize=None, fileobj=None, cb=None):
         self.name = Header(name).encode()
-        self.value = _strify(value)
+        self.value = ensure_binary(value) if value else None
         if filename is None:
             self.filename = None
         else:
@@ -422,6 +423,7 @@ def multipart_encode(params, boundary=None, cb=None):
         boundary = gen_boundary()
     else:
         boundary = quote_plus(boundary)
+
 
     headers = get_headers(params, boundary)
     params = MultipartParam.from_params(params)

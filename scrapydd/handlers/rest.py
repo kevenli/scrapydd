@@ -11,6 +11,7 @@ from ..security import generate_digest
 import hmac
 from ..schedule import JobRunning
 from six import BytesIO
+from six import ensure_str
 
 logger = logging.getLogger(__name__)
 
@@ -117,8 +118,8 @@ class AddVersionHandler(RestBaseHandler):
     @authenticated
     @gen.coroutine
     def post(self):
-        project_name = self.get_body_argument('project')
-        version = self.get_body_argument('version')
+        project_name = ensure_str(self.get_body_argument('project'))
+        version = ensure_str(self.get_body_argument('version'))
         eggfile = self.request.files['egg'][0]
         eggf = BytesIO(eggfile['body'])
 
