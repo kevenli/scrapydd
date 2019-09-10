@@ -1,5 +1,6 @@
 import sys
-import os, os.path
+import os
+import os.path
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 from tornado import gen
