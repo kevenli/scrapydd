@@ -15,7 +15,7 @@ class NodeManager():
 
     def init(self):
         self.ioloop = IOLoop.current()
-        self.peroid_callback = PeriodicCallback(self._poll, self.interval*1000, self.ioloop)
+        self.peroid_callback = PeriodicCallback(self._poll, self.interval*1000)
         self.peroid_callback.start()
 
     def _poll(self):
