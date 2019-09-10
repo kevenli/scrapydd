@@ -10,7 +10,7 @@ import hashlib
 import string
 import random
 import base64
-from six import ensure_binary
+from six import ensure_binary, ensure_str
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ class CookieAuthenticationProvider(object):
         user_cookie = handler.get_secure_cookie("user")
         if user_cookie:
             #return json.loads(user_cookie)
-            return user_cookie
+            return ensure_str(user_cookie)
         return None
 
 

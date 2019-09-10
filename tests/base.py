@@ -11,6 +11,7 @@ from scrapydd.main import make_app
 from scrapydd.eggstorage import FilesystemEggStorage
 from tornado.web import create_signed_value
 from tornado.httputil import HTTPHeaders
+from six import ensure_str, ensure_binary
 
 
 class AppTest(AsyncHTTPTestCase):
@@ -116,7 +117,7 @@ class SecureAppTest(AppTest):
             cookie_name,
             cookie_value)
         headers = HTTPHeaders(headers)
-        headers.add('Cookie', '='.join((cookie_name, secure_cookie)))
+        headers.add('Cookie', b'='.join((ensure_binary(cookie_name), ensure_binary(secure_cookie))))
         return headers
 
     def populate_xsrf_cookie(self, headers):

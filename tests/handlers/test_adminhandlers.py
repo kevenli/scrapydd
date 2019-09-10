@@ -1,6 +1,9 @@
 from tests.base import AppTest, SecureAppTest
 from scrapydd.models import session_scope, NodeKey
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AdminNodesHandlerTest(AppTest):
     def test_get(self):
@@ -29,6 +32,7 @@ class AdminNodeHandlerSecureTest(SecureAppTest):
     def test_get(self):
         headers = {}
         headers = self.populate_cookie_header(headers)
+        logger.debug(headers)
         response = self.fetch('/admin/nodes', headers=headers, follow_redirects=False)
         self.assertEqual(200, response.code)
 
