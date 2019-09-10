@@ -16,6 +16,12 @@ class JobRunning(Exception):
         super(JobRunning, self).__init__(self)
         self.jobid=jobid
 
+    def __repr__(self):
+        return 'Job already running, running id :%s' % self.jobid
+
+    def __str__(self):
+        return 'Job already running, running id :%s' % self.jobid
+
 
 class InvalidCronExpression(Exception):
     pass

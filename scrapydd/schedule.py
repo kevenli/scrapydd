@@ -258,16 +258,32 @@ class SchedulerManager():
             return next_task
         return None
 
+    def get_next_task_of_tags(self, tags, node_id):
+        with session_scope() as session:
+            next_task = self._get_next_task(session, tags)
+            if not next_task:
+                return None
+            next_task.start_time = datetime.datetime.now()
+            next_task.update_time = datetime.datetime.now()
+            next_task.node_id = node_id
+            next_task.status = 1
+            session.add(next_task)
+            session.commit()
+            session.refresh(next_task)
+            return next_task
+        return None
+
     def _get_next_task(self, session, agent_tags):
         agent_tags = self._regular_agent_tags(agent_tags)
-        for tag in agent_tags:
-            query = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 0,
-                                                                   or_(SpiderExecutionQueue.tag == tag,
-                                                                       SpiderExecutionQueue.tag.is_(None)))
-            query = query.order_by(SpiderExecutionQueue.fire_time)
-            next_task = query.first()
-            if next_task:
-                return next_task
+        query = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 0)
+        tags_condition = SpiderExecutionQueue.tag.is_(None)
+        if agent_tags:
+            tags_condition = or_(tags_condition, SpiderExecutionQueue.tag.in_(agent_tags))
+        query = query.filter(tags_condition)
+        query = query.order_by(SpiderExecutionQueue.fire_time)
+        next_task = query.first()
+        if next_task:
+            return next_task
 
         return None
 

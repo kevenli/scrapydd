@@ -7,9 +7,11 @@ import os
 from scrapydd.config import Config
 from scrapydd.nodes import NodeManager
 from scrapydd.main import *
-from poster.encode import multipart_encode
+from scrapydd.poster.encode import multipart_encode
+from scrapydd.stream import MultipartRequestBodyProducer
 import urllib
 from scrapydd.schedule import *
+from .base import AppTest
 
 class ScheduleTest(AsyncHTTPTestCase):
     @classmethod
@@ -106,28 +108,28 @@ class SchedulerManagerTest(unittest.TestCase):
         session.close()
 
 
-class ScheduleTagTest(AsyncHTTPTestCase):
-    @classmethod
-    def setUpClass(cls):
-        if os._exists('test.db'):
-            os.remove('test.db')
-        config = Config(values = {'database_url': 'sqlite:///test.db'})
-        init_database(config)
-        os.environ['ASYNC_TEST_TIMEOUT'] = '30'
-
+class ScheduleTagTest(AppTest):
+    # @classmethod
+    # def setUpClass(cls):
+    #     if os._exists('test.db'):
+    #         os.remove('test.db')
+    #     config = Config(values = {'database_url': 'sqlite:///test.db'})
+    #     init_database(config)
+    #     os.environ['ASYNC_TEST_TIMEOUT'] = '30'
+    #
     def setUp(self):
         super(ScheduleTagTest, self).setUp()
-        self._delproject()
-        self._upload_test_project()
+        # self._delproject()
+        # self._upload_test_project()
 
-        #with session_scope() as session:
-        #    session.query(SpiderExecutionQueue).delete()
-
-    def _delproject(self):
-        postdata = {'project': 'test_project'}
-        self.fetch('/delproject.json', method='POST', body=urllib.urlencode(postdata))
-
-
+        with session_scope() as session:
+           session.query(SpiderExecutionQueue).delete()
+    #
+    # def _delproject(self):
+    #     postdata = {'project': 'test_project'}
+    #     self.fetch('/delproject.json', method='POST', body=urllib.urlencode(postdata))
+    #
+    #
     def _set_spider_tag(self, project_name, spider_name, tag):
         with session_scope() as session:
             project = session.query(Project).filter(Project.name == project_name).first()
@@ -141,7 +143,7 @@ class ScheduleTagTest(AsyncHTTPTestCase):
             setting_tag.value = tag
             session.add(setting_tag)
             pass
-
+    #
     def get_app(self):
         config = Config()
         self.scheduler_manager = scheduler_manager = SchedulerManager(config=config)
@@ -149,18 +151,18 @@ class ScheduleTagTest(AsyncHTTPTestCase):
         self.node_manager = node_manager = NodeManager(scheduler_manager)
         node_manager.init()
         return make_app(scheduler_manager, node_manager, None)
-
-    def _upload_test_project(self):
-        # upload a project
-
-        post_data = {}
-        post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
-        post_data['project'] = 'test_project'
-        post_data['version'] = '1.0'
-
-        datagen, headers = multipart_encode(post_data)
-        databuffer = ''.join(datagen)
-        self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
+    #
+    # def _upload_test_project(self):
+    #     # upload a project
+    #
+    #     post_data = {}
+    #     post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
+    #     post_data['project'] = 'test_project'
+    #     post_data['version'] = '1.0'
+    #
+    #     datagen, headers = multipart_encode(post_data)
+    #     self.fetch('/addversion.json', method='POST', headers=headers,
+    #                body_producer=MultipartRequestBodyProducer(datagen))
 
     # agent tags: None, spider tag: None
     def test_none_none(self):
