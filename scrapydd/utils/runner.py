@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from ..eggstorage import FilesystemEggStorage
 import os
 import pkg_resources
+from six import next
 
 
 def activate_egg(eggpath):
@@ -14,7 +15,7 @@ def activate_egg(eggpath):
     leave unwanted side effects.
     """
     try:
-        d = pkg_resources.find_distributions(eggpath).__next__()
+        d = next(pkg_resources.find_distributions(eggpath))
     except StopIteration:
         raise ValueError("Unknown or corrupt egg")
     d.activate()
