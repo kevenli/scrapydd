@@ -20,6 +20,11 @@ except ImportError:
     from urlparse import parse_qs
     from urllib import quote
 
+try:
+    from base64 import decodebytes as decodebytes
+except ImportError:
+    from base64 import decodestring as decodebytes
+
 
 def generate_random_string(length):
     letters = string.ascii_letters
@@ -119,7 +124,10 @@ class HmacAuthorize(object):
 class BasicAuthentication(object):
     def get_user(self, handler):
         logger.debug('BasicAuthentication.get_user')
-        authorization = handler.request.headers.get("Authorization", "").split(" ")
+        authorization_header = handler.request.headers.get("Authorization")
+        if authorization_header is None:
+            return
+        authorization = ensure_str(authorization_header).split(" ")
         if len(authorization) != 2:
             logging.info("Invalid Authorization header {}".format(authorization))
             return None
@@ -128,7 +136,7 @@ class BasicAuthentication(object):
         if algorithm != 'Basic':
             return None
 
-        decrypted = base64.decodestring(encrypted)
+        decrypted = ensure_str(decodebytes(ensure_binary(encrypted)))
         username, password = decrypted.split(':', 1)
         with session_scope() as session:
             user = session.query(User).filter_by(username=username).first()

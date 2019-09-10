@@ -1,6 +1,6 @@
 from six.moves.urllib_parse import urlencode, urlparse
 from scrapydd.security import authenticated_request
-from base import AppTest, SecureAppTest
+from .base import AppTest, SecureAppTest
 from scrapydd.models import session_scope, SpiderExecutionQueue, Node
 import json
 import datetime

@@ -186,8 +186,8 @@ class ScheduleHandler(RestBaseHandler):
 
     @authenticated
     def post(self):
-        project = self.get_argument('project')
-        spider = self.get_argument('spider')
+        project = self.get_body_argument('project')
+        spider = self.get_body_argument('spider')
 
         try:
             job = self.scheduler_manager.add_task(project, spider)
