@@ -166,11 +166,9 @@ class MultipartParam(object):
         name,value pairs or mapping, if applicable."""
         if hasattr(params, 'items'):
             params = list(params.items())
-        logger.debug(params)
         retval = []
         for item in params:
             if isinstance(item, cls):
-                #logger.debug(item)
                 retval.append(item)
                 continue
             name, value = item
@@ -225,7 +223,9 @@ class MultipartParam(object):
         else:
             value = self.value
 
-        if re.search("^--%s$" % re.escape(boundary), value, re.M):
+        boundary = ensure_binary(boundary)
+
+        if re.search(b"^--%s$" % re.escape(boundary), value, re.M):
             raise ValueError("boundary found in encoded string")
 
         #return "%s%s\r\n" % (self.encode_hdr(boundary), value)

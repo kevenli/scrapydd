@@ -7,13 +7,14 @@ try:
 except ImportError:
     from io import StringIO
 import sys
+from six import ensure_binary
 
 def unix2dos(s):
-    return s.replace("\n", "\r\n")
+    return s.replace(b"\n", b"\r\n")
 
 class TestEncode_String(TestCase):
     def test_simple(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
@@ -23,7 +24,7 @@ bar
                 encode.encode_string("XXXXXXXXX", "foo", "bar"))
 
     def test_quote_name_space(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo baz"
 Content-Type: text/plain; charset=utf-8
 
@@ -33,7 +34,7 @@ bar
                 encode.encode_string("XXXXXXXXX", "foo baz", "bar"))
 
     def test_quote_name_phparray(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="files[]"
 Content-Type: text/plain; charset=utf-8
 
@@ -43,7 +44,7 @@ bar
                 encode.encode_string("XXXXXXXXX", "files[]", "bar"))
 
     def test_quote_unicode_name(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="=?utf-8?b?4piD?="
 Content-Type: text/plain; charset=utf-8
 
@@ -53,7 +54,7 @@ bar
                 encode.encode_string("XXXXXXXXX", u"\N{SNOWMAN}", "bar"))
 
     def test_quote_value(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
@@ -63,7 +64,7 @@ bar baz@bat
                 encode.encode_string("XXXXXXXXX", "foo", "bar baz@bat"))
 
     def test_boundary(self):
-        expected = unix2dos("""--ABC+DEF
+        expected = unix2dos(b"""--ABC+DEF
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
@@ -73,12 +74,12 @@ bar
                 encode.encode_string("ABC DEF", "foo", "bar"))
 
     def test_unicode(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = ensure_binary(unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
 b\xc3\xa1r
-""")
+"""))
         self.assertEqual(expected,
                 encode.encode_string("XXXXXXXXX", "foo", u"bár"))
 
