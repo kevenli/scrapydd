@@ -86,67 +86,67 @@ b\xc3\xa1r
 
 class TestEncode_File(TestCase):
     def test_simple(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
-""").encode()
+""")
         self.assertEqual(expected,
                 encode.encode_file_header("XXXXXXXXX", "foo", 42))
 
     def test_content_type(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"
 Content-Type: text/html
 
-""").encode()
+""")
         self.assertEqual(expected,
                 encode.encode_file_header("XXXXXXXXX", "foo", 42, filetype="text/html"))
 
     def test_filename_simple(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"; filename="test.txt"
 Content-Type: text/plain; charset=utf-8
 
-""").encode()
+""")
         self.assertEqual(expected,
                 encode.encode_file_header("XXXXXXXXX", "foo", 42,
                     "test.txt"))
 
     def test_quote_filename(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"; filename="test file.txt"
 Content-Type: text/plain; charset=utf-8
 
-""").encode()
+""")
         self.assertEqual(expected,
                 encode.encode_file_header("XXXXXXXXX", "foo", 42,
                     "test file.txt"))
 
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"; filename="test\\"file.txt"
 Content-Type: text/plain; charset=utf-8
 
-""").encode()
+""")
         self.assertEqual(expected,
                 encode.encode_file_header("XXXXXXXXX", "foo", 42,
                     "test\"file.txt"))
 
     def test_unicode_filename(self):
-        expected = unix2dos("""--XXXXXXXXX
+        expected = unix2dos(b"""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"; filename="&#9731;.txt"
 Content-Type: text/plain; charset=utf-8
 
-""").encode()
+""")
         self.assertEqual(expected,
                 encode.encode_file_header("XXXXXXXXX", "foo", 42,
                     u"\N{SNOWMAN}.txt"))
 
 class TestEncodeAndQuote(TestCase):
     def test(self):
-        self.assertEqual("foo+bar", encode.encode_and_quote("foo bar"))
-        self.assertEqual("foo%40bar", encode.encode_and_quote("foo@bar"))
-        self.assertEqual("%28%C2%A9%29+2008",
+        self.assertEqual(b"foo+bar", encode.encode_and_quote("foo bar"))
+        self.assertEqual(b"foo%40bar", encode.encode_and_quote("foo@bar"))
+        self.assertEqual(b"%28%C2%A9%29+2008",
                 encode.encode_and_quote(u"(©) 2008"))
 
 class TestMultiparam(TestCase):
@@ -192,7 +192,7 @@ class TestMultiparam(TestCase):
     def test_simple(self):
         p = encode.MultipartParam("foo", "bar")
         boundary = "XYZXYZXYZ"
-        expected = unix2dos("""--XYZXYZXYZ
+        expected = unix2dos(b"""--XYZXYZXYZ
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
@@ -210,16 +210,16 @@ bar
         datagen, headers = encode.multipart_encode([p], boundary)
         self.assertEqual(headers, {'Content-Length': str(len(expected)),
                  'Content-Type': 'multipart/form-data; boundary=%s' % boundary})
-        self.assertEqual("".join(datagen), expected)
+        self.assertEqual(b"".join(datagen), expected)
 
     def test_multiple_keys(self):
         params = encode.MultipartParam.from_params(
                 [("key", "value1"), ("key", "value2")])
         boundary = "XYZXYZXYZ"
         datagen, headers = encode.multipart_encode(params, boundary)
-        encoded = "".join(datagen)
+        encoded = b"".join(datagen)
 
-        expected = unix2dos("""--XYZXYZXYZ
+        expected = unix2dos(b"""--XYZXYZXYZ
 Content-Disposition: form-data; name="key"
 Content-Type: text/plain; charset=utf-8
 
@@ -239,9 +239,9 @@ value2
         params = encode.MultipartParam.from_params( [("foo", fp)] )
         boundary = "XYZXYZXYZ"
         datagen, headers = encode.multipart_encode(params, boundary)
-        encoded = "".join(datagen)
+        encoded = b"".join(datagen)
 
-        expected = unix2dos("""--XYZXYZXYZ
+        expected = unix2dos(b"""--XYZXYZXYZ
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
@@ -256,7 +256,7 @@ file data
 
         datagen, headers = encode.multipart_encode([p], boundary)
 
-        expected = unix2dos("""--XYZXYZXYZ
+        expected = unix2dos(b"""--XYZXYZXYZ
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
@@ -264,16 +264,16 @@ bar
 --XYZXYZXYZ--
 """)
 
-        self.assertEquals("".join(datagen), expected)
+        self.assertEquals(b"".join(datagen), expected)
         datagen.reset()
-        self.assertEquals("".join(datagen), expected)
+        self.assertEquals(b"".join(datagen), expected)
 
     def test_reset_multiple_keys(self):
         params = encode.MultipartParam.from_params(
                 [("key", "value1"), ("key", "value2")])
         boundary = "XYZXYZXYZ"
         datagen, headers = encode.multipart_encode(params, boundary)
-        expected = unix2dos("""--XYZXYZXYZ
+        expected = unix2dos(b"""--XYZXYZXYZ
 Content-Disposition: form-data; name="key"
 Content-Type: text/plain; charset=utf-8
 
@@ -286,10 +286,10 @@ value2
 --XYZXYZXYZ--
 """)
 
-        encoded = "".join(datagen)
+        encoded = b"".join(datagen)
         self.assertEqual(encoded, expected)
         datagen.reset()
-        encoded = "".join(datagen)
+        encoded = b"".join(datagen)
         self.assertEqual(encoded, expected)
 
     def test_reset_file(self):
@@ -298,17 +298,17 @@ value2
         boundary = "XYZXYZXYZ"
         datagen, headers = encode.multipart_encode(params, boundary)
 
-        expected = unix2dos("""--XYZXYZXYZ
+        expected = unix2dos(b"""--XYZXYZXYZ
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
 
 file data
 --XYZXYZXYZ--
 """)
-        encoded = "".join(datagen)
+        encoded = b"".join(datagen)
         self.assertEqual(encoded, expected)
         datagen.reset()
-        encoded = "".join(datagen)
+        encoded = b"".join(datagen)
         self.assertEqual(encoded, expected)
 
     def test_MultipartParam_cb(self):
@@ -320,7 +320,7 @@ file data
 
         datagen, headers = encode.multipart_encode([p], boundary)
 
-        "".join(datagen)
+        b"".join(datagen)
 
         l = p.get_size(boundary)
         self.assertEquals(log[-1], (p, l, l))
@@ -329,11 +329,11 @@ file data
         log = []
         def cb(p, current, total):
             log.append( (p, current, total) )
-        p = encode.MultipartParam("foo", fileobj=open("tests/poster/test_encode.py"),
+        p = encode.MultipartParam("foo", fileobj=open(__file__),
                 cb=cb)
         boundary = encode.gen_boundary()
 
-        list(p.iter_encode(boundary))
+        content = b''.join(list(p.iter_encode(boundary)))
 
         l = p.get_size(boundary)
         self.assertEquals(log[-1], (p, l, l))
@@ -347,7 +347,7 @@ file data
 
         datagen, headers = encode.multipart_encode([p], boundary, cb=cb)
 
-        "".join(datagen)
+        b"".join(datagen)
 
         l = int(headers['Content-Length'])
         self.assertEquals(log[-1], (None, l, l))
@@ -359,18 +359,3 @@ class TestGenBoundary(TestCase):
 
         self.assertNotEqual(boundary1, boundary2)
         self.assert_(len(boundary1) > 0)
-
-class TestBackupGenBoundary(TestGenBoundary):
-    _orig_import = __import__
-    def setUp(self):
-        # Make import uuid fail
-        def my_import(name, *args, **kwargs):
-            if name == 'uuid':
-                raise ImportError("Disabled for testing")
-            return self._orig_import(name, *args, **kwargs)
-        __builtins__['__import__'] = my_import
-        reload(encode)
-
-    def tearDown(self):
-        __builtins__['__import__'] = self._orig_import
-        reload(encode)

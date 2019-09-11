@@ -136,6 +136,12 @@ class MultipartParam(object):
         oattrs = [getattr(other, a) for a in attrs]
         return myattrs == oattrs
 
+    def __lt__(self, other):
+        attrs = ['name', 'value', 'filename', 'filetype', 'filesize', 'fileobj']
+        myattrs = [getattr(self, a) for a in attrs]
+        oattrs = [getattr(other, a) for a in attrs]
+        return myattrs < oattrs
+
     def reset(self):
         if self.fileobj is not None:
             self.fileobj.seek(0)
@@ -223,6 +229,8 @@ class MultipartParam(object):
         else:
             value = self.value
 
+        value = ensure_binary(value)
+
         boundary = ensure_binary(boundary)
 
         if re.search(b"^--%s$" % re.escape(boundary), value, re.M):
@@ -249,9 +257,9 @@ class MultipartParam(object):
             yield block
             if self.cb:
                 self.cb(self, current, total)
-            last_block = ""
+            last_block = b""
             encoded_boundary = b"--%s" % encode_and_quote(boundary)
-            boundary_exp = re.compile("^%s$" % re.escape(encoded_boundary),
+            boundary_exp = re.compile(b"^%s$" % re.escape(encoded_boundary),
                     re.M)
             while True:
                 block = self.fileobj.read(blocksize)
@@ -261,6 +269,7 @@ class MultipartParam(object):
                     if self.cb:
                         self.cb(self, current, total)
                     break
+                block = ensure_binary(block)
                 last_block += block
                 if boundary_exp.search(last_block):
                     raise ValueError("boundary found in file data")
@@ -354,7 +363,7 @@ class multipart_yielder:
             self.param_iter = None
             self.p = None
             self.i = None
-            block = "--%s--\r\n" % self.boundary
+            block = b"--%s--\r\n" % self.boundary
             self.current += len(block)
             if self.cb:
                 self.cb(self.p, self.current, self.total)
@@ -409,6 +418,7 @@ def multipart_encode(params, boundary=None, cb=None):
         boundary = gen_boundary()
     else:
         boundary = quote_plus(boundary)
+    boundary = ensure_binary(boundary)
 
     headers = get_headers(params, boundary)
     params = MultipartParam.from_params(params)
