@@ -75,8 +75,9 @@ class ScheduleTest(AsyncHTTPTestCase):
         post_data['version'] = '1.0'
 
         datagen, headers = multipart_encode(post_data)
+        body = b''.join(datagen)
         self.fetch('/addversion.json', method='POST', headers=headers,
-                   body_producer=MultipartRequestBodyProducer(datagen))
+                   body=body)
 
 
 class SchedulerManagerTest(unittest.TestCase):

@@ -269,4 +269,4 @@ class MultipartRequestBodyProducer():
 
     def __call__(self, write):
         for part in self.datagen:
-            write(ensure_binary(part))
+            write(part)

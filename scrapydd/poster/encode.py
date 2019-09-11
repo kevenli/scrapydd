@@ -1,11 +1,8 @@
 """multipart/form-data encoding module
-
 This module provides functions that faciliate encoding name/value pairs
 as multipart/form-data suitable for a HTTP POST or PUT request.
-
 multipart/form-data is the standard way to upload files over HTTP"""
 
-unicode = str
 __all__ = ['gen_boundary', 'encode_and_quote', 'MultipartParam',
         'encode_string', 'encode_file_header', 'get_body_size', 'get_headers',
         'multipart_encode']
@@ -22,64 +19,54 @@ except ImportError:
         bits = random.getrandbits(160)
         return sha.new(str(bits)).hexdigest()
 
-import re, os, mimetypes
+import urllib.request, urllib.parse, urllib.error, re, os, mimetypes
 try:
     from email.header import Header
 except ImportError:
     # Python 2.4
     from email.Header import Header
 
-from six.moves.urllib.parse import quote_plus
-from six import next
 from six import ensure_binary
+from six.moves.urllib.parse import quote_plus
 
 def encode_and_quote(data):
-    """If ``data`` is unicode, return urllib.parse.quote_plus(data.encode("utf-8"))
-    otherwise return urllib.parse.quote_plus(data)"""
+    """If ``data`` is unicode, return urllib.quote_plus(data.encode("utf-8"))
+    otherwise return urllib.quote_plus(data)"""
     if data is None:
         return None
 
-    if isinstance(data, unicode):
+    if isinstance(data, str):
         data = data.encode("utf-8")
-    return quote_plus(data)
+    return quote_plus(data).encode('utf8')
 
 def _strify(s):
     """If s is a unicode string, encode it to UTF-8 and return the results,
     otherwise return str(s), or None if s is None"""
     if s is None:
         return None
-    if isinstance(s, unicode):
-        return s.encode("utf-8")
-    return str(s)
+    if isinstance(s, bytes):
+        return s
+    return str(s).encode('utf-8')
 
 class MultipartParam(object):
     """Represents a single parameter in a multipart/form-data request
-
     ``name`` is the name of this parameter.
-
     If ``value`` is set, it must be a string or unicode object to use as the
     data for this parameter.
-
     If ``filename`` is set, it is what to say that this parameter's filename
     is.  Note that this does not have to be the actual filename any local file.
-
     If ``filetype`` is set, it is used as the Content-Type for this parameter.
     If unset it defaults to "text/plain; charset=utf8"
-
     If ``filesize`` is set, it specifies the length of the file ``fileobj``
-
     If ``fileobj`` is set, it must be a file-like object that supports
     .read().
-
     Both ``value`` and ``fileobj`` must not be set, doing so will
     raise a ValueError assertion.
-
     If ``fileobj`` is set, and ``filesize`` is not specified, then
     the file's size will be determined first by stat'ing ``fileobj``'s
     file descriptor, and if that fails, by seeking to the end of the file,
     recording the current position as the size, and then by seeking back to the
     beginning of the file.
-
     ``cb`` is a callable which will be called from iter_encode with (self,
     current, total), representing the current parameter, current amount
     transferred, and the total size.
@@ -87,16 +74,19 @@ class MultipartParam(object):
     def __init__(self, name, value=None, filename=None, filetype=None,
                         filesize=None, fileobj=None, cb=None):
         self.name = Header(name).encode()
-        self.value = ensure_binary(value) if value else None
+        self.value = _strify(value)
         if filename is None:
             self.filename = None
         else:
-            if isinstance(filename, unicode):
-                # Encode with XML entities
-                self.filename = filename.encode("ascii", "xmlcharrefreplace")
-            else:
-                self.filename = str(filename)
-            self.filename = self.filename.replace(b'"', b'\\"')
+            # if isinstance(filename, str):
+            #     # Encode with XML entities
+            #     self.filename = filename.encode("ascii", "xmlcharrefreplace")
+            # else:
+            #     self.filename = str(filename)
+            self.filename = str(filename)
+            self.filename = self.filename.replace('"', '\\"')
+            self.filename = self.filename.encode("ascii", "xmlcharrefreplace")
+
         self.filetype = _strify(filetype)
 
         self.filesize = filesize
@@ -134,11 +124,8 @@ class MultipartParam(object):
     def from_file(cls, paramname, filename):
         """Returns a new MultipartParam object constructed from the local
         file at ``filename``.
-
         ``filesize`` is determined by os.path.getsize(``filename``)
-
         ``filetype`` is determined by mimetypes.guess_type(``filename``)[0]
-
         ``filename`` is set to os.path.basename(``filename``)
         """
 
@@ -152,12 +139,11 @@ class MultipartParam(object):
         """Returns a list of MultipartParam objects from a sequence of
         name, value pairs, MultipartParam instances,
         or from a mapping of names to values
-
         The values may be strings or file objects, or MultipartParam objects.
         MultipartParam object names must match the given names in the
         name,value pairs or mapping, if applicable."""
         if hasattr(params, 'items'):
-            params = params.items()
+            params = list(params.items())
 
         retval = []
         for item in params:
@@ -187,30 +173,27 @@ class MultipartParam(object):
         """Returns the header of the encoding of this parameter"""
         boundary = encode_and_quote(boundary)
 
-        headers = ["--%s" % boundary]
+        headers = [b"--%s" % boundary]
 
         if self.filename:
-            disposition = 'form-data; name="%s"; filename="%s"' % (self.name,
-                    self.filename.decode("utf-8"))
+            disposition = b'form-data; name="%s"; filename="%s"' % (ensure_binary(self.name),
+                    ensure_binary(self.filename))
         else:
-            disposition = 'form-data; name="%s"' % self.name
+            disposition = b'form-data; name="%s"' % ensure_binary(self.name)
 
-        headers.append("Content-Disposition: %s" % disposition)
+        headers.append(b"Content-Disposition: %s" % ensure_binary(disposition))
 
         if self.filetype:
             filetype = self.filetype
         else:
             filetype = "text/plain; charset=utf-8"
 
-        try:
-            headers.append("Content-Type: %s" % filetype.decode("utf-8"))
-        except:
-            headers.append("Content-Type: %s" % filetype)
+        headers.append(b"Content-Type: %s" % ensure_binary(filetype))
 
-        headers.append("")
-        headers.append("")
+        headers.append(b"")
+        headers.append(b"")
 
-        return "\r\n".join(headers)
+        return b"\r\n".join(headers)
 
     def encode(self, boundary):
         """Returns the string encoding of this parameter"""
@@ -219,13 +202,11 @@ class MultipartParam(object):
         else:
             value = self.value
 
-        try:
-            if re.search("^--%s$" % re.escape(boundary), value, re.M):
-                raise ValueError("boundary found in encoded string")
-        except TypeError:
-            pass
+        if re.search("^--%s$" % re.escape(boundary), value, re.M):
+            raise ValueError("boundary found in encoded string")
 
-        return "%s%s\r\n" % (self.encode_hdr(boundary), value)
+        #return "%s%s\r\n" % (self.encode_hdr(boundary), value)
+        return b"%s%s\r\n" % (self.encode_hdr(boundary), value)
 
     def iter_encode(self, boundary, blocksize=4096):
         """Yields the encoding of this parameter
@@ -246,21 +227,18 @@ class MultipartParam(object):
             if self.cb:
                 self.cb(self, current, total)
             last_block = ""
-            encoded_boundary = "--%s" % encode_and_quote(boundary)
+            encoded_boundary = b"--%s" % encode_and_quote(boundary)
             boundary_exp = re.compile("^%s$" % re.escape(encoded_boundary),
                     re.M)
             while True:
                 block = self.fileobj.read(blocksize)
                 if not block:
                     current += 2
-                    yield "\r\n"
+                    yield b"\r\n"
                     if self.cb:
                         self.cb(self, current, total)
                     break
-                try:
-                    last_block += block
-                except:
-                    last_block += str(block)
+                last_block += block
                 if boundary_exp.search(last_block):
                     raise ValueError("boundary found in file data")
                 last_block = last_block[-len(encoded_boundary)-2:]
@@ -290,19 +268,13 @@ def encode_file_header(boundary, paramname, filesize, filename=None,
         filetype=None):
     """Returns the leading data for a multipart/form-data field that contains
     file data.
-
     ``boundary`` is the boundary string used throughout a single request to
     separate variables.
-
     ``paramname`` is the name of the variable in this request.
-
     ``filesize`` is the size of the file data.
-
     ``filename`` if specified is the filename to give to this field.  This
     field is only useful to the server for determining the original filename.
-
     ``filetype`` if specified is the MIME type of this file.
-
     The actual file data should be sent after this header has been sent.
     """
 
@@ -319,7 +291,7 @@ def get_headers(params, boundary):
     """Returns a dictionary with Content-Type and Content-Length headers
     for the multipart/form-data encoding of ``params``."""
     headers = {}
-    boundary = quote_plus(boundary)
+    boundary = urllib.parse.quote_plus(boundary)
     headers['Content-Type'] = "multipart/form-data; boundary=%s" % boundary
     headers['Content-Length'] = str(get_body_size(params, boundary))
     return headers
@@ -368,10 +340,7 @@ class multipart_yielder:
         self.p = self.params[self.i]
         self.param_iter = self.p.iter_encode(self.boundary)
         self.i += 1
-        return self.__next__()
-
-    def next(self):
-        return self.__next__()
+        return next(self)
 
     def reset(self):
         self.i = 0
@@ -381,49 +350,39 @@ class multipart_yielder:
 
 def multipart_encode(params, boundary=None, cb=None):
     """Encode ``params`` as multipart/form-data.
-
     ``params`` should be a sequence of (name, value) pairs or MultipartParam
     objects, or a mapping of names to values.
     Values are either strings parameter values, or file-like objects to use as
     the parameter value.  The file-like objects must support .read() and either
     .fileno() or both .seek() and .tell().
-
     If ``boundary`` is set, then it as used as the MIME boundary.  Otherwise
     a randomly generated boundary will be used.  In either case, if the
     boundary string appears in the parameter values a ValueError will be
     raised.
-
     If ``cb`` is set, it should be a callback which will get called as blocks
     of data are encoded.  It will be called with (param, current, total),
     indicating the current parameter being encoded, the current amount encoded,
     and the total amount to encode.
-
     Returns a tuple of `datagen`, `headers`, where `datagen` is a
     generator that will yield blocks of data that make up the encoded
     parameters, and `headers` is a dictionary with the assoicated
     Content-Type and Content-Length headers.
-
     Examples:
-
     >>> datagen, headers = multipart_encode( [("key", "value1"), ("key", "value2")] )
     >>> s = "".join(datagen)
     >>> assert "value2" in s and "value1" in s
-
     >>> p = MultipartParam("key", "value2")
     >>> datagen, headers = multipart_encode( [("key", "value1"), p] )
     >>> s = "".join(datagen)
     >>> assert "value2" in s and "value1" in s
-
     >>> datagen, headers = multipart_encode( {"key": "value1"} )
     >>> s = "".join(datagen)
     >>> assert "value2" not in s and "value1" in s
-
     """
     if boundary is None:
         boundary = gen_boundary()
     else:
         boundary = quote_plus(boundary)
-
 
     headers = get_headers(params, boundary)
     params = MultipartParam.from_params(params)
