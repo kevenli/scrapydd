@@ -16,6 +16,7 @@ class TestEncode_String(TestCase):
         expected = unix2dos("""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
+
 bar
 """)
         self.assertEqual(expected,
@@ -25,6 +26,7 @@ bar
         expected = unix2dos("""--XXXXXXXXX
 Content-Disposition: form-data; name="foo baz"
 Content-Type: text/plain; charset=utf-8
+
 bar
 """)
         self.assertEqual(expected,
@@ -34,6 +36,7 @@ bar
         expected = unix2dos("""--XXXXXXXXX
 Content-Disposition: form-data; name="files[]"
 Content-Type: text/plain; charset=utf-8
+
 bar
 """)
         self.assertEqual(expected,
@@ -43,6 +46,7 @@ bar
         expected = unix2dos("""--XXXXXXXXX
 Content-Disposition: form-data; name="=?utf-8?b?4piD?="
 Content-Type: text/plain; charset=utf-8
+
 bar
 """)
         self.assertEqual(expected,
@@ -52,6 +56,7 @@ bar
         expected = unix2dos("""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
+
 bar baz@bat
 """)
         self.assertEqual(expected,
@@ -61,6 +66,7 @@ bar baz@bat
         expected = unix2dos("""--ABC+DEF
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
+
 bar
 """)
         self.assertEqual(expected,
@@ -70,6 +76,7 @@ bar
         expected = unix2dos("""--XXXXXXXXX
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
+
 b\xc3\xa1r
 """)
         self.assertEqual(expected,
@@ -143,7 +150,7 @@ class TestEncodeAndQuote(TestCase):
 
 class TestMultiparam(TestCase):
     def test_from_params(self):
-        fp = open("tests/test_encode.py")
+        fp = open("tests/poster/test_encode.py")
         expected = [encode.MultipartParam("foo", "bar"),
                     encode.MultipartParam("baz", fileobj=fp,
                         filename=fp.name,
@@ -163,7 +170,7 @@ class TestMultiparam(TestCase):
 
     def test_from_params_dict(self):
 
-        p = encode.MultipartParam('file', fileobj=open("tests/test_encode.py"))
+        p = encode.MultipartParam('file', fileobj=open("tests/poster/test_encode.py"))
         params = {"foo": "bar", "file": p}
 
         expected = [encode.MultipartParam("foo", "bar"), p]
@@ -175,7 +182,7 @@ class TestMultiparam(TestCase):
         self.assertEqual(retval, expected)
 
     def test_from_params_assertion(self):
-        p = encode.MultipartParam('file', fileobj=open("tests/test_encode.py"))
+        p = encode.MultipartParam('file', fileobj=open("tests/poster/test_encode.py"))
         params = {"foo": "bar", "baz": p}
 
         self.assertRaises(AssertionError, encode.MultipartParam.from_params,
@@ -187,6 +194,7 @@ class TestMultiparam(TestCase):
         expected = unix2dos("""--XYZXYZXYZ
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
+
 bar
 --XYZXYZXYZ--
 """)
@@ -213,10 +221,12 @@ bar
         expected = unix2dos("""--XYZXYZXYZ
 Content-Disposition: form-data; name="key"
 Content-Type: text/plain; charset=utf-8
+
 value1
 --XYZXYZXYZ
 Content-Disposition: form-data; name="key"
 Content-Type: text/plain; charset=utf-8
+
 value2
 --XYZXYZXYZ--
 """)
@@ -233,6 +243,7 @@ value2
         expected = unix2dos("""--XYZXYZXYZ
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
+
 file data
 --XYZXYZXYZ--
 """)
@@ -247,6 +258,7 @@ file data
         expected = unix2dos("""--XYZXYZXYZ
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
+
 bar
 --XYZXYZXYZ--
 """)
@@ -263,10 +275,12 @@ bar
         expected = unix2dos("""--XYZXYZXYZ
 Content-Disposition: form-data; name="key"
 Content-Type: text/plain; charset=utf-8
+
 value1
 --XYZXYZXYZ
 Content-Disposition: form-data; name="key"
 Content-Type: text/plain; charset=utf-8
+
 value2
 --XYZXYZXYZ--
 """)
@@ -286,6 +300,7 @@ value2
         expected = unix2dos("""--XYZXYZXYZ
 Content-Disposition: form-data; name="foo"
 Content-Type: text/plain; charset=utf-8
+
 file data
 --XYZXYZXYZ--
 """)
@@ -313,7 +328,7 @@ file data
         log = []
         def cb(p, current, total):
             log.append( (p, current, total) )
-        p = encode.MultipartParam("foo", fileobj=open("tests/test_encode.py"),
+        p = encode.MultipartParam("foo", fileobj=open("tests/poster/test_encode.py"),
                 cb=cb)
         boundary = encode.gen_boundary()
 

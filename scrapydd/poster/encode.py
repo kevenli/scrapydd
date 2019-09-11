@@ -28,6 +28,10 @@ except ImportError:
 
 from six import ensure_binary, ensure_str, string_types, text_type
 from six.moves.urllib.parse import quote_plus
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def encode_and_quote(data):
     """If ``data`` is unicode, return urllib.quote_plus(data.encode("utf-8"))
@@ -35,9 +39,11 @@ def encode_and_quote(data):
     if data is None:
         return None
 
-    if isinstance(data, str):
-        data = data.encode("utf-8")
+    data = ensure_binary(data)
     return quote_plus(data).encode('utf8')
+    # if isinstance(data, str):
+    #     data = data.encode("utf-8")
+    # return quote_plus(data).encode('utf8')
 
 def _strify(s):
     """If s is a unicode string, encode it to UTF-8 and return the results,
@@ -46,7 +52,14 @@ def _strify(s):
         return None
     if isinstance(s, bytes):
         return s
-    return str(s).encode('utf-8')
+    if isinstance(s, text_type):
+        s = ensure_binary(s)
+    elif isinstance(s, string_types):
+        # Encode with XML entities
+        s = ensure_binary(s)
+    else:
+        s = str(s)
+    return ensure_binary(s)
 
 class MultipartParam(object):
     """Represents a single parameter in a multipart/form-data request
@@ -117,6 +130,12 @@ class MultipartParam(object):
         oattrs = [getattr(other, a) for a in attrs]
         return cmp(myattrs, oattrs)
 
+    def __eq__(self, other):
+        attrs = ['name', 'value', 'filename', 'filetype', 'filesize', 'fileobj']
+        myattrs = [getattr(self, a) for a in attrs]
+        oattrs = [getattr(other, a) for a in attrs]
+        return myattrs == oattrs
+
     def reset(self):
         if self.fileobj is not None:
             self.fileobj.seek(0)
@@ -147,10 +166,11 @@ class MultipartParam(object):
         name,value pairs or mapping, if applicable."""
         if hasattr(params, 'items'):
             params = list(params.items())
-
+        logger.debug(params)
         retval = []
         for item in params:
             if isinstance(item, cls):
+                #logger.debug(item)
                 retval.append(item)
                 continue
             name, value = item
@@ -350,6 +370,9 @@ class multipart_yielder:
         self.current = 0
         for param in self.params:
             param.reset()
+
+    def next(self):
+        return self.__next__()
 
 def multipart_encode(params, boundary=None, cb=None):
     """Encode ``params`` as multipart/form-data.
