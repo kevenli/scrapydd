@@ -19,14 +19,14 @@ except ImportError:
         bits = random.getrandbits(160)
         return sha.new(str(bits)).hexdigest()
 
-import urllib.request, urllib.parse, urllib.error, re, os, mimetypes
+import re, os, mimetypes
 try:
     from email.header import Header
 except ImportError:
     # Python 2.4
     from email.Header import Header
 
-from six import ensure_binary
+from six import ensure_binary, ensure_str, string_types, text_type
 from six.moves.urllib.parse import quote_plus
 
 def encode_and_quote(data):
@@ -78,14 +78,17 @@ class MultipartParam(object):
         if filename is None:
             self.filename = None
         else:
-            # if isinstance(filename, str):
-            #     # Encode with XML entities
-            #     self.filename = filename.encode("ascii", "xmlcharrefreplace")
-            # else:
-            #     self.filename = str(filename)
-            self.filename = str(filename)
-            self.filename = self.filename.replace('"', '\\"')
-            self.filename = self.filename.encode("ascii", "xmlcharrefreplace")
+            if isinstance(filename, text_type):
+                self.filename = filename.encode("ascii", "xmlcharrefreplace")
+            elif isinstance(filename, string_types):
+                # Encode with XML entities
+                self.filename = ensure_str(filename, "ascii", "xmlcharrefreplace")
+            else:
+                self.filename = str(filename)
+            self.filename = ensure_binary(self.filename)
+            #self.filename = ensure_str(filename)
+            self.filename = self.filename.replace(b'"', b'\\"')
+            #self.filename = ensure_binary(self.filename)
 
         self.filetype = _strify(filetype)
 
@@ -291,7 +294,7 @@ def get_headers(params, boundary):
     """Returns a dictionary with Content-Type and Content-Length headers
     for the multipart/form-data encoding of ``params``."""
     headers = {}
-    boundary = urllib.parse.quote_plus(boundary)
+    boundary = quote_plus(boundary)
     headers['Content-Type'] = "multipart/form-data; boundary=%s" % boundary
     headers['Content-Length'] = str(get_body_size(params, boundary))
     return headers
