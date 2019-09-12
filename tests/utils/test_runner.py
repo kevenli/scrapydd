@@ -13,7 +13,7 @@ class RunnerTest(unittest.TestCase):
             time.sleep(1)
         stdout, stderr = p.communicate()
         output = stdout
-        self.assertEqual(output.strip().split(), '''error_spider
+        self.assertEqual(output.strip().split(), b'''error_spider
 fail_spider
 log_spider
 success_spider
@@ -29,7 +29,7 @@ warning_spider'''.split())
             time.sleep(1)
         stdout, stderr = p.communicate()
         output = stdout
-        self.assertEqual(output.strip(), 'TestModule')
+        self.assertEqual(output.strip(), b'TestModule')
 
     def test_project_settings(self):
         env = {}
@@ -40,4 +40,4 @@ warning_spider'''.split())
             time.sleep(1)
         stdout, stderr = p.communicate()
         output = stdout
-        self.assertEqual(output.strip(), '1')
+        self.assertEqual(output.strip(), b'1')
