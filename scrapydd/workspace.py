@@ -15,8 +15,8 @@ from w3lib.url import path_to_file_uri
 from shutil import copyfileobj
 from six import ensure_str
 
-
 logger = logging.getLogger(__name__)
+
 
 class ProjectWorkspace(object):
     pip = None
@@ -43,10 +43,10 @@ class ProjectWorkspace(object):
             raise NotImplementedError('Unsupported system %s' % sys.platform)
 
     def init(self):
-        '''
+        """
         init project isolated workspace,
         :return: future
-        '''
+        """
         future = Future()
         if os.path.exists(self.pip) and os.path.exists(self.python):
             future.set_result(self)
