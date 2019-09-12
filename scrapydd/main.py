@@ -422,8 +422,8 @@ class ExecuteCompleteHandler(RestBaseHandler):
             fields = self.ps.get_values(['task_id', 'status'])
             logger.debug(self.ps.get_nonfile_names())
             node_id = self.request.headers.get('X-Dd-Nodeid')
-            task_id = fields['task_id']
-            status = fields['status']
+            task_id = ensure_str(fields['task_id'])
+            status = ensure_str(fields['status'])
             if status == 'success':
                 status_int = 2
             elif status == 'fail':
