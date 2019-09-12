@@ -141,7 +141,9 @@ class ProjectWorkspace(object):
             retcode = process.poll()
             if retcode is not None:
                 if retcode == 0:
-                    future.set_result(process.stdout.read().splitlines())
+                    stdout = process.stdout.read()
+                    stdout = ensure_str(stdout)
+                    future.set_result(stdout.splitlines())
                 else:
                     #future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
                     future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))

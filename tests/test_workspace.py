@@ -55,6 +55,17 @@ class ProjectWorkspaceTest(AsyncTestCase):
         yield target.install_requirements()
 
 
+    @gen_test(timeout=30)
+    def test_spider_list(self):
+        target = ProjectWorkspace('test_project')
+        yield target.init()
+        target.put_egg(open(test_project_file, 'rb'), '1.0')
+        yield target.install_requirements()
+        spider_list = yield target.spider_list()
+        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider'],
+                         spider_list)
+
+
 def file_is_in_dir(dir, file):
     if os.path.dirname(file) == dir:
         return True
