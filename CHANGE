@@ -1,3 +1,7 @@
+v0.6.4:
+
+* fix installation issue: include requirements.txt in source package.
+
 v0.6.3:
 
 * enhance security: add xsrf protection.
