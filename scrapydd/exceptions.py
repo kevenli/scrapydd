@@ -34,6 +34,9 @@ class ProcessFailed(Exception):
         self.err_output = err_output
         self.std_output = std_output
 
+    def __str__(self):
+        return '%s, %s, %s' % (self.message, self.std_output, self.err_output)
+
 
 class InvalidProjectEgg(Exception):
     def __init__(self, message = None, detail = None):
