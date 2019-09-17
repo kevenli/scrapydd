@@ -1,5 +1,5 @@
 from .base import RestBaseHandler
-from ..models import session_scope, Session, Spider, Project, SpiderExecutionQueue, SpiderSettings
+from ..models import session_scope, Session, Spider, Project, SpiderExecutionQueue, SpiderSettings, NodeKey
 import json
 import logging
 import tornado
@@ -8,12 +8,56 @@ import os
 from ..stream import PostDataStreamer
 from ..exceptions import *
 from six import ensure_str
+from ..security import generate_digest
+from tornado.web import authenticated
 
 logger = logging.getLogger(__name__)
 
 
+class NodeHmacAuthenticationProvider(object):
+    def get_user(self, handler):
+        authorization = handler.request.headers.get("Authorization", "").split(" ")
+        if len(authorization) != 3:
+            logging.info("Invalid Authorization header {}".format(authorization))
+            return None
+
+        algorithm, key, provided_digest = authorization
+        if algorithm != "HMAC":
+            logging.info("Invalid algorithm {}".format(algorithm))
+            return None
+
+        with session_scope() as session:
+            node_key = session.query(NodeKey).filter_by(key=key).first()
+
+            if node_key is None:
+                logging.info("Invalid HMAC key {}".format(key))
+                return None
+            secret = node_key.app_secret
+            expected_digest = generate_digest(
+                secret, handler.request.method, handler.request.path, handler.request.query,
+                handler.request.body)
+
+            if not hmac.compare_digest(expected_digest, provided_digest):
+                logging.info("Invalid HMAC digest {}".format(provided_digest))
+                return None
+
+            return node_key.node_id
+
+
+
 class NodeBaseHandler(RestBaseHandler):
-    pass
+    authentication_providers = [NodeHmacAuthenticationProvider()]
+
+    def get_current_user(self):
+        # if enable_node_registration is not enabled, node do not need register to work.
+        # get node_id from request
+        if not self.settings.get('enable_node_registration', False):
+            return int(self.request.headers.get('X-Dd-Nodeid'))
+
+        for authentication_provider in self.authentication_providers:
+            node_id = authentication_provider.get_user(self)
+            if node_id:
+                return node_id
 
 
 class NodesHandler(NodeBaseHandler):
@@ -22,6 +66,8 @@ class NodesHandler(NodeBaseHandler):
         self.node_manager = node_manager
 
     def post(self):
+        if self.settings.get('enable_node_registration', False) and self.current_user is None:
+            return self.set_status(403, 'need register key')
         tags = self.get_argument('tags', '').strip()
         tags = None if tags == '' else tags
         remote_ip = self.request.headers.get('X-Real-IP') or self.request.remote_ip
@@ -35,6 +81,7 @@ class ExecuteNextHandler(NodeBaseHandler):
     def initialize(self, scheduler_manager=None):
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def post(self):
         with session_scope() as session:
             node_id = int(self.get_argument('node_id'))
@@ -97,6 +144,7 @@ class ExecuteCompleteHandler(NodeBaseHandler):
         self.webhook_daemon = webhook_daemon
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def prepare(self):
         # set the max size limiation here
         self.request.connection.set_max_body_size(MAX_STREAMED_SIZE)
@@ -108,6 +156,7 @@ class ExecuteCompleteHandler(NodeBaseHandler):
 
         # self.fout = open("raw_received.dat","wb+")
 
+    @authenticated
     def post(self):
         try:
             self.ps.finish_receive()
@@ -191,12 +240,13 @@ class ExecuteCompleteHandler(NodeBaseHandler):
         self.ps.receive(chunk)
 
 
-class NodeHeartbeatHandler(RestBaseHandler):
+class NodeHeartbeatHandler(NodeBaseHandler):
     def initialize(self, node_manager, scheduler_manager):
         super(NodeHeartbeatHandler, self).initialize()
         self.node_manager = node_manager
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def post(self, id):
         # logger.debug(self.request.headers)
         node_id = int(id)
@@ -216,11 +266,12 @@ class NodeHeartbeatHandler(RestBaseHandler):
         self.write(json.dumps(response_data))
 
 
-class JobStartHandler(RestBaseHandler):
+class JobStartHandler(NodeBaseHandler):
     def initialize(self, scheduler_manager):
         super(JobStartHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def post(self, jobid):
         pid = self.get_argument('pid')
         pid = int(pid) if pid else None

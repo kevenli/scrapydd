@@ -7,6 +7,13 @@ import unittest
 import json
 from scrapydd.poster.encode import multipart_encode
 from six import BytesIO
+from scrapydd.main import make_app
+from scrapydd.webhook import WebhookDaemon
+from scrapydd.settting import SpiderSettingLoader
+from scrapydd.schedule import SchedulerManager
+from scrapydd.nodes import NodeManager
+from scrapydd.config import Config
+from scrapydd.security import generate_digest
 
 
 class NodeTest(AppTest):
@@ -17,6 +24,29 @@ class NodeTest(AppTest):
         response = self.fetch('/nodes', method="POST", body="")
         self.assertEqual(200, response.code)
         return json.loads(response.body)['id']
+
+
+class NodeSecuryTest(AppTest):
+    def get_app(self):
+        config = Config()
+        scheduler_manager = SchedulerManager(config=config)
+        scheduler_manager.init()
+        node_manager = NodeManager(scheduler_manager)
+        node_manager.init()
+        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
+        webhook_daemon.init()
+        return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123', enable_node_registration=True)
+
+    def fetch(self, path, **kwargs):
+        auth = kwargs.pop('auth', True)
+        method = kwargs.pop('method', 'GET')
+        body = kwargs.pop('body', b'')
+        headers = kwargs.pop('headers', {})
+        if auth:
+            digest = generate_digest(self.node_key.secret_key, method, path, body)
+            headers['Authorization'] = b'%s %s %s' % (b'HMAC', self.node_key.key, digest)
+
+        return super(NodeSecuryTest, self).fetch(path, method=method, body=body, headers=headers)
 
 
 class NodesHandlerTest(AppTest):
@@ -41,9 +71,10 @@ class GetNextJobTest(NodeTest):
     def test_next_job(self):
         node_id = self.register_node()
         post_data = {'node_id': node_id}
+        headers = {'X-Dd-Nodeid' : str(node_id)}
         body = urlencode(post_data)
         path = '/executing/next_task'
-        response = self.fetch(path, method='POST', body=body)
+        response = self.fetch(path, method='POST', body=body, headers=headers)
         self.assertEqual(200, response.code)
 
 
@@ -87,7 +118,8 @@ class ExecuteCompleteHandlerTest(NodeTest):
 
         # fetch a job
         next_job_post_data = {'node_id': node_id}
-        res = self.fetch('/executing/next_task', method='POST', body=urlencode(next_job_post_data))
+        headers = {'X-Dd-Nodeid': str(node_id)}
+        res = self.fetch('/executing/next_task', method='POST', body=urlencode(next_job_post_data), headers=headers)
         self.assertEqual(200, res.code)
         task_id = json.loads(res.body)['data']['task']['task_id']
 
@@ -115,5 +147,12 @@ class ExecuteCompleteHandlerTest(NodeTest):
 class NodeHeartbeatHandler(NodeTest):
     def test_heartbeat(self):
         node_id = self.register_node()
-        res = self.fetch('/nodes/%d/heartbeat' % node_id, method='POST', body=b'')
+        headers = {'X-Dd-Nodeid': str(node_id)}
+        res = self.fetch('/nodes/%d/heartbeat' % node_id, method='POST', body=b'', headers=headers)
         self.assertEqual(200, res.code)
+
+
+class NodesHandlerSecureTest(NodeSecuryTest, NodesHandlerTest):
+    def post_without_auth(self):
+        response = self.fetch('/nodes', method="POST", body="", auth=False)
+        self.assertEqual(403, response.code)

@@ -610,7 +610,7 @@ class ListProjectVersionsHandler(RestBaseHandler):
 
 
 def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False,
-             enable_authentication=False, secret_key=''):
+             enable_authentication=False, secret_key='', enable_node_registration=False):
     """
 
     @type scheduler_manager SchedulerManager
@@ -628,7 +628,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
                     xsrf_cookies=True,
                     debug=debug,
                     enable_authentication=enable_authentication,
-                    scheduler_manager=scheduler_manager)
+                    scheduler_manager=scheduler_manager,
+                    enable_node_registration=enable_node_registration)
 
     if authentication_providers is None:
         authentication_providers = []
