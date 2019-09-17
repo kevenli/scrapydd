@@ -37,9 +37,9 @@ class NodesHandlerTest(AppTest):
         self.assertEqual(None, new_node.tags)
 
 
-class GetNextJobTest(AppTest):
+class GetNextJobTest(NodeTest):
     def test_next_job(self):
-        node_id = 1
+        node_id = self.register_node()
         post_data = {'node_id': node_id}
         body = urlencode(post_data)
         path = '/executing/next_task'
@@ -48,9 +48,9 @@ class GetNextJobTest(AppTest):
 
 
 @unittest.skip
-class GetNextJobSecureTest(AppTest):
+class GetNextJobSecureTest(NodeTest):
     def test_next_job_wrong_app_key(self):
-        node_id = 1
+        node_id = self.register_node()
         post_data = {'node_id': node_id}
         body = urlencode(post_data)
         path = '/api/v1/jobs/next'
@@ -60,7 +60,7 @@ class GetNextJobSecureTest(AppTest):
         self.assertEqual(403, response.code)
 
     def test_next_job_wrong_app_secret(self):
-        node_id = 1
+        node_id = self.register_node()
         post_data = {'node_id': node_id}
         body = urlencode(post_data)
         path = '/api/v1/jobs/next'
