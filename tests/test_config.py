@@ -1,6 +1,7 @@
 import unittest
 import os
 from scrapydd.config import Config
+from six.moves.configparser import ConfigParser, SafeConfigParser, NoSectionError, NoOptionError
 
 class ConfigTest(unittest.TestCase):
     def test_get(self):
@@ -16,7 +17,7 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(6800, target.getfloat('bind_port'))
 
     def test_getboolean(self):
-        target = Config()
+        target = Config(extra_sources=('tests/test.conf', ))
         self.assertEqual(False, target.getboolean('debug'))
 
     def test_get_from_env(self):
@@ -40,3 +41,24 @@ class ConfigTest(unittest.TestCase):
         os.environ['SCRAPYDD_DEBUG'] = debug
         self.assertEqual(True, target.getboolean('debug'))
         del os.environ['SCRAPYDD_DEBUG']
+
+    def test_get_bool_from_extrafiles(self):
+        target = Config(extra_sources=('tests/test.conf',))
+        self.assertEqual(False, target.getboolean('BoolSetting'))
+        self.assertEqual(True, target.getboolean('BoolSettingTrue'))
+
+    def test_get_from_values(self):
+        target = Config(values={'SomeSetting': 'Value'})
+        self.assertEqual('Value', target.get('SomeSetting'))
+
+    def test_get_raise_no_option_error(self):
+        target = Config()
+
+        try:
+            target.get('SomeNotExistOption')
+            self.fail('No Error caught')
+        except NoOptionError:
+            pass
+
+        v = target.get('SomeNotExistOption', 'DefaultValue')
+        self.assertEqual(v, 'DefaultValue')

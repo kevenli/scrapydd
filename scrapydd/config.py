@@ -25,7 +25,7 @@ class Config(object):
             if __package__:
                 default_config = ensure_str(get_data(__package__, 'scrapydd.default.conf'))
                 self.cp.readfp(StringIO(default_config))
-            for source in sources:
+            for source in sources + list(extra_sources):
                 if os.path.exists(source):
                     #self._load_config_file(open(source))
                     with open(source, 'r') as f:
@@ -33,14 +33,6 @@ class Config(object):
         else:
             self.cp = SafeConfigParser(values)
             self.cp.add_section(self.SECTION)
-
-    def _load_config_file(self, fp):
-        config = StringIO()
-        config.write('[' + self.SECTION + ']\n')
-        config.write(fp.read())
-        config.seek(0, os.SEEK_SET)
-
-        self.cp.readfp(config)
 
     def _getsources(self):
         sources = ['/etc/scrapydd/scrapydd.conf', r'c:\scrapydd\scrapydd.conf']
@@ -71,13 +63,6 @@ class Config(object):
     def getfloat(self, option, default=None):
         return self._get(option, float, default)
 
-    def items(self, section, default=None):
-        try:
-            return self.cp.items(section)
-        except (NoSectionError, NoOptionError):
-            if default is not None:
-                return default
-            raise
 
 class AgentConfig(Config):
     SECTION = 'agent'
