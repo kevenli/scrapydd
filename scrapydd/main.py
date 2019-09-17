@@ -38,6 +38,8 @@ from .handlers.base import AppBaseHandler
 from .handlers.admin import *
 from .handlers.profile import *
 from .handlers.rest import *
+from .handlers.node import NodesHandler, ExecuteNextHandler, ExecuteCompleteHandler, NodeHeartbeatHandler, \
+    JobStartHandler
 from .handlers import webui
 
 logger = logging.getLogger(__name__)
@@ -334,212 +336,6 @@ class DeleteSpiderJobHandler(AppBaseHandler):
             session.commit()
 
 
-class ExecuteNextHandler(RestBaseHandler):
-    scheduler_manager = None
-
-    def initialize(self, scheduler_manager=None):
-        self.scheduler_manager = scheduler_manager
-
-    def check_xsrf_cookie(self):
-        return None
-
-    def post(self):
-        with session_scope() as session:
-            node_id = int(self.request.arguments['node_id'][0])
-            next_task = self.scheduler_manager.get_next_task(node_id)
-
-            response_data = {'data': None}
-
-            if next_task is not None:
-                spider = session.query(Spider).filter_by(id=next_task.spider_id).first()
-                if not spider:
-                    logger.error('Task %s has not spider, deleting.' % next_task.id)
-                    session.query(SpiderExecutionQueue).filter_by(id=next_task.id).delete()
-                    self.write({'data': None})
-                    return
-
-                project = session.query(Project).filter_by(id=spider.project_id).first()
-                if not project:
-                    logger.error('Task %s has not project, deleting.' % next_task.id)
-                    session.query(SpiderExecutionQueue).filter_by(id=next_task.id).delete()
-                    self.write({'data': None})
-                    return
-
-                extra_requirements_setting = session.query(SpiderSettings) \
-                    .filter_by(spider_id=spider.id, setting_key='extra_requirements').first()
-
-                extra_requirements = extra_requirements_setting.value if extra_requirements_setting else ''
-                response_data['data'] = {'task': {
-                    'task_id': next_task.id,
-                    'spider_id': next_task.spider_id,
-                    'spider_name': next_task.spider_name,
-                    'project_name': next_task.project_name,
-                    'version': project.version,
-                    'extra_requirements': extra_requirements,
-                    'spider_parameters': {parameter.parameter_key: parameter.value for parameter in spider.parameters}
-                }}
-            self.write(json.dumps(response_data))
-
-
-MB = 1024 * 1024
-GB = 1024 * MB
-TB = 1024 * GB
-MAX_STREAMED_SIZE = 1 * GB
-
-
-@tornado.web.stream_request_body
-class ExecuteCompleteHandler(RestBaseHandler):
-    webhook_daemon = None
-    scheduler_manager = None
-    ps = None
-
-    def initialize(self, webhook_daemon=None, scheduler_manager=None):
-        """
-
-        @type webhook_daemon : WebhookDaemon
-
-        @type scheduler_manager: SchedulerManager
-        :return:
-        """
-        super(ExecuteCompleteHandler, self).initialize()
-        self.webhook_daemon = webhook_daemon
-        self.scheduler_manager = scheduler_manager
-
-    def prepare(self):
-        # set the max size limiation here
-        self.request.connection.set_max_body_size(MAX_STREAMED_SIZE)
-        try:
-            total = int(self.request.headers.get("Content-Length", "0"))
-        except TypeError:
-            total = 0
-        self.ps = PostDataStreamer(total)  # ,tmpdir="/tmp"
-
-        # self.fout = open("raw_received.dat","wb+")
-
-    def post(self):
-        try:
-            self.ps.finish_receive()
-            fields = self.ps.get_values(['task_id', 'status'])
-            logger.debug(self.ps.get_nonfile_names())
-            node_id = self.request.headers.get('X-Dd-Nodeid')
-            task_id = ensure_str(fields['task_id'])
-            status = ensure_str(fields['status'])
-            if status == 'success':
-                status_int = 2
-            elif status == 'fail':
-                status_int = 3
-            else:
-                self.set_status(401, 'Invalid argument: status.')
-                return
-
-            session = Session()
-            query = session.query(SpiderExecutionQueue) \
-                .filter(SpiderExecutionQueue.id == task_id, SpiderExecutionQueue.status.in_([1,5]))
-            # be compatible with old agent version
-            if node_id:
-                query = query.filter(SpiderExecutionQueue.node_id == node_id)
-            else:
-                logger.warning('Agent has not specified node id in complete request, client address: %s.' %
-                               self.request.remote_ip)
-            job = query.first()
-
-            if job is None:
-                self.set_status(404, 'Job not found.')
-                session.close()
-                return
-            log_file = None
-            items_file = None
-            try:
-                spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
-                if not os.path.exists(spider_log_folder):
-                    os.makedirs(spider_log_folder)
-
-                log_part = self.ps.get_parts_by_name('log')[0]
-                if log_part:
-                    import shutil
-                    log_file = os.path.join(spider_log_folder, job.id + '.log')
-                    shutil.copy(log_part['tmpfile'].name, log_file)
-
-            except Exception as e:
-                logger.error('Error when writing task log file, %s' % e)
-
-            items_parts = self.ps.get_parts_by_name('items')
-            if items_parts:
-                try:
-                    part = items_parts[0]
-                    tmpfile = part['tmpfile'].name
-                    logger.debug('tmpfile size: %d' % os.path.getsize(tmpfile))
-                    items_file_path = os.path.join('items', job.project_name, job.spider_name)
-                    if not os.path.exists(items_file_path):
-                        os.makedirs(items_file_path)
-                    items_file = os.path.join(items_file_path, '%s.jl' % job.id)
-                    import shutil
-                    shutil.copy(tmpfile, items_file)
-                    logger.debug('item file size: %d' % os.path.getsize(items_file))
-                except Exception as e:
-                    logger.error('Error when writing items file, %s' % e)
-
-            job.status = status_int
-            job.update_time = datetime.datetime.now()
-            historical_job = self.scheduler_manager.job_finished(job, log_file, items_file)
-
-            if items_file:
-                self.webhook_daemon.on_spider_complete(historical_job, items_file)
-
-            session.close()
-            logger.info('Job %s completed.' % task_id)
-            response_data = {'status': 'ok'}
-            self.write(json.dumps(response_data))
-
-        finally:
-            # Don't forget to release temporary files.
-            self.ps.release_parts()
-
-    def data_received(self, chunk):
-        self.ps.receive(chunk)
-
-
-class NodesHandler(RestBaseHandler):
-    def initialize(self, node_manager):
-        super(NodesHandler, self).initialize()
-        self.node_manager = node_manager
-
-    def check_xsrf_cookie(self):
-        return None
-
-    def post(self):
-        tags = self.get_argument('tags', '').strip()
-        tags = None if tags == '' else tags
-        remote_ip = self.request.headers.get('X-Real-IP') or self.request.remote_ip
-        node = self.node_manager.create_node(remote_ip, tags=tags)
-        self.write(json.dumps({'id': node.id}))
-
-
-class NodeHeartbeatHandler(RestBaseHandler):
-    def initialize(self, node_manager, scheduler_manager):
-        super(NodeHeartbeatHandler, self).initialize()
-        self.node_manager = node_manager
-        self.scheduler_manager = scheduler_manager
-
-    def post(self, id):
-        # logger.debug(self.request.headers)
-        node_id = int(id)
-        self.set_header('X-DD-New-Task', self.scheduler_manager.has_task(node_id))
-        try:
-            self.node_manager.heartbeat(node_id)
-            running_jobs = self.request.headers.get('X-DD-RunningJobs', None)
-            if running_jobs:
-                killing_jobs = list(self.scheduler_manager.jobs_running(node_id, running_jobs.split(',')))
-                if killing_jobs:
-                    logger.info('killing %s' % killing_jobs)
-                    self.set_header('X-DD-KillJobs', json.dumps(killing_jobs))
-            response_data = {'status': 'ok'}
-        except NodeExpired:
-            response_data = {'status': 'error', 'errmsg': 'Node expired'}
-            self.set_status(400, 'Node expired')
-        self.write(json.dumps(response_data))
-
-
 class JobsHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
         super(JobsHandler, self).initialize()
@@ -574,17 +370,6 @@ class ItemsFileHandler(AppBaseHandler):
             items_file = job.items_file
             self.set_header('Content-Type', 'application/json')
             self.write(open(items_file, 'r').read())
-
-
-class JobStartHandler(RestBaseHandler):
-    def initialize(self, scheduler_manager):
-        super(JobStartHandler, self).initialize()
-        self.scheduler_manager = scheduler_manager
-
-    def post(self, jobid):
-        pid = self.get_argument('pid')
-        pid = int(pid) if pid else None
-        self.scheduler_manager.job_start(jobid, pid)
 
 
 class JobEggHandler(RestBaseHandler):
@@ -885,11 +670,14 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/profile/change_password$', ProfileChangepasswordHandler),
 
         (r'/admin$', AdminHomeHandler),
+        (r'^/admin/nodes$', AdminNodesHandler),
+
+        # agent node ysing handlers
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
         (r'/executing/complete', ExecuteCompleteHandler,
          {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
-        (r'^/admin/nodes$', AdminNodesHandler),
+
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler,
          {'node_manager': node_manager, 'scheduler_manager': scheduler_manager}),
         (r'/jobs', JobsHandler, {'scheduler_manager': scheduler_manager}),

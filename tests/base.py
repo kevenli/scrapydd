@@ -9,6 +9,8 @@ from scrapydd.schedule import SchedulerManager
 from scrapydd.nodes import NodeManager
 from scrapydd.main import make_app
 from scrapydd.eggstorage import FilesystemEggStorage
+from scrapydd.webhook import WebhookDaemon
+from scrapydd.settting import SpiderSettingLoader
 from tornado.web import create_signed_value
 from tornado.httputil import HTTPHeaders
 from six import ensure_str, ensure_binary
@@ -65,7 +67,9 @@ class AppTest(AsyncHTTPTestCase):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None, secret_key='123')
+        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
+        webhook_daemon.init()
+        return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123')
 
     def _upload_test_project(self):
         post_data = {}
