@@ -285,7 +285,6 @@ Content-Type: text/plain; charset=utf-8
 value2
 --XYZXYZXYZ--
 """)
-
         encoded = b"".join(datagen)
         self.assertEqual(encoded, expected)
         datagen.reset()
@@ -329,7 +328,7 @@ file data
         log = []
         def cb(p, current, total):
             log.append( (p, current, total) )
-        p = encode.MultipartParam("foo", fileobj=open(__file__),
+        p = encode.MultipartParam("foo", fileobj=open(__file__, 'rb'),
                 cb=cb)
         boundary = encode.gen_boundary()
 
