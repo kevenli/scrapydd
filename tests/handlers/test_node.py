@@ -70,11 +70,12 @@ class GetNextJobSecureTest(AppTest):
         self.assertEqual(403, response.code)
 
 
-class ExecuteCompleteHandlerTest(AppTest):
+class ExecuteCompleteHandlerTest(NodeTest):
     def test_job_complete(self):
-        node_id = 1
         project_name = 'test_project'
         spider_name = 'success_spider'
+
+        node_id = self.register_node()
 
         # schedule a job
         with session_scope() as session:
