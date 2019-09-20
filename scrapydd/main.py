@@ -341,6 +341,7 @@ class JobsHandler(AppBaseHandler):
         super(JobsHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
 
+    @authenticated
     def get(self):
         pending, running, finished = self.scheduler_manager.jobs()
         context = {
