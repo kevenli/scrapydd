@@ -15,6 +15,10 @@ import shutil
 from .exceptions import *
 from six.moves.urllib.parse import urlparse, urljoin, urlencode
 from six.moves.urllib.error import URLError, HTTPError
+from .security import generate_digest
+from six.moves.configparser import ConfigParser
+from .poster.encode import multipart_encode
+from .poster.streaminghttp import register_openers
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +28,44 @@ TASK_STATUS_FAIL = 'fail'
 EXECUTOR_STATUS_OFFLINE = 0
 EXECUTOR_STATUS_ONLINE = 1
 
-from .poster.encode import multipart_encode
-from .poster.streaminghttp import register_openers
 register_openers()
+
+
+class NodeAsyncHTTPClient():
+    def __init__(self, service_base, io_loop=None, force_instance=False, **kwargs):
+        self.service_base = service_base
+        self.key = kwargs.pop('key', None)
+        self.secret_key = kwargs.pop('secret_key', None)
+        self.node_id = None
+        self.inner_client = AsyncHTTPClient(io_loop=io_loop, force_instance=force_instance, **kwargs)
+
+    def fetch(self, request, callback=None, raise_error=True, **kwargs):
+        if not isinstance(request, HTTPRequest):
+            request = HTTPRequest(url=request, **kwargs)
+        if self.key and self.secret_key:
+            parsed_url = urlparse(request.url)
+            path = parsed_url.path
+            query = parsed_url.query
+            method = request.method
+            body = request.body or b''
+            request.headers['Authorization'] = '%s %s %s' % ('HMAC',
+                                                             self.key,
+                                                             generate_digest(self.secret_key, method, path, query,
+                                                                             body))
+        if self.node_id:
+            request.headers['X-Dd-Nodeid'] = str(self.node_id)
+
+        return self.inner_client.fetch(request, callback=callback, raise_error=raise_error, **kwargs)
+
+    @coroutine
+    def node_online(self, tags):
+        url = urljoin(self.service_base, '/nodes')
+        register_postdata = urlencode({'tags': tags})
+        request = HTTPRequest(url=url, method='POST', body=register_postdata)
+
+        response = yield self.fetch(request)
+        self.node_id = json.loads(response.body)['id']
+        raise gen.Return(self.node_id)
 
 
 class SpiderTask():
@@ -91,7 +130,7 @@ class Executor():
         self.tags = config.get('tags')
 
         if config is None:
-            config =AgentConfig()
+            config = AgentConfig()
         self.task_slots = TaskSlotContainer(config.getint('slots', 1))
         self.config = config
         server_base = config.get('server')
@@ -116,22 +155,29 @@ class Executor():
             httpclient_defaults['ca_certs'] = 'keys/ca.crt'
             httpclient_defaults['validate_cert'] = True
         logger.debug(httpclient_defaults)
-        self.httpclient = AsyncHTTPClient(defaults=httpclient_defaults)
 
+        node_key = None
+        secret_key = None
+        if os.path.exists('conf/node.conf'):
+            cp = ConfigParser()
+            cp.read('conf/node.conf')
+            node_key = cp.get('agent', 'node_key')
+            secret_key = cp.get('agent', 'secret_key')
+
+        self.httpclient = NodeAsyncHTTPClient(self.service_base, key=node_key, secret_key=secret_key,
+                                              defaults=httpclient_defaults)
 
     def start(self):
         self.register_node()
-        #init heartbeat period callback
-        heartbeat_callback = PeriodicCallback(self.send_heartbeat, self.heartbeat_interval*1000)
+        # init heartbeat period callback
+        heartbeat_callback = PeriodicCallback(self.send_heartbeat, self.heartbeat_interval * 1000)
         heartbeat_callback.start()
 
-        #init checktask period callback
+        # init checktask period callback
         # the new version use HEARTBEAT response to tell client whether there is new task on server queue
         # so do not start this period method. But if server is an old version without that header info
         # client sill need to poll GET_TASK.
-        self.checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval*1000)
-
-
+        self.checktask_callback = PeriodicCallback(self.check_task, self.checktask_interval * 1000)
 
         self.ioloop.start()
 
@@ -180,7 +226,6 @@ class Executor():
         except Exception as e:
             logging.warning('Cannot connect to server. %s' % e)
 
-
     @coroutine
     def register_node(self):
         if self.custom_ssl_cert and self.service_base.startswith('https') and not os.path.exists('keys/ca.crt'):
@@ -194,15 +239,13 @@ class Executor():
             except HTTPError:
                 logger.info('Custom ca cert retrieve failed.')
         try:
-            url = urljoin(self.service_base, '/nodes')
-            register_postdata = urlencode({'tags': self.tags})
-            request = HTTPRequest(url=url, method='POST', body=register_postdata)
-            res = yield self.httpclient.fetch(request)
+
+            node_id = yield self.httpclient.node_online(self.tags)
             self.status = EXECUTOR_STATUS_ONLINE
-            self.node_id = json.loads(res.body)['id']
+            self.node_id = node_id
             logger.info('node %d registered' % self.node_id)
         except URLError as e:
-            logging.warning('Cannot connect to server, %s' % e )
+            logging.warning('Cannot connect to server, %s' % e)
         except socket.error as e:
             logging.warning('Cannot connect to server, %s' % e)
 
@@ -210,7 +253,6 @@ class Executor():
         if task is not None:
             task_executor = self.execute_task(task)
             self.task_slots.put_task(task_executor)
-
 
     @coroutine
     def get_next_task(self):
@@ -243,7 +285,7 @@ class Executor():
             logger.warning('Cannot connect to server')
 
     def execute_task(self, task):
-        egg_downloader = ProjectEggDownloader(service_base=self.service_base)
+        egg_downloader = ProjectEggDownloader(service_base=self.service_base, client=self.httpclient)
         executor = TaskExecutor(task, egg_downloader=egg_downloader)
         pid = None
         future = executor.execute()
@@ -255,7 +297,7 @@ class Executor():
     @coroutine
     def post_start_task(self, task, pid):
         url = urljoin(self.service_base, '/jobs/%s/start' % task.id)
-        post_data = urlencode({'pid':pid or ''})
+        post_data = urlencode({'pid': pid or ''})
         try:
             request = HTTPRequest(url=url, method='POST', body=post_data)
             respones = yield self.httpclient.fetch(request)
@@ -291,7 +333,6 @@ class Executor():
         self.ioloop.add_future(future, self.complete_task_done(task_executor, log_file, items_file))
         logger.info('task %s finished' % task_executor.task.id)
 
-
     def complete_task_done(self, task_executor, log_file, items_file):
         def complete_task_done_f(future):
             '''
@@ -308,7 +349,8 @@ class Executor():
             if items_file:
                 items_file.close()
             if response.error and isinstance(response.error, socket.error):
-                self.ioloop.call_later(10, self.complete_task, task_executor, TASK_STATUS_SUCCESS if task_executor.ret_code == 0 else TASK_STATUS_FAIL)
+                self.ioloop.call_later(10, self.complete_task, task_executor,
+                                       TASK_STATUS_SUCCESS if task_executor.ret_code == 0 else TASK_STATUS_FAIL)
                 logger.warning('Socket error when completing job, retry in 10 seconds.')
                 return
 
@@ -316,6 +358,7 @@ class Executor():
                 logger.warning('Error when post task complete request: %s' % response.error)
             self.task_slots.remove_task(task_executor)
             logger.debug('complete_task_done')
+
         return complete_task_done_f
 
     def task_finished(self, future):
@@ -325,6 +368,7 @@ class Executor():
     def check_task(self):
         if not self.task_slots.is_full():
             self.get_next_task()
+
 
 class TaskExecutor():
     def __init__(self, task, egg_downloader):
@@ -356,7 +400,8 @@ class TaskExecutor():
             logger.info('fetch spider egg done.')
             yield self.workspace.install_requirements(self.task.extra_requirements)
             logger.info('start run spider.')
-            run_spider_future = self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters, f_output=self._f_output, project=self.task.project_name)
+            run_spider_future = self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters,
+                                                          f_output=self._f_output, project=self.task.project_name)
             run_spider_pid = self.workspace.processes[0].pid
             if self.on_subprocess_start:
                 self.on_subprocess_start(self.task, run_spider_pid)
@@ -405,9 +450,12 @@ class TaskExecutor():
 
 
 class ProjectEggDownloader(object):
-    def __init__(self, service_base):
+    def __init__(self, service_base, client=None):
         self.download_path = None
         self.service_base = service_base
+        if client is None:
+            client = AsyncHTTPClient()
+        self.client = client
 
     def download_egg_future(self, job_id):
         ret_future = Future()
@@ -418,7 +466,8 @@ class ProjectEggDownloader(object):
         logger.debug('begin download egg.')
         egg_request_url = urljoin(self.service_base, '/jobs/%s/egg' % job_id)
         request = HTTPRequest(egg_request_url, streaming_callback=self._handle_chunk)
-        client = AsyncHTTPClient()
+        client = self.client
+
         def done_callback(future):
             self._fd.close()
             ex = future.exception()
@@ -426,13 +475,13 @@ class ProjectEggDownloader(object):
                 return ret_future.set_exception(ex)
 
             return ret_future.set_result(self.download_path)
+
         client.fetch(request).add_done_callback(done_callback)
         return ret_future
 
     def _handle_chunk(self, chunk):
         self._fd.write(chunk)
         self._fd.flush()
-
 
     def __del__(self):
         if os.path.exists(self.download_path):

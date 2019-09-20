@@ -7,12 +7,34 @@ import datetime
 import os
 from ..stream import PostDataStreamer
 from ..exceptions import *
-from six import ensure_str
+from six import ensure_str, binary_type
+from six.moves.urllib.parse import urlparse, urlencode
 from ..security import generate_digest
-from tornado.web import authenticated
+from tornado.web import HTTPError
+import hmac
+from ..eggstorage import FilesystemEggStorage
+import functools
 
 logger = logging.getLogger(__name__)
 
+
+def authenticated(method):
+    """Decorate methods with this to require that the user be logged in.
+
+    If the user is not logged in, they will be redirected to the configured
+    `login url <RequestHandler.get_login_url>`.
+
+    If you configure a login url with a query parameter, Tornado will
+    assume you know what you're doing and use it as-is.  If not, it
+    will add a `next` parameter so the login page knows where to send
+    you once you're logged in.
+    """
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if not self.current_user:
+            raise HTTPError(403)
+        return method(self, *args, **kwargs)
+    return wrapper
 
 class NodeHmacAuthenticationProvider(object):
     def get_user(self, handler):
@@ -32,16 +54,18 @@ class NodeHmacAuthenticationProvider(object):
             if node_key is None:
                 logging.info("Invalid HMAC key {}".format(key))
                 return None
-            secret = node_key.app_secret
+            secret = node_key.secret_key
+            body = handler.request.body if isinstance(handler.request.body, binary_type) else b''
             expected_digest = generate_digest(
                 secret, handler.request.method, handler.request.path, handler.request.query,
-                handler.request.body)
+                body)
+
 
             if not hmac.compare_digest(expected_digest, provided_digest):
                 logging.info("Invalid HMAC digest {}".format(provided_digest))
                 return None
 
-            return node_key.node_id
+            return node_key.used_node_id
 
 
 
@@ -56,8 +80,56 @@ class NodeBaseHandler(RestBaseHandler):
 
         for authentication_provider in self.authentication_providers:
             node_id = authentication_provider.get_user(self)
-            if node_id:
-                return node_id
+            return node_id
+
+
+class RegisterNodeHandler(NodeBaseHandler):
+    @authenticated
+    def post(self):
+        node_key = self.current_user
+        with session_scope() as session:
+            tags = self.get_argument('tags', '').strip()
+            tags = None if tags == '' else tags
+            remote_ip = self.request.remote_ip
+            node_manager = self.settings.get('node_manager')
+            node = node_manager.create_node(remote_ip, tags=tags, key_id=node_key.id)
+            node_key.used_node_id = node.id
+            session.add(node_key)
+            session.commit()
+            self.send_json({'id': node.id})
+
+    def get_current_user(self):
+        authorization = self.request.headers.get("Authorization", "").split(" ")
+        if len(authorization) != 3:
+            logging.info("Invalid Authorization header {}".format(authorization))
+            return None
+
+        algorithm, key, provided_digest = authorization
+        if algorithm != "HMAC":
+            logging.info("Invalid algorithm {}".format(algorithm))
+            return None
+
+        with session_scope() as session:
+            user_key = session.query(NodeKey).filter_by(key=key).first()
+
+            if user_key is None:
+                logging.info("Invalid HMAC key {}".format(key))
+                return None
+
+            if user_key.is_deleted:
+                logging.info("Invalid HMAC key {}".format(key))
+                return None
+
+            secret = user_key.secret_key
+            expected_digest = generate_digest(
+                secret, self.request.method, self.request.path, self.request.query,
+                self.request.body)
+
+            if not hmac.compare_digest(expected_digest, provided_digest):
+                logging.info("Invalid HMAC digest {}".format(provided_digest))
+                return None
+
+            return user_key
 
 
 class NodesHandler(NodeBaseHandler):
@@ -66,12 +138,22 @@ class NodesHandler(NodeBaseHandler):
         self.node_manager = node_manager
 
     def post(self):
-        if self.settings.get('enable_node_registration', False) and self.current_user is None:
-            return self.set_status(403, 'need register key')
+        enable_node_registration = self.settings.get('enable_node_registration', False)
+        node_id = NodeHmacAuthenticationProvider().get_user(self)
+
+        # if node_registerion is enabled, node should be assigned node_id before use by
+        # invoke /nodes/register
+        logger.debug('enable_node_registration : %s' % enable_node_registration)
+        if enable_node_registration and node_id is None:
+            return self.set_status(403, 'node registration is enabled, no key provided.')
+
         tags = self.get_argument('tags', '').strip()
         tags = None if tags == '' else tags
         remote_ip = self.request.headers.get('X-Real-IP') or self.request.remote_ip
-        node = self.node_manager.create_node(remote_ip, tags=tags)
+        if node_id:
+            node = self.node_manager.get_node(node_id)
+        else:
+            node = self.node_manager.create_node(remote_ip, tags=tags)
         self.write(json.dumps({'id': node.id}))
 
 
@@ -144,7 +226,6 @@ class ExecuteCompleteHandler(NodeBaseHandler):
         self.webhook_daemon = webhook_daemon
         self.scheduler_manager = scheduler_manager
 
-    @authenticated
     def prepare(self):
         # set the max size limiation here
         self.request.connection.set_max_body_size(MAX_STREAMED_SIZE)
@@ -249,7 +330,7 @@ class NodeHeartbeatHandler(NodeBaseHandler):
     @authenticated
     def post(self, id):
         # logger.debug(self.request.headers)
-        node_id = int(id)
+        node_id = int(self.current_user)
         self.set_header('X-DD-New-Task', self.scheduler_manager.has_task(node_id))
         try:
             self.node_manager.heartbeat(node_id)
@@ -276,3 +357,18 @@ class JobStartHandler(NodeBaseHandler):
         pid = self.get_argument('pid')
         pid = int(pid) if pid else None
         self.scheduler_manager.job_start(jobid, pid)
+
+
+class JobEggHandler(NodeBaseHandler):
+    @authenticated
+    def get(self, jobid):
+        with session_scope() as session:
+            job = session.query(SpiderExecutionQueue).filter_by(id=jobid).first()
+            if not job:
+                raise tornado.web.HTTPError(404)
+            spider = session.query(Spider).filter_by(id=job.spider_id).first()
+            storage = FilesystemEggStorage({})
+            version, f = storage.get(spider.project.name)
+            self.write(f.read())
+            session.close()
+

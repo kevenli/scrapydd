@@ -113,7 +113,7 @@ def run_register():
         else:
             server_base = 'http://%s:%d' % (server_base, config.getint('server_port'))
 
-    register_url = urljoin(server_base, '/api/v1/nodes/register')
+    register_url = urljoin(server_base, '/nodes/register')
     post_data = {'node_key':key}
     request = authenticated_request(url=register_url, method="POST", app_key=key, app_secret=key_secret,
                                     body=urlencode(post_data))

@@ -39,7 +39,7 @@ def generate_digest(secret, method, path, query, body):
     for key in sorted(parsed_query.keys()):
         for value in sorted(parsed_query[key]):
             canonical_query.append("=".join((key, quote(value))))
-
+    body = ensure_binary(body)
     return hmac.new(
         secret.encode("utf-8"),
         "\n".join((method, path, "&".join(canonical_query), "")).encode("utf-8") +

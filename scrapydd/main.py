@@ -39,7 +39,7 @@ from .handlers.admin import *
 from .handlers.profile import *
 from .handlers.rest import *
 from .handlers.node import NodesHandler, ExecuteNextHandler, ExecuteCompleteHandler, NodeHeartbeatHandler, \
-    JobStartHandler
+    JobStartHandler, RegisterNodeHandler, JobEggHandler
 from .handlers import webui
 
 logger = logging.getLogger(__name__)
@@ -372,19 +372,6 @@ class ItemsFileHandler(AppBaseHandler):
             self.write(open(items_file, 'r').read())
 
 
-class JobEggHandler(RestBaseHandler):
-    def get(self, jobid):
-        with session_scope() as session:
-            job = session.query(SpiderExecutionQueue).filter_by(id=jobid).first()
-            if not job:
-                raise tornado.web.HTTPError(404)
-            spider = session.query(Spider).filter_by(id=job.spider_id).first()
-            storage = FilesystemEggStorage({})
-            version, f = storage.get(spider.project.name)
-            self.write(f.read())
-            session.close()
-
-
 class SpiderWebhookHandler(AppBaseHandler):
     @authenticated
     def get(self, project_name, spider_name):
@@ -678,6 +665,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/executing/complete', ExecuteCompleteHandler,
          {'webhook_daemon': webhook_daemon, 'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
+        (r'/nodes/register', RegisterNodeHandler),
 
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler,
          {'node_manager': node_manager, 'scheduler_manager': scheduler_manager}),
@@ -761,7 +749,8 @@ def start_server(argv=None):
     app = make_app(scheduler_manager, node_manager, webhook_daemon,
                    debug=is_debug,
                    enable_authentication=enable_authentication,
-                   secret_key=secret_key)
+                   secret_key=secret_key,
+                   enable_node_registration=config.getboolean('enable_node_registration', False))
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)

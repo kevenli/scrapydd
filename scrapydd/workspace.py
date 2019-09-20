@@ -166,6 +166,7 @@ class ProjectWorkspace(object):
                             '-s',
                             '%s=%s' % (spider_parameter_key, spider_parameter_value)
                           ]
+        pargs += ['-o', str(path_to_file_uri(items_file))]
 
         env = os.environ.copy()
         env['SCRAPY_PROJECT'] = str(self.project_name)
