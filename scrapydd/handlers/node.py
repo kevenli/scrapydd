@@ -152,6 +152,12 @@ class NodesHandler(NodeBaseHandler):
         remote_ip = self.request.headers.get('X-Real-IP') or self.request.remote_ip
         if node_id:
             node = self.node_manager.get_node(node_id)
+            with session_scope() as session:
+                node.tags = tags
+                node.isalive = True
+                node.last_heartbeat = datetime.datetime.now()
+                session.add(node)
+                session.commit()
         else:
             node = self.node_manager.create_node(remote_ip, tags=tags)
         self.write(json.dumps({'id': node.id}))
