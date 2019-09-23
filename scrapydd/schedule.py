@@ -14,6 +14,7 @@ from .config import Config
 from sqlalchemy import distinct, desc, or_
 import os
 from .mail import MailSender
+from six import string_types
 
 
 
@@ -235,7 +236,7 @@ class SchedulerManager():
             session.close()
 
     def _regular_agent_tags(self, agent_tags):
-        if isinstance(agent_tags, str):
+        if isinstance(agent_tags, string_types):
             return agent_tags.split(',')
         if agent_tags is None:
             return [None]
