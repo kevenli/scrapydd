@@ -236,10 +236,10 @@ class SchedulerManager():
             session.close()
 
     def _regular_agent_tags(self, agent_tags):
+        if agent_tags is None:
+            return None
         if isinstance(agent_tags, string_types):
             return agent_tags.split(',')
-        if agent_tags is None:
-            return [None]
         return agent_tags
 
     def get_next_task(self, node_id):
@@ -277,9 +277,12 @@ class SchedulerManager():
     def _get_next_task(self, session, agent_tags):
         agent_tags = self._regular_agent_tags(agent_tags)
         query = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 0)
-        tags_condition = SpiderExecutionQueue.tag.is_(None)
+
         if agent_tags:
-            tags_condition = or_(tags_condition, SpiderExecutionQueue.tag.in_(agent_tags))
+            tags_condition = SpiderExecutionQueue.tag.in_(agent_tags)
+        else:
+            tags_condition = SpiderExecutionQueue.tag.is_(None)
+
         query = query.filter(tags_condition)
         query = query.order_by(SpiderExecutionQueue.fire_time)
         next_task = query.first()
