@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, schema, Column, desc
 from sqlalchemy.types import Integer, String, DateTime, Text, Boolean
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
@@ -56,6 +57,8 @@ class Spider(Base):
     project_id = Column(Integer, ForeignKey('projects.id'))
     project = relationship('Project')
     name = Column(String(length=50))
+    settings = relationship("SpiderSettings",
+                         collection_class=attribute_mapped_collection('setting_key'))
 
 Project.spiders = relationship("Spider", order_by = Spider.id)
 
@@ -80,7 +83,8 @@ class SpiderExecutionQueue(Base):
     __tablename__ = 'spider_execution_queue'
 
     id = Column(String(length=50), primary_key=True)
-    spider_id = Column(Integer)
+    spider_id = Column(Integer, ForeignKey('spiders.id'))
+    spider = relationship('Spider')
     slot = Column(Integer, default=1)
     project_name = Column(String(length=50))
     spider_name = Column(String(length=50))

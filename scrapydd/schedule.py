@@ -11,7 +11,7 @@ import logging
 import datetime
 from .exceptions import *
 from .config import Config
-from sqlalchemy import distinct, desc, or_
+from sqlalchemy import distinct, desc, or_, and_
 import os
 from .mail import MailSender
 from six import string_types
@@ -276,12 +276,16 @@ class SchedulerManager():
 
     def _get_next_task(self, session, agent_tags):
         agent_tags = self._regular_agent_tags(agent_tags)
-        query = session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 0)
+        tag_settings = session.query(SpiderSettings).filter(SpiderSettings.setting_key == 'tag').subquery()
+        query = session.query(SpiderExecutionQueue)\
+            .join(SpiderExecutionQueue.spider)\
+            .join(tag_settings, Spider.settings, isouter=True).filter(SpiderExecutionQueue.status == 0)
 
         if agent_tags:
-            tags_condition = SpiderExecutionQueue.tag.in_(agent_tags)
+            tags_condition = tag_settings.c.value.in_(agent_tags)
         else:
-            tags_condition = SpiderExecutionQueue.tag.is_(None)
+            tags_condition = tag_settings.c.value.is_(None)
+
 
         query = query.filter(tags_condition)
         query = query.order_by(SpiderExecutionQueue.fire_time)
