@@ -1,3 +1,14 @@
+v0.6.5:
+
+* modify tag matching rule: none tag agent cannot run any spider tag against none.
+* tag matching use spider's tag, will effect existing job when modify spider's tag after job been created.
+* enhance authentication check of web views and apis.
+* http stream tool python3 compatible.
+* move agent relatived handler into handlers package.
+* fix: job complete fail issue.
+* Workspace list_spiders return list of str.
+* add new unit tests.
+
 v0.6.4:
 
 * fix installation issue: include requirements.txt in source package.
