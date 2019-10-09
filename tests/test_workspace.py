@@ -8,7 +8,7 @@ import os
 test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
 
 class ProjectWorkspaceTest(AsyncTestCase):
-    @gen_test(timeout=30)
+    @gen_test(timeout=200)
     def test_init(self):
         target = ProjectWorkspace('test_project')
 
@@ -18,7 +18,7 @@ class ProjectWorkspaceTest(AsyncTestCase):
 
         self.assertTrue(file_is_in_dir(tempfile.gettempdir(), target.python))
 
-    @gen_test(timeout=30)
+    @gen_test(timeout=200)
     def test_init_after_init(self):
         target = ProjectWorkspace('test_project')
 
@@ -27,7 +27,7 @@ class ProjectWorkspaceTest(AsyncTestCase):
         self.assertTrue(os.path.exists(target.python))
         self.assertTrue(os.path.exists(target.pip))
 
-    @gen_test(timeout=30)
+    @gen_test(timeout=200)
     def test_init_kill(self):
         target = ProjectWorkspace('test_project')
 
@@ -47,7 +47,7 @@ class ProjectWorkspaceTest(AsyncTestCase):
         target.put_egg(open(test_project_file, 'rb'), '1.0')
         self.assertEqual(target.find_project_requirements(), ['scrapy'])
 
-    @gen_test(timeout=30)
+    @gen_test(timeout=200)
     def test_install_requirements(self):
         target = ProjectWorkspace('test_project')
         target.put_egg(open(test_project_file, 'rb'), '1.0')
@@ -55,7 +55,7 @@ class ProjectWorkspaceTest(AsyncTestCase):
         yield target.install_requirements()
 
 
-    @gen_test(timeout=30)
+    @gen_test(timeout=200)
     def test_spider_list(self):
         target = ProjectWorkspace('test_project')
         yield target.init()

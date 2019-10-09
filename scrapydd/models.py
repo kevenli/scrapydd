@@ -49,6 +49,7 @@ class Project(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(length=50))
     version = Column(String(length=50))
+    storage_version = Column(Integer)
 
 class Spider(Base):
     __tablename__ = 'spiders'

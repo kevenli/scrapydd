@@ -14,6 +14,7 @@ from tornado.web import HTTPError
 import hmac
 from ..eggstorage import FilesystemEggStorage
 import functools
+from ..storage import ProjectStorage
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +278,8 @@ class ExecuteCompleteHandler(NodeBaseHandler):
                 return
             log_file = None
             items_file = None
+
+            log_stream = None
             try:
                 spider_log_folder = os.path.join('logs', job.project_name, job.spider_name)
                 if not os.path.exists(spider_log_folder):
@@ -286,12 +289,14 @@ class ExecuteCompleteHandler(NodeBaseHandler):
                 if log_part:
                     import shutil
                     log_file = os.path.join(spider_log_folder, job.id + '.log')
-                    shutil.copy(log_part['tmpfile'].name, log_file)
+                    #shutil.copy(log_part['tmpfile'].name, log_file)
+                    log_stream = open(log_part['tmpfile'].name, 'rb')
 
             except Exception as e:
                 logger.error('Error when writing task log file, %s' % e)
 
             items_parts = self.ps.get_parts_by_name('items')
+            items_stream = None
             if items_parts:
                 try:
                     part = items_parts[0]
@@ -302,14 +307,19 @@ class ExecuteCompleteHandler(NodeBaseHandler):
                         os.makedirs(items_file_path)
                     items_file = os.path.join(items_file_path, '%s.jl' % job.id)
                     import shutil
-                    shutil.copy(tmpfile, items_file)
-                    logger.debug('item file size: %d' % os.path.getsize(items_file))
+                    #shutil.copy(tmpfile, items_file)
+                    items_stream = open(tmpfile, 'rb')
+                    #logger.debug('item file size: %d' % os.path.getsize(items_file))
                 except Exception as e:
                     logger.error('Error when writing items file, %s' % e)
 
             job.status = status_int
             job.update_time = datetime.datetime.now()
-            historical_job = self.scheduler_manager.job_finished(job, log_file, items_file)
+            historical_job = self.scheduler_manager.job_finished(job, log_stream, items_stream)
+
+            #data_dir = self.settings.get('project_storage_dir')
+            #project_storage = ProjectStorage(data_dir, historical_job.spider.project)
+            #project_storage.put_job_data(historical_job, open(historical_job), log_stream, items_stream)
 
             if items_file:
                 self.webhook_daemon.on_spider_complete(historical_job, items_file)
@@ -372,9 +382,10 @@ class JobEggHandler(NodeBaseHandler):
             job = session.query(SpiderExecutionQueue).filter_by(id=jobid).first()
             if not job:
                 raise tornado.web.HTTPError(404)
-            spider = session.query(Spider).filter_by(id=job.spider_id).first()
-            storage = FilesystemEggStorage({})
-            version, f = storage.get(spider.project.name)
+            project = job.spider.project
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
+            version, f = project_storage.get_egg()
+            logger.debug('get project version, project id: %s version: %s' % (project.id, version))
             self.write(f.read())
             session.close()
 

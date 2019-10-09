@@ -41,6 +41,7 @@ from .handlers.rest import *
 from .handlers.node import NodesHandler, ExecuteNextHandler, ExecuteCompleteHandler, NodeHeartbeatHandler, \
     JobStartHandler, RegisterNodeHandler, JobEggHandler
 from .handlers import webui
+from .storage import ProjectStorage
 
 logger = logging.getLogger(__name__)
 
@@ -105,15 +106,15 @@ class UploadProject(AppBaseHandler):
 
         logger.debug('spiders: %s' % spiders)
         with session_scope() as session:
-            storage = FilesystemEggStorage({})
-            eggf.seek(0)
-            storage.put(eggf, project_name, version)
             project = session.query(Project).filter_by(name=project_name).first()
+
             if project is None:
                 project = Project()
                 project.name = project_name
             project.version = version
             session.add(project)
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
+            project_storage.put_egg(eggf, version)
             session.commit()
             session.refresh(project)
 
@@ -319,19 +320,8 @@ class DeleteSpiderJobHandler(AppBaseHandler):
             if not job:
                 return self.set_status(404, 'job not found.')
 
-            if job.log_file:
-                try:
-                    os.remove(job.log_file)
-                except Exception as e:
-                    logger.warning(e.message)
-
-            original_log_file = os.path.join('logs', job.project_name, job.spider_name, '%s.log' % job.id)
-            if os.path.exists(original_log_file):
-                os.remove(original_log_file)
-
-            original_items_file = os.path.join('items', job.project_name, job.spider_name, '%s.jl' % job.id)
-            if os.path.exists(original_items_file):
-                os.remove(original_items_file)
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
+            project_storage.delete_job_data(job)
             session.delete(job)
             session.commit()
 
@@ -357,9 +347,8 @@ class LogsHandler(AppBaseHandler):
     def get(self, project, spider, jobid):
         with session_scope() as session:
             job = session.query(HistoricalJob).filter_by(id=jobid).first()
-            log_file = job.log_file
-            with open(log_file, 'r') as f:
-                log = f.read()
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), job.spider.project)
+            log = project_storage.get_job_log(job).read()
             self.render("log.html", log=log)
 
 
@@ -368,9 +357,9 @@ class ItemsFileHandler(AppBaseHandler):
     def get(self, project, spider, jobid):
         with session_scope() as session:
             job = session.query(HistoricalJob).filter_by(id=jobid).first()
-            items_file = job.items_file
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), job.spider.project)
             self.set_header('Content-Type', 'application/json')
-            self.write(open(items_file, 'r').read())
+            self.write(project_storage.get_job_items(job).read())
 
 
 class SpiderWebhookHandler(AppBaseHandler):
@@ -425,6 +414,7 @@ class DeleteProjectHandler(RestBaseHandler):
         project_name = self.get_argument('project')
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project_name).first()
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
             if not project:
                 return self.set_status(404, 'project not found.')
             spiders = session.query(Spider).filter_by(project_id=project.id)
@@ -435,20 +425,15 @@ class DeleteProjectHandler(RestBaseHandler):
                 session.commit()
                 for trigger in triggers:
                     self.scheduler_manager.remove_schedule(project_name, spider.name, trigger_id=trigger.id)
-                for history_log in session.query(HistoricalJob).filter(HistoricalJob.spider_id == spider.id):
-                    try:
-                        os.remove(history_log.log_file)
-                    except:
-                        pass
-                    try:
-                        os.remove(history_log.items_file)
-                    except:
-                        pass
-                    session.delete(history_log)
+
+                for job in spider.historical_jobs:
+                    project_storage.delete_job_data(job)
+                    session.delete(job)
                 session.delete(spider)
+
+            project_storage.delete_egg()
             session.delete(project)
-            storage = FilesystemEggStorage({})
-            storage.delete(project_name)
+
         logger.info('project %s deleted' % project_name)
 
 
@@ -598,7 +583,7 @@ class ListProjectVersionsHandler(RestBaseHandler):
 
 
 def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False,
-             enable_authentication=False, secret_key='', enable_node_registration=False):
+             enable_authentication=False, secret_key='', enable_node_registration=False, project_storage_dir='.'):
     """
 
     @type scheduler_manager SchedulerManager
@@ -617,7 +602,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
                     debug=debug,
                     enable_authentication=enable_authentication,
                     scheduler_manager=scheduler_manager,
-                    enable_node_registration=enable_node_registration)
+                    enable_node_registration=enable_node_registration,
+                    project_storage_dir=project_storage_dir)
 
     if authentication_providers is None:
         authentication_providers = []
@@ -751,7 +737,8 @@ def start_server(argv=None):
                    debug=is_debug,
                    enable_authentication=enable_authentication,
                    secret_key=secret_key,
-                   enable_node_registration=config.getboolean('enable_node_registration', False))
+                   enable_node_registration=config.getboolean('enable_node_registration', False),
+                   project_storage_dir=config.get('project_storage_dir'))
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)

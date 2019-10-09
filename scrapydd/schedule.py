@@ -14,6 +14,7 @@ from .config import Config
 from sqlalchemy import distinct, desc, or_, and_
 import os
 from .mail import MailSender
+from .storage import ProjectStorage
 from six import string_types
 
 
@@ -41,6 +42,7 @@ class SchedulerManager():
             'default': ThreadPoolExecutor(20),
             'processpool': ProcessPoolExecutor(5)
         }
+        self.project_storage_dir = config.get('project_storage_dir')
         self.scheduler = TornadoScheduler(executors=executors)
 
         self.poll_task_queue_callback = None
@@ -339,6 +341,8 @@ class SchedulerManager():
         job.status = job_status
         job.update_time = datetime.datetime.now()
 
+        project_storage = ProjectStorage(self.project_storage_dir, job.spider.project)
+
         historical_job = HistoricalJob()
         historical_job.id = job.id
         historical_job.spider_id = job.spider_id
@@ -349,28 +353,31 @@ class SchedulerManager():
         historical_job.complete_time = job.update_time
         historical_job.status = job.status
         if log_file:
-            historical_job.log_file = log_file
+            #historical_job.log_file = log_file
             import re
             items_crawled_pattern = re.compile("\'item_scraped_count\': (\d+),")
             error_log_pattern = re.compile("\'log_count/ERROR\': (\d+),")
             warning_log_pattern = re.compile("\'log_count/WARNING\': (\d+),")
-            with open(log_file, 'r') as f:
-                log_content = f.read()
-                m = items_crawled_pattern.search(log_content)
-                if m:
-                    historical_job.items_count = int(m.group(1))
+            #with open(log_file, 'r') as f:
+            log_content = log_file.read()
+            m = items_crawled_pattern.search(log_content)
+            if m:
+                historical_job.items_count = int(m.group(1))
 
-                m = error_log_pattern.search(log_content)
-                if m and historical_job.status == JOB_STATUS_SUCCESS:
-                    historical_job.status = JOB_STATUS_FAIL
-                m = warning_log_pattern.search(log_content)
-                if m and historical_job.status == JOB_STATUS_SUCCESS:
-                    historical_job.status = JOB_STATUS_WARNING
+            m = error_log_pattern.search(log_content)
+            if m and historical_job.status == JOB_STATUS_SUCCESS:
+                historical_job.status = JOB_STATUS_FAIL
+            m = warning_log_pattern.search(log_content)
+            if m and historical_job.status == JOB_STATUS_SUCCESS:
+                historical_job.status = JOB_STATUS_WARNING
 
-        if items_file:
-            historical_job.items_file = items_file
+        #if items_file:
+        #    historical_job.items_file = items_file
+        log_file.seek(0)
+        project_storage.put_job_data(job, log_file, items_file)
         session.delete(job)
         session.add(historical_job)
+
         session.commit()
         session.refresh(historical_job)
 
