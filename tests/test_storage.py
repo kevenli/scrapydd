@@ -86,8 +86,6 @@ class ProjectStorageTest(TestCase):
         version = '1.0'
         target = ProjectStorage(data_dir=data_dir, project=project)
 
-        target.delete_egg(version)
-
         target.put_egg(fegg, version)
 
         target_egg_filepath = os.path.join(target.storage_provider.get_project_eggs_dir(project), '%s.egg' % version)
