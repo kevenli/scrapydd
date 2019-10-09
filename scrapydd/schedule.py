@@ -15,7 +15,7 @@ from sqlalchemy import distinct, desc, or_, and_
 import os
 from .mail import MailSender
 from .storage import ProjectStorage
-from six import string_types
+from six import string_types, ensure_str
 
 
 
@@ -359,7 +359,7 @@ class SchedulerManager():
             error_log_pattern = re.compile("\'log_count/ERROR\': (\d+),")
             warning_log_pattern = re.compile("\'log_count/WARNING\': (\d+),")
             #with open(log_file, 'r') as f:
-            log_content = log_file.read()
+            log_content = ensure_str(log_file.read())
             m = items_crawled_pattern.search(log_content)
             if m:
                 historical_job.items_count = int(m.group(1))
