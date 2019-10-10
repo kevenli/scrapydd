@@ -57,13 +57,18 @@ class ProjectStorage:
 
     def put_job_data(self, job, log_file, item_file):
         log_file_path = self.storage_provider.get_job_log_path(job)
-
+        log_file_dir = path.dirname(log_file_path)
+        if not path.exists(log_file_dir):
+            os.makedirs(log_file_dir)
         if log_file:
             log_file.seek(0)
             with open(log_file_path, 'wb+') as f_log:
                 copyfileobj(log_file, f_log)
 
         items_file_path = self.storage_provider.get_job_item_path(job)
+        items_file_dir = path.dirname(items_file_path)
+        if not path.exists(items_file_dir):
+            os.makedirs(items_file_dir)
 
         if item_file:
             item_file.seek(0)

@@ -11,6 +11,7 @@ from scrapydd.main import make_app
 from scrapydd.eggstorage import FilesystemEggStorage
 from scrapydd.webhook import WebhookDaemon
 from scrapydd.settting import SpiderSettingLoader
+from scrapydd.storage import ProjectStorage
 from tornado.web import create_signed_value
 from tornado.httputil import HTTPHeaders
 from six import ensure_str, ensure_binary
@@ -36,15 +37,16 @@ class AppTest(AsyncHTTPTestCase):
                     'success_spider',
                     'warning_spider']
         egg_file = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
+
         with session_scope() as session:
-            storage = FilesystemEggStorage({})
-            egg_file.seek(0)
-            storage.put(egg_file, project_name, version)
             project = session.query(Project).filter_by(name=project_name).first()
             if project is None:
                 project = Project()
                 project.name = project_name
+                project.storage_version = 1
             project.version = version
+            project_storage = ProjectStorage('.', project)
+            project_storage.put_egg(egg_file, version)
             session.add(project)
             session.commit()
             session.refresh(project)

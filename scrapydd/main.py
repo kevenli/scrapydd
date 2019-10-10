@@ -639,6 +639,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/projects/(\w+)/spiders/(\w+)/webhook', SpiderWebhookHandler),
         (r'^/projects/(\w+)/spiders/(\w+)/run$', webui.RunSpiderHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),
+        (r'/projects/(\w+)/delete$', webui.DeleteProjectHandler),
+        (r'/projects/(\w+)/settings$', webui.ProjectSettingsHandler),
 
         (r'/profile$', ProfileHomeHandler),
         (r'/profile/keys$', ProfileKeysHandler),
