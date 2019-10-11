@@ -30,17 +30,15 @@ from .workspace import ProjectWorkspace
 from .cluster import ClusterNode
 from .ssl_gen import SSLCertificateGenerator
 from .settting import SpiderSettingLoader
-from .restapi import *
 from .security import NoAuthenticationProvider, CookieAuthenticationProvider, HmacAuthorize
 from .handlers.auth import LogoutHandler, SigninHandler, SignupHandler
-from .handlers.base import AppBaseHandler
-from .handlers.admin import *
-from .handlers.profile import *
-from .handlers.rest import *
+from .handlers.base import AppBaseHandler, RestBaseHandler
+from .handlers import admin, profile, rest, node
 from .handlers.node import NodesHandler, ExecuteNextHandler, ExecuteCompleteHandler, NodeHeartbeatHandler, \
     JobStartHandler, RegisterNodeHandler, JobEggHandler
 from .handlers import webui
 from .storage import ProjectStorage
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -620,10 +618,10 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/uploadproject', UploadProject),
 
         # scrapyd apis
-        (r'/addversion.json', AddVersionHandler),
+        (r'/addversion.json', rest.AddVersionHandler),
         (r'/delproject.json', DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
         (r'/listversions.json', ListProjectVersionsHandler),
-        (r'/schedule.json', ScheduleHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/schedule.json', rest.ScheduleHandler, {'scheduler_manager': scheduler_manager}),
 
         (r'/add_schedule.json', AddScheduleHandler, {'scheduler_manager': scheduler_manager}),
         (r'/projects', ProjectList),
@@ -641,12 +639,12 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/projects/(\w+)/delete$', webui.DeleteProjectHandler),
         (r'/projects/(\w+)/settings$', webui.ProjectSettingsHandler),
 
-        (r'/profile$', ProfileHomeHandler),
-        (r'/profile/keys$', ProfileKeysHandler),
-        (r'/profile/change_password$', ProfileChangepasswordHandler),
+        (r'/profile$', profile.ProfileHomeHandler),
+        (r'/profile/keys$', profile.ProfileKeysHandler),
+        (r'/profile/change_password$', profile.ProfileChangepasswordHandler),
 
-        (r'/admin$', AdminHomeHandler),
-        (r'^/admin/nodes$', AdminNodesHandler),
+        (r'/admin$', admin.AdminHomeHandler),
+        (r'^/admin/nodes$', admin.AdminNodesHandler),
 
         # agent node ysing handlers
         (r'/executing/next_task', ExecuteNextHandler, {'scheduler_manager': scheduler_manager}),
@@ -664,10 +662,6 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
         (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
         (r'/ca.crt', CACertHandler),
         (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': os.path.join(os.path.dirname(__file__), 'static')}),
-
-        (r'/api/v1/nodes$', RestNodesHandler),
-        (r'/api/v1/jobs/next', GetNextJobHandler, {'scheduler_manager': scheduler_manager}),
-        (r'/api/v1/nodes/register', RestRegisterNodeHandler),
     ], **settings)
 
 
