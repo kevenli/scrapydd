@@ -53,7 +53,7 @@ class ProjectStorage:
     def _eggpath(self, version):
         sanitized_version = re.sub(r'[^a-zA-Z0-9_-]', '_', version)
         return path.join(self.storage_provider.get_project_eggs_dir(self.project),
-                         sanitized_version)
+                         '%s.egg' % sanitized_version)
 
     def list_egg_versions(self):
         eggdir = self.storage_provider.get_project_eggs_dir(self.project)
