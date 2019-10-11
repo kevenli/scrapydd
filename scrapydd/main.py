@@ -108,6 +108,7 @@ class UploadProject(AppBaseHandler):
             if project is None:
                 project = Project()
                 project.name = project_name
+                project.storage_version = int(self.settings.get('default_project_storage_version'))
             project.version = version
             session.add(project)
             project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
@@ -580,7 +581,11 @@ class ListProjectVersionsHandler(RestBaseHandler):
 
 
 def make_app(scheduler_manager, node_manager, webhook_daemon=None, authentication_providers=None, debug=False,
-             enable_authentication=False, secret_key='', enable_node_registration=False, project_storage_dir='.'):
+             enable_authentication=False,
+             secret_key='',
+             enable_node_registration=False,
+             project_storage_dir='.',
+             default_project_storage_version=1):
     """
 
     @type scheduler_manager SchedulerManager
@@ -600,7 +605,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
                     enable_authentication=enable_authentication,
                     scheduler_manager=scheduler_manager,
                     enable_node_registration=enable_node_registration,
-                    project_storage_dir=project_storage_dir)
+                    project_storage_dir=project_storage_dir,
+                    default_project_storage_version=default_project_storage_version)
 
     if authentication_providers is None:
         authentication_providers = []

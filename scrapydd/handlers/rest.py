@@ -158,6 +158,7 @@ class AddVersionHandler(RestBaseHandler):
             if project is None:
                 project = Project()
                 project.name = project_name
+                project.storage_version = int(self.settings.get('default_project_storage_version'))
             project.version = version
             session.add(project)
             session.commit()
