@@ -7,7 +7,6 @@ import tornado.httpserver
 import tornado.netutil
 from tornado.web import authenticated
 from tornado import gen
-from .eggstorage import FilesystemEggStorage
 from io import StringIO, BytesIO
 from .models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
     SpiderWebhook, session_scope, SpiderSettings, WebhookJob, SpiderParameter, User
@@ -231,8 +230,8 @@ class SpiderEggHandler(AppBaseHandler):
     def get(self, id):
         session = Session()
         spider = session.query(Spider).filter_by(id=id).first()
-        storage = FilesystemEggStorage({})
-        version, f = storage.get(spider.project.name)
+        project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project=spider.project)
+        version, f = project_storage.get_egg()
         self.write(f.read())
         session.close()
 
@@ -243,8 +242,8 @@ class ProjectSpiderEggHandler(AppBaseHandler):
         with session_scope() as session:
             project = session.query(Project).filter(Project.name == project).first()
             spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider).first()
-            storage = FilesystemEggStorage({})
-            version, f = storage.get(spider.project.name)
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
+            version, f = project_storage.get_egg()
             self.write(f.read())
             session.close()
 
@@ -577,8 +576,8 @@ class ListProjectVersionsHandler(RestBaseHandler):
         except tornado.web.MissingArgumentError as e:
             return self.write({'status': 'error', 'message': e.arg_name})
 
-        storage = FilesystemEggStorage({})
-        versions = storage.list(project)
+        project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
+        versions = project_storage.list_egg_versions()
         return self.write({'status': 'ok', 'versions': versions})
 
 

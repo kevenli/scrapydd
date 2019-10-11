@@ -5,6 +5,7 @@ from glob import glob
 from distutils.version import LooseVersion
 from .exceptions import EggFileNotFound
 from shutil import copyfileobj, rmtree
+import re
 
 class ProjectStorage:
     def __init__(self, data_dir, project):
@@ -23,7 +24,7 @@ class ProjectStorage:
     def put_egg(self, eggf, version):
         eggf.seek(0)
         egg_file_dir = self.storage_provider.get_project_eggs_dir(self.project)
-        egg_file_path = path.join(egg_file_dir, '%s.egg' % version)
+        egg_file_path = self._eggpath(version)
         if not os.path.exists(egg_file_dir):
             os.makedirs(egg_file_dir)
         with open(egg_file_path, 'wb+') as fdst:
@@ -44,10 +45,15 @@ class ProjectStorage:
                 version = self.list_egg_versions()[-1]
             except IndexError:
                 return None, None
-        egg_file_path = path.join(eggs_dir, '%s.egg' % version)
+        egg_file_path = self._eggpath(version)
         if not path.exists(egg_file_path):
             raise EggFileNotFound()
         return version, open(egg_file_path, 'rb')
+
+    def _eggpath(self, version):
+        sanitized_version = re.sub(r'[^a-zA-Z0-9_-]', '_', version)
+        return path.join(self.storage_provider.get_project_eggs_dir(self.project),
+                         sanitized_version)
 
     def list_egg_versions(self):
         eggdir = self.storage_provider.get_project_eggs_dir(self.project)

@@ -2,7 +2,7 @@ import sys
 import os
 from scrapy.settings import overridden_settings, Settings, iter_default_settings
 from scrapy.utils.project import get_project_settings
-from .runner import FilesystemEggStorage, activate_egg, project_environment
+from .runner import activate_egg, project_environment
 import json
 
 def main():
@@ -18,7 +18,7 @@ def main():
         for key in setting.attributes.keys():
             if key not in default_settings:
                 setting_dict[key] = setting.attributes[key].value
-        print json.dumps(setting_dict)
+        print(json.dumps(setting_dict))
 
 
 if __name__ == '__main__':

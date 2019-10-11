@@ -1,5 +1,4 @@
 from tornado import gen
-from ..eggstorage import FilesystemEggStorage
 from ..exceptions import InvalidProjectEgg, ProcessFailed
 from ..workspace import ProjectWorkspace
 from .base import RestBaseHandler
@@ -10,6 +9,7 @@ from tornado.web import authenticated
 from ..security import generate_digest
 import hmac
 from ..schedule import JobRunning
+from ..storage import ProjectStorage
 from six import BytesIO
 from six import ensure_str
 
@@ -154,9 +154,6 @@ class AddVersionHandler(RestBaseHandler):
 
         logger.debug('spiders: %s' % spiders)
         with session_scope() as session:
-            storage = FilesystemEggStorage({})
-            eggf.seek(0)
-            storage.put(eggf, project_name, version)
             project = session.query(Project).filter_by(name=project_name).first()
             if project is None:
                 project = Project()
@@ -165,6 +162,10 @@ class AddVersionHandler(RestBaseHandler):
             session.add(project)
             session.commit()
             session.refresh(project)
+
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project=project)
+            eggf.seek(0)
+            project_storage.put_egg(eggf, version)
 
             for spider_name in spiders:
                 spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()

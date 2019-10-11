@@ -234,6 +234,7 @@ class SpiderInstanceHandler2Test(AppTest):
 
 class SpiderEggHandlerTest(AppTest):
     def test_get(self):
+        self._upload_test_project()
         with session_scope() as session:
             spider = session.query(Spider).first()
             project = spider.project
@@ -243,6 +244,7 @@ class SpiderEggHandlerTest(AppTest):
         self.assertEqual(200, response.code)
 
     def test_get_egg_by_project_spider_name(self):
+        self._upload_test_project()
         with session_scope() as session:
             spider = session.query(Spider).first()
             project = spider.project

@@ -88,7 +88,7 @@ class ProjectStorageTest(TestCase):
 
         target.put_egg(fegg, version)
 
-        target_egg_filepath = os.path.join(target.storage_provider.get_project_eggs_dir(project), '%s.egg' % version)
+        target_egg_filepath = os.path.join(target.storage_provider.get_project_eggs_dir(project), '1_0.egg')
 
         self.assertTrue(os.path.exists(target_egg_filepath))
         self.assertTrue(cmp(test_project_egg, target_egg_filepath))
@@ -102,7 +102,7 @@ class ProjectStorageTest(TestCase):
 
         get_version, get_file = target.get_egg(version)
         self.assertEqual(open('tests/test_project-1.0-py2.7.egg', 'rb').read(), get_file.read())
-        self.assertEqual('1.0', get_version)
+        self.assertEqual('1_0', get_version)
 
     def test_get_egg_with_version(self):
         data_dir = 'data'
@@ -134,7 +134,7 @@ class ProjectStorageTest(TestCase):
         target = ProjectStorage(data_dir=data_dir, project=project)
         self.test_put_egg()
 
-        self.assertEqual(target.list_egg_versions(), ['1.0'])
+        self.assertEqual(target.list_egg_versions(), ['1_0'])
 
     def put_job_data(self):
         data_dir = 'data'

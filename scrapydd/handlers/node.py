@@ -12,7 +12,6 @@ from six.moves.urllib.parse import urlparse, urlencode
 from ..security import generate_digest
 from tornado.web import HTTPError
 import hmac
-from ..eggstorage import FilesystemEggStorage
 import functools
 from ..storage import ProjectStorage
 

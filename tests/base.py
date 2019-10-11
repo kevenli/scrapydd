@@ -8,7 +8,6 @@ import os
 from scrapydd.schedule import SchedulerManager
 from scrapydd.nodes import NodeManager
 from scrapydd.main import make_app
-from scrapydd.eggstorage import FilesystemEggStorage
 from scrapydd.webhook import WebhookDaemon
 from scrapydd.settting import SpiderSettingLoader
 from scrapydd.storage import ProjectStorage
@@ -80,7 +79,7 @@ class AppTest(AsyncHTTPTestCase):
         post_data['version'] = '1.0'
 
         datagen, headers = multipart_encode(post_data)
-        databuffer = ''.join(datagen)
+        databuffer = b''.join(datagen)
         response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
         self.assertEqual(200, response.code)
 
