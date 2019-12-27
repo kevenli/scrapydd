@@ -41,11 +41,11 @@ def _move_project_files(project, config):
         for job in spider.historical_jobs:
             try:
                 job_items = old_project_storage.get_job_items(job)
-            except FileNotFoundError:
+            except IOError:
                 job_items = None
             try:
                 job_log = old_project_storage.get_job_log(job)
-            except FileNotFoundError:
+            except IOError:
                 job_log = None
             new_project_storage.put_job_data(job, log_file=job_log, item_file=job_items)
 

@@ -479,8 +479,8 @@ class SchedulerManager():
             job = session.query(HistoricalJob).filter(HistoricalJob.id == job.id).first()
             spider = job.spider
             project = spider.project
-            config = Config()
-            project_storage = ProjectStorage(config.get('project_storage_dir'), project)
+            project_storage_dir = self.config.get('project_storage_dir')
+            project_storage = ProjectStorage(project_storage_dir, project)
             project_storage.delete_job_data(job)
             session.delete(job)
             session.commit()
