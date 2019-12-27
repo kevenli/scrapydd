@@ -8,12 +8,21 @@ from shutil import copyfileobj, rmtree
 import re
 
 class ProjectStorage:
-    def __init__(self, data_dir, project):
+    '''
+
+
+    '''
+    def __init__(self, data_dir, project, storage_version=None):
         self.project = project
 
         project_storage_version = project.storage_version
-        if not project_storage_version:
-            project_storage_version = 1
+        if storage_version is not None:
+            project_storage_version = storage_version
+
+        # for old version of 1, there is no data_dir config, so the data_dir must be current running folder '.'
+        if project_storage_version == 1:
+            data_dir = '.'
+
         if project_storage_version == 1:
             self.storage_provider = ProjectStoragePathV1(data_dir)
         elif project_storage_version == 2:

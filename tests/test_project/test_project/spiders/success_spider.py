@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import scrapy
 import time
+from ..items import PageItem
 
 
 class SuccessSpiderSpider(scrapy.Spider):
@@ -11,4 +12,7 @@ class SuccessSpiderSpider(scrapy.Spider):
     )
 
     def parse(self, response):
-        yield {'url':response.url, 'body':response.body}
+        item = PageItem()
+        item['url'] = response.url
+        item['title'] = response.xpath('/html/head/title/text()').extract_first()
+        yield item

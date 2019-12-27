@@ -412,10 +412,10 @@ class SchedulerManager():
         for row in spiders:
             spider_id = row[0]
             with session_scope() as session:
-                over_limitation_jobs = list(session.query(HistoricalJob)\
-                    .filter(HistoricalJob.spider_id==spider_id)\
-                    .order_by(desc(HistoricalJob.complete_time))\
-                    .slice(job_history_limit_each_spider, 1000)\
+                over_limitation_jobs = list(session.query(HistoricalJob)
+                    .filter(HistoricalJob.spider_id==spider_id)
+                    .order_by(desc(HistoricalJob.complete_time))
+                    .slice(job_history_limit_each_spider, 1000)
                     .all())
             for over_limitation_job in over_limitation_jobs:
                 self._remove_histical_job(over_limitation_job)
@@ -477,26 +477,13 @@ class SchedulerManager():
 
         with session_scope() as session:
             job = session.query(HistoricalJob).filter(HistoricalJob.id == job.id).first()
-            if job.items_file:
-                try:
-                    os.remove(job.items_file)
-                except Exception as e:
-                    logger.warning(e.message)
-
-            if job.log_file:
-                try:
-                    os.remove(job.log_file)
-                except Exception as e:
-                    logger.warning(e.message)
-
-            original_log_file = os.path.join('logs', job.project_name, job.spider_name, '%s.log' % job.id)
-            if os.path.exists(original_log_file):
-                os.remove(original_log_file)
-
-            original_items_file = os.path.join('items', job.project_name, job.spider_name, '%s.jl' % job.id)
-            if os.path.exists(original_items_file):
-                os.remove(original_items_file)
+            spider = job.spider
+            project = spider.project
+            config = Config()
+            project_storage = ProjectStorage(config.get('project_storage_dir'), project)
+            project_storage.delete_job_data(job)
             session.delete(job)
+            session.commit()
 
     def remove_schedule(self, project_name, spider_name, trigger_id):
         with session_scope() as session:

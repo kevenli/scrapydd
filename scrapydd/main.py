@@ -39,6 +39,7 @@ from .handlers.node import NodesHandler, ExecuteNextHandler, ExecuteCompleteHand
 from .handlers import webui
 from .storage import ProjectStorage
 import json
+from .scripts.upgrade_filestorage import upgrade as upgrade_project_storage
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +112,7 @@ class UploadProject(AppBaseHandler):
                 project.storage_version = int(self.settings.get('default_project_storage_version'))
             project.version = version
             session.add(project)
+            session.flush()
             project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
             project_storage.put_egg(eggf, version)
             session.commit()
@@ -585,7 +587,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
              secret_key='',
              enable_node_registration=False,
              project_storage_dir='.',
-             default_project_storage_version=1):
+             default_project_storage_version=2):
     """
 
     @type scheduler_manager SchedulerManager
@@ -698,6 +700,7 @@ def start_server(argv=None):
 
     is_debug=config.getboolean('debug')
     init_database()
+    upgrade_project_storage()
     bind_address = config.get('bind_address')
     bind_port = config.getint('bind_port')
     try:
@@ -739,7 +742,8 @@ def start_server(argv=None):
                    enable_authentication=enable_authentication,
                    secret_key=secret_key,
                    enable_node_registration=config.getboolean('enable_node_registration', False),
-                   project_storage_dir=config.get('project_storage_dir'))
+                   project_storage_dir=config.get('project_storage_dir'),
+                   default_project_storage_version=config.get('default_project_storage_version'))
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
