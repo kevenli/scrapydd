@@ -95,6 +95,7 @@ class ScheduleTest(AsyncHTTPTestCase):
             if project is None:
                 project = Project()
                 project.name = project_name
+                project.storage_version = 2
             project.version = version
             session.add(project)
             session.commit()
