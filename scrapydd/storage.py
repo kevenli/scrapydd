@@ -42,10 +42,12 @@ class ProjectStorage:
     def delete_egg(self, version=None):
         egg_file_dir = self.storage_provider.get_project_eggs_dir(self.project)
         if version is None:
-            rmtree(egg_file_dir)
-        else:
-            egg_file_path = path.join(egg_file_dir, '%s.egg' % version)
-            os.remove(egg_file_path)
+            try:
+                version = self.list_egg_versions()[-1]
+            except IndexError:
+                return
+        egg_file_path = path.join(egg_file_dir, '%s.egg' % version)
+        os.remove(egg_file_path)
 
     def get_egg(self, version=None):
         eggs_dir = self.storage_provider.get_project_eggs_dir(self.project)

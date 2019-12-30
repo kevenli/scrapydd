@@ -21,7 +21,9 @@ class TestDeleteProjectHandler(AppTest):
                              body=urlencode(post_data))
             self.assertEqual(200, res.code)
 
-            self.assertFalse(path.exists(project_storage.storage_provider.get_project_eggs_dir(project)))
+            # do not delete folder
+            # self.assertFalse(path.exists(project_storage.storage_provider.get_project_eggs_dir(project)))
+            self.assertEqual(len(project_storage.list_egg_versions()), 0)
 
             self.assertIsNone(session.query(Project).filter_by(name=project_name).first())
 

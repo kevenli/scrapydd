@@ -73,7 +73,7 @@ class AppTest(AsyncHTTPTestCase):
         webhook_daemon.init()
         return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123',
                         project_workspace_cls=ProjectWorkspaceStub,
-                        project_storage_dir='/data')
+                        project_storage_dir='./test_data')
 
     def _upload_test_project(self):
         post_data = {}
