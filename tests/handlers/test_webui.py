@@ -15,8 +15,8 @@ class TestDeleteProjectHandler(AppTest):
 
             self.assertTrue(path.exists(project_storage.storage_provider.get_project_eggs_dir(project)))
 
-            headers = {'Cookie':"_xsrf=dummy"}
-            post_data = {'_xsrf' : 'dummy'}
+            headers = {'Cookie': "_xsrf=dummy"}
+            post_data = {'_xsrf': 'dummy'}
             res = self.fetch('/projects/%s/delete' % project_name, method="POST", headers=headers,
                              body=urlencode(post_data))
             self.assertEqual(200, res.code)
