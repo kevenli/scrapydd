@@ -140,12 +140,12 @@ class ProjectStoragePathV2():
         self.data_dir = data_dir
 
     def get_project_eggs_dir(self, project):
-        return os.path.join(self.data_dir, 'projects', str(project.id), 'eggs')
+        return os.path.join(self.data_dir, 'projects', '%d' % (project.id), 'eggs')
 
     def get_job_item_path(self, job):
-        return os.path.join(self.data_dir, 'projects', str(job.spider.project.id), 'spiders',
+        return os.path.join(self.data_dir, 'projects', '%d' % (job.spider.project.id), 'spiders',
                             job.spider.name, 'jobs/%s' % job.id, 'items.jl')
 
     def get_job_log_path(self, job):
-        return os.path.join(self.data_dir, 'projects', str(job.spider.project.id), 'spiders',
+        return os.path.join(self.data_dir, 'projects', '%d' % (job.spider.project.id), 'spiders',
                             job.spider.name, 'jobs/%s' % job.id, 'job.log')

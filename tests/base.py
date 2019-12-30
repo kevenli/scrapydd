@@ -48,7 +48,7 @@ class AppTest(AsyncHTTPTestCase):
                 project_storage = ProjectStorage('.', project)
                 project_storage.put_egg(egg_file, version)
                 session.add(project)
-                session.commit()
+                session.flush()
                 session.refresh(project)
 
                 for spider_name in spiders:

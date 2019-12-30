@@ -115,7 +115,6 @@ class UploadProject(AppBaseHandler):
             session.flush()
             project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
             project_storage.put_egg(eggf, version)
-            session.commit()
             session.refresh(project)
 
             for spider_name in spiders:
