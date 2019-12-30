@@ -128,3 +128,15 @@ class AddVersionHandlerTest_ProcessFail(AppTest):
         return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123',
                         project_workspace_cls=AddVersionHandlerTest_ProcessFail.ProcessFailProjectWorkspaceStub,
                         project_storage_dir='./test_data')
+
+
+class DeleteProjectHandlerTest(AppTest):
+    def test_post(self):
+        project_name = 'test_project'
+        postdata = {'project': project_name}
+        response = self.fetch('/delproject.json', method='POST', body=urlencode(postdata))
+        self.assertIn(response.code, [404, 200])
+
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project_name).first()
+            self.assertIsNone(project)

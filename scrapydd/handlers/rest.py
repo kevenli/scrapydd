@@ -2,6 +2,7 @@ from tornado import gen
 from ..exceptions import InvalidProjectEgg, ProcessFailed
 from .base import RestBaseHandler
 from ..models import session_scope, Spider, SpiderExecutionQueue, Project, SpiderSettings, NodeKey, Node
+from ..models import Trigger, SpiderParameter
 import logging
 import json
 from tornado.web import authenticated
@@ -206,3 +207,36 @@ class ScheduleHandler(RestBaseHandler):
             }
             self.set_status(400, 'job is running')
             self.write(json.dumps(response_data))
+
+
+class DeleteProjectHandler(RestBaseHandler):
+    def initialize(self, scheduler_manager):
+        super(DeleteProjectHandler, self).initialize()
+        self.scheduler_manager = scheduler_manager
+
+    @authenticated
+    def post(self):
+        project_name = self.get_argument('project')
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project_name).first()
+            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
+            if not project:
+                return self.set_status(404, 'project not found.')
+            spiders = session.query(Spider).filter_by(project_id=project.id)
+            for spider in spiders:
+                triggers = session.query(Trigger).filter_by(spider_id=spider.id)
+                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
+                session.query(SpiderParameter).filter_by(spider_id=spider.id).delete()
+                session.commit()
+                for trigger in triggers:
+                    self.scheduler_manager.remove_schedule(project_name, spider.name, trigger_id=trigger.id)
+
+                for job in spider.historical_jobs:
+                    project_storage.delete_job_data(job)
+                    session.delete(job)
+                session.delete(spider)
+
+            project_storage.delete_egg()
+            session.delete(project)
+
+        logger.info('project %s deleted' % project_name)

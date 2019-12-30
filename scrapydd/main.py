@@ -403,39 +403,6 @@ class SpiderWebhookHandler(AppBaseHandler):
             session.commit()
 
 
-class DeleteProjectHandler(RestBaseHandler):
-    def initialize(self, scheduler_manager):
-        super(DeleteProjectHandler, self).initialize()
-        self.scheduler_manager = scheduler_manager
-
-    @authenticated
-    def post(self):
-        project_name = self.get_argument('project')
-        with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
-            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
-            if not project:
-                return self.set_status(404, 'project not found.')
-            spiders = session.query(Spider).filter_by(project_id=project.id)
-            for spider in spiders:
-                triggers = session.query(Trigger).filter_by(spider_id=spider.id)
-                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
-                session.query(SpiderParameter).filter_by(spider_id=spider.id).delete()
-                session.commit()
-                for trigger in triggers:
-                    self.scheduler_manager.remove_schedule(project_name, spider.name, trigger_id=trigger.id)
-
-                for job in spider.historical_jobs:
-                    project_storage.delete_job_data(job)
-                    session.delete(job)
-                session.delete(spider)
-
-            project_storage.delete_egg()
-            session.delete(project)
-
-        logger.info('project %s deleted' % project_name)
-
-
 class SpiderSettingsHandler(AppBaseHandler):
     available_settings = {
         'concurrency': '\d+',
@@ -595,7 +562,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
     @type webhook_daemon: WebhookDaemon
     @type authentication_provider: AuthenticationProvider
 
-    :return:
+    :return: tornado.web.Application
     """
 
     settings = dict(cookie_secret=secret_key,
@@ -628,7 +595,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
 
         # scrapyd apis
         (r'/addversion.json', rest.AddVersionHandler),
-        (r'/delproject.json', DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
+        (r'/delproject.json', rest.DeleteProjectHandler, {'scheduler_manager': scheduler_manager}),
         (r'/listversions.json', ListProjectVersionsHandler),
         (r'/schedule.json', rest.ScheduleHandler, {'scheduler_manager': scheduler_manager}),
 

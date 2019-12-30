@@ -45,11 +45,12 @@ class AppTest(AsyncHTTPTestCase):
                     project.name = project_name
                     project.storage_version = 2
                 project.version = version
-                project_storage = ProjectStorage('.', project)
-                project_storage.put_egg(egg_file, version)
                 session.add(project)
                 session.flush()
                 session.refresh(project)
+
+                project_storage = ProjectStorage('.', project)
+                project_storage.put_egg(egg_file, version)
 
                 for spider_name in spiders:
                     spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
@@ -58,10 +59,10 @@ class AppTest(AsyncHTTPTestCase):
                         spider.name = spider_name
                         spider.project_id = project.id
                         session.add(spider)
-                        session.commit()
+                        session.flush()
                         session.refresh(spider)
 
-                    session.commit()
+                session.commit()
 
     def get_app(self):
         config = Config()
