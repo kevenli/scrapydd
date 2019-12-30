@@ -1,6 +1,5 @@
 from tornado import gen
 from ..exceptions import InvalidProjectEgg, ProcessFailed
-from ..workspace import ProjectWorkspace
 from .base import RestBaseHandler
 from ..models import session_scope, Spider, SpiderExecutionQueue, Project, SpiderSettings, NodeKey, Node
 import logging
@@ -124,7 +123,7 @@ class AddVersionHandler(RestBaseHandler):
         eggf = BytesIO(eggfile['body'])
 
         try:
-            workspace = ProjectWorkspace(project_name)
+            workspace = self.get_project_workspace(project_name)
 
             yield workspace.init()
             workspace.put_egg(eggf, version)

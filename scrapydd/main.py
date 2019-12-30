@@ -74,7 +74,7 @@ class UploadProject(AppBaseHandler):
         eggf = BytesIO(eggfile['body'])
 
         try:
-            workspace = ProjectWorkspace(project_name)
+            workspace = self.get_project_workspace(project_name)
 
             yield workspace.init()
             workspace.put_egg(eggf, version)
@@ -587,7 +587,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
              secret_key='',
              enable_node_registration=False,
              project_storage_dir='.',
-             default_project_storage_version=2):
+             default_project_storage_version=2,
+             project_workspace_cls = ProjectWorkspace):
     """
 
     @type scheduler_manager SchedulerManager
@@ -608,7 +609,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
                     scheduler_manager=scheduler_manager,
                     enable_node_registration=enable_node_registration,
                     project_storage_dir=project_storage_dir,
-                    default_project_storage_version=default_project_storage_version)
+                    default_project_storage_version=default_project_storage_version,
+                    project_workspace_cls=project_workspace_cls)
 
     if authentication_providers is None:
         authentication_providers = []

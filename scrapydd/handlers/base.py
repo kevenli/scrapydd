@@ -36,6 +36,10 @@ class AppBaseHandler(tornado.web.RequestHandler):
     def data_received(self, chunk):
         pass
 
+    def get_project_workspace(self, project_name):
+        project_workspace_cls = self.settings.get('project_workspace_cls')
+        return project_workspace_cls(project_name)
+
 
 class RestBaseHandler(AppBaseHandler):
     authentication_providers = [HmacAuthorize(),  BasicAuthentication()]
