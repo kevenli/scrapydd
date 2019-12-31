@@ -97,11 +97,18 @@ class ProjectStorage:
 
         if path.exists(log_file_path):
             os.remove(log_file_path)
+        log_file_dir = path.dirname(log_file_path)
+        if path.exists(log_file_dir) and not os.listdir(log_file_dir):
+            os.rmdir(log_file_dir)
 
         items_file_path = self.storage_provider.get_job_item_path(job)
 
         if path.exists(items_file_path):
             os.remove(items_file_path)
+        items_file_dir = path.dirname(items_file_path)
+        if path.exists(items_file_dir) and not(os.listdir(items_file_dir)):
+            os.rmdir(items_file_dir)
+
 
     def get_job_log(self, job):
         log_file_path = self.storage_provider.get_job_log_path(job)
