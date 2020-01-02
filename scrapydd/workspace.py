@@ -30,16 +30,17 @@ class ProjectWorkspace(object):
         if not base_workdir:
             base_workdir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         project_workspace_dir = base_workdir
+        self.venv_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
         self.keep_files = keep_files
         self.processes = []
         if sys.platform.startswith('linux'):
-            self.pip = os.path.join(project_workspace_dir, 'bin', 'pip')
-            self.python = os.path.join(project_workspace_dir, 'bin', 'python')
+            self.pip = os.path.join(self.venv_dir, 'bin', 'pip')
+            self.python = os.path.join(self.venv_dir, 'bin', 'python')
         elif sys.platform.startswith('win'):
-            self.pip = os.path.join(project_workspace_dir, 'Scripts', 'pip.exe')
-            self.python = os.path.join(project_workspace_dir, 'Scripts', 'python.exe')
+            self.pip = os.path.join(self.venv_dir, 'Scripts', 'pip.exe')
+            self.python = os.path.join(self.venv_dir, 'Scripts', 'python.exe')
         else:
             raise NotImplementedError('Unsupported system %s' % sys.platform)
 
@@ -56,7 +57,7 @@ class ProjectWorkspace(object):
         logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
         try:
-            process = Popen([sys.executable, '-m', 'virtualenv', '--system-site-packages', self.project_workspace_dir], stdout=PIPE, stderr=PIPE)
+            process = Popen([sys.executable, '-m', 'virtualenv', '--system-site-packages', self.venv_dir], stdout=PIPE, stderr=PIPE)
             self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
@@ -216,7 +217,7 @@ class ProjectWorkspace(object):
         wait_process(process, done)
         return future
 
-    def put_egg(self, eggfile, version):
+    def put_egg(self, eggfile, version=None):
         eggfile.seek(0)
         eggpath = os.path.join(self.project_workspace_dir, 'spider.egg')
         with open(eggpath, 'wb') as f:
@@ -243,6 +244,9 @@ class ProjectWorkspace(object):
                 logger.error('Caught OSError when try to kill subprocess: %s' % e)
 
     def __del__(self):
+        if self.venv_dir and os.path.exists(self.venv_dir):
+            shutil.rmtree(self.venv_dir)
+
         if self.keep_files:
             return
 
@@ -255,3 +259,72 @@ def wait_process(process, callback):
         return callback(process)
 
     IOLoop.current().call_later(1, wait_process, process, callback)
+
+
+class VenvRunner(object):
+    _finished = False
+    _work_dir = None
+    _pip = None
+    _python = None
+
+    def __init__(self, work_dir):
+        self._work_dir = work_dir
+
+    def run(self):
+        future = Future()
+        if os.path.exists(self.pip) and os.path.exists(self.python):
+            future.set_result(self)
+            return future
+
+        logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
+        logger.info('start creating virtualenv.')
+        try:
+            process = Popen([sys.executable, '-m', 'virtualenv', '--system-site-packages', self.project_workspace_dir],
+                            stdout=PIPE, stderr=PIPE)
+            self.processes.append(process)
+        except Exception as e:
+            future.set_exception(e)
+            return future
+
+        def done(process):
+            self.processes.remove(process)
+            retcode = process.returncode
+            if retcode is not None:
+                if retcode == 0:
+                    logger.info('Create virtualenv done.')
+                    future.set_result(self)
+                else:
+                    std_output = process.stdout.read()
+                    err_output = process.stderr.read()
+                    future.set_exception(ProcessFailed('Error when init workspace virtualenv ', std_output=std_output,
+                                                       err_output=err_output))
+
+        wait_process(process, done)
+        return future
+
+
+    @property
+    def finished(self):
+        return self._finished
+
+    @property
+    def pip(self):
+        if not self._pip:
+            self._fill_executables()
+
+        return self._pip
+
+    @property
+    def python(self):
+        if not self._python:
+            self._fill_executables()
+
+        return self._python
+
+    def _fill_executables(self):
+        if sys.platform.startswith('linux'):
+            self._pip = os.path.join(self._work_dir, 'bin', 'pip')
+            self._python = os.path.join(self._work_dir, 'bin', 'python')
+        elif sys.platform.startswith('win'):
+            self.pip = os.path.join(self._work_dir, 'Scripts', 'pip.exe')
+            self.python = os.path.join(self._work_dir, 'Scripts', 'python.exe')

@@ -9,3 +9,4 @@ attrs>=17.4.0
 scrapy
 six>=1.12
 w3lib
+docker
