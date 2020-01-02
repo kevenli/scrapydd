@@ -68,7 +68,7 @@ class NodeAsyncHTTPClient():
         raise gen.Return(self.node_id)
 
 
-class SpiderTask():
+class SpiderTask(object):
     id = None
     spider_id = None
     project_name = None
@@ -76,6 +76,7 @@ class SpiderTask():
     project_version = None
     spider_parameters = None
     extra_requirements = None
+    settings = None
 
 
 class TaskSlotContainer():
@@ -282,6 +283,7 @@ class Executor():
                     task.spider_parameters = response_data['data']['task']['spider_parameters']
                 else:
                     task.spider_parameters = {}
+                task.settings = response_data['data']
                 self.on_new_task_reach(task)
         except URLError:
             logger.warning('Cannot connect to server')
@@ -392,6 +394,9 @@ class TaskExecutor():
         self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.workspace_dir,
                                           keep_files=keep_files)
         self.keep_files = keep_files
+
+        with open(os.path.join(self.workspace_dir, 'spider.json'), 'w') as spider_settings_f:
+            json.dump(task.settings, spider_settings_f)
 
     @gen.coroutine
     def execute(self):
