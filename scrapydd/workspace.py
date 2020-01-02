@@ -26,12 +26,13 @@ class ProjectWorkspace(object):
     project_check = None
     temp_dir = None
 
-    def __init__(self, project_name, base_workdir=None):
+    def __init__(self, project_name, base_workdir=None, keep_files=False):
         if not base_workdir:
             base_workdir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         project_workspace_dir = base_workdir
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
+        self.keep_files = keep_files
         self.processes = []
         if sys.platform.startswith('linux'):
             self.pip = os.path.join(project_workspace_dir, 'bin', 'pip')
@@ -242,6 +243,9 @@ class ProjectWorkspace(object):
                 logger.error('Caught OSError when try to kill subprocess: %s' % e)
 
     def __del__(self):
+        if self.keep_files:
+            return
+
         if self.project_workspace_dir and os.path.exists(self.project_workspace_dir):
             shutil.rmtree(self.project_workspace_dir)
 

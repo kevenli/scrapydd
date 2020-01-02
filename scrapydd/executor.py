@@ -142,6 +142,8 @@ class Executor():
         self.service_base = server_base
         client_cert = config.get('client_cert') or None
         client_key = config.get('client_key') or None
+        self.keep_job_files = config.getboolean('debug', False)
+        logger.debug('keep_job_files %s' % self.keep_job_files)
 
         httpclient_defaults = {
             'request_timeout': config.getfloat('request_timeout', 60)
@@ -286,7 +288,7 @@ class Executor():
 
     def execute_task(self, task):
         egg_downloader = ProjectEggDownloader(service_base=self.service_base, client=self.httpclient)
-        executor = TaskExecutor(task, egg_downloader=egg_downloader)
+        executor = TaskExecutor(task, egg_downloader=egg_downloader, keep_files=self.keep_job_files)
         pid = None
         future = executor.execute()
         self.post_start_task(task, pid)
@@ -371,7 +373,7 @@ class Executor():
 
 
 class TaskExecutor():
-    def __init__(self, task, egg_downloader):
+    def __init__(self, task, egg_downloader, keep_files=False):
         '''
         @type task: SpiderTask
         '''
@@ -387,7 +389,9 @@ class TaskExecutor():
         self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
         self._f_output = open(self.output_file, 'w')
         self.on_subprocess_start = None
-        self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.workspace_dir)
+        self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.workspace_dir,
+                                          keep_files=keep_files)
+        self.keep_files = keep_files
 
     @gen.coroutine
     def execute(self):
@@ -440,9 +444,10 @@ class TaskExecutor():
         return self.result()
 
     def __del__(self):
-        logger.debug('delete task executor for task %s' % self.task.id)
-        if self.workspace_dir and os.path.exists(self.workspace_dir):
-            shutil.rmtree(self.workspace_dir)
+        if not self.keep_files:
+            logger.debug('delete task executor for task %s' % self.task.id)
+            if self.workspace_dir and os.path.exists(self.workspace_dir):
+                shutil.rmtree(self.workspace_dir)
 
     def kill(self):
         self._f_output.write("Received a kill command, stopping spider.")
