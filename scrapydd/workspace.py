@@ -14,6 +14,7 @@ from zipfile import ZipFile
 from w3lib.url import path_to_file_uri
 from shutil import copyfileobj
 from six import ensure_str
+from os import path
 
 logger = logging.getLogger(__name__)
 
@@ -266,65 +267,39 @@ class VenvRunner(object):
     _work_dir = None
     _pip = None
     _python = None
+    _project_workspace = None
+    _spider_settings = None
+    _prepare_finish = False
 
-    def __init__(self, work_dir):
-        self._work_dir = work_dir
+    def __init__(self, eggf, settings = None):
+        self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
+        if settings:
+            self._spider_settings = settings
+        self._project_workspace = ProjectWorkspace()
+        self._project_workspace.put_egg(eggf)
 
-    def run(self):
-        future = Future()
-        if os.path.exists(self.pip) and os.path.exists(self.python):
-            future.set_result(self)
-            return future
+    @gen.coroutine
+    def _prepare(self):
+        if self._prepare_finish:
+            raise gen.Return()
+        yield self._project_workspace.init()
+        requirements = self._project_workspace.find_project_requirements()
+        if self._spider_settings:
+            requirements += self._spider_settings.extra_requirements
+        yield self._project_workspace.install_requirements(requirements)
+        self._prepare_finish = True
 
-        logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
-        logger.info('start creating virtualenv.')
-        try:
-            process = Popen([sys.executable, '-m', 'virtualenv', '--system-site-packages', self.project_workspace_dir],
-                            stdout=PIPE, stderr=PIPE)
-            self.processes.append(process)
-        except Exception as e:
-            future.set_exception(e)
-            return future
+    @gen.coroutine
+    def list(self):
+        yield self._prepare()
+        ret = yield self._project_workspace.spider_list()
+        raise gen.Return(ret)
 
-        def done(process):
-            self.processes.remove(process)
-            retcode = process.returncode
-            if retcode is not None:
-                if retcode == 0:
-                    logger.info('Create virtualenv done.')
-                    future.set_result(self)
-                else:
-                    std_output = process.stdout.read()
-                    err_output = process.stderr.read()
-                    future.set_exception(ProcessFailed('Error when init workspace virtualenv ', std_output=std_output,
-                                                       err_output=err_output))
-
-        wait_process(process, done)
-        return future
+    @gen.coroutine
+    def crawl(self):
+        spider_settings = self._spider_settings
+        yield self._prepare()
+        ret = yield self._project_workspace.run_spider(spider_settings.spider_name, spider_settings.spider_parameters)
+        raise gen.Return(ret)
 
 
-    @property
-    def finished(self):
-        return self._finished
-
-    @property
-    def pip(self):
-        if not self._pip:
-            self._fill_executables()
-
-        return self._pip
-
-    @property
-    def python(self):
-        if not self._python:
-            self._fill_executables()
-
-        return self._python
-
-    def _fill_executables(self):
-        if sys.platform.startswith('linux'):
-            self._pip = os.path.join(self._work_dir, 'bin', 'pip')
-            self._python = os.path.join(self._work_dir, 'bin', 'python')
-        elif sys.platform.startswith('win'):
-            self.pip = os.path.join(self._work_dir, 'Scripts', 'pip.exe')
-            self.python = os.path.join(self._work_dir, 'Scripts', 'python.exe')
