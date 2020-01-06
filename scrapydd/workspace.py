@@ -58,7 +58,8 @@ class ProjectWorkspace(object):
         logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
         try:
-            process = Popen([sys.executable, '-m', 'virtualenv', '--system-site-packages', self.venv_dir], stdout=PIPE, stderr=PIPE)
+            process = Popen([sys.executable, '-m', 'virtualenv', '--system-site-packages', self.venv_dir], stdout=PIPE,
+                            stderr=PIPE)
             self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
@@ -74,15 +75,17 @@ class ProjectWorkspace(object):
                 else:
                     std_output = process.stdout.read()
                     err_output = process.stderr.read()
-                    future.set_exception(ProcessFailed('Error when init workspace virtualenv ', std_output=std_output, err_output=err_output))
+                    future.set_exception(ProcessFailed('Error when init workspace virtualenv ', std_output=std_output,
+                                                       err_output=err_output))
 
         wait_process(process, done)
         return future
 
-    def find_project_requirements(self, project=None, egg_storage=None, eggf=None):
-        project = self.project_name
-        if eggf is None:
+    def find_project_requirements(self):
+        try:
             eggf = open(os.path.join(self.project_workspace_dir, 'spider.egg'), 'rb')
+        except IOError:
+            raise PackageNotFoundException()
         with ZipFile(eggf) as egg_zip_file:
             try:
                 requires_fileinfo = egg_zip_file.getinfo('EGG-INFO/requires.txt')
@@ -92,11 +95,11 @@ class ProjectWorkspace(object):
 
     @gen.coroutine
     def install_requirements(self, extra_requirements=None):
-        requirements = self.find_project_requirements(self.project_name)
+        requirements = self.find_project_requirements()
         requirements += ['scrapydd']
         if extra_requirements:
             requirements += extra_requirements
-        logger.info('start install requirements: %s.' % (requirements, ))
+        logger.info('start install requirements: %s.' % (requirements,))
         if requirements:
             yield self.pip_install(requirements)
         logger.info('install requirements done.')
@@ -133,7 +136,8 @@ class ProjectWorkspace(object):
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = self.project_name
             env['SCRAPY_EGG'] = 'spider.egg'
-            process = Popen([self.python, '-m', 'scrapydd.utils.runner', 'list'], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
+            process = Popen([self.python, '-m', 'scrapydd.utils.runner', 'list'], env=env, cwd=cwd, stdout=PIPE,
+                            stderr=PIPE)
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
@@ -148,7 +152,7 @@ class ProjectWorkspace(object):
                     stdout = ensure_str(stdout)
                     future.set_result(stdout.splitlines())
                 else:
-                    #future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
+                    # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
                     future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
                 return
             IOLoop.current().call_later(1, check_process)
@@ -166,18 +170,18 @@ class ProjectWorkspace(object):
         if spider_parameters:
             for spider_parameter_key, spider_parameter_value in spider_parameters.items():
                 pargs += [
-                            '-s',
-                            '%s=%s' % (spider_parameter_key, spider_parameter_value)
-                          ]
+                    '-s',
+                    '%s=%s' % (spider_parameter_key, spider_parameter_value)
+                ]
         pargs += ['-o', str(path_to_file_uri(items_file))]
 
         env = os.environ.copy()
         env['SCRAPY_PROJECT'] = str(self.project_name)
-        #env['SCRAPY_JOB'] = str(self.task.id)
+        # env['SCRAPY_JOB'] = str(self.task.id)
         env['SCRAPY_FEED_URI'] = str(path_to_file_uri(items_file))
         env['SCRAPY_EGG'] = 'spider.egg'
 
-        p = Popen(pargs, env = env, stdout = f_output, cwd = self.project_workspace_dir, stderr = f_output)
+        p = Popen(pargs, env=env, stdout=f_output, cwd=self.project_workspace_dir, stderr=f_output)
         self.processes.append(p)
 
         def done(process):
@@ -196,7 +200,8 @@ class ProjectWorkspace(object):
         try:
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = project
-            process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings', project], env = env, cwd=cwd, stdout = PIPE, stderr= PIPE)
+            process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings', project], env=env, cwd=cwd,
+                            stdout=PIPE, stderr=PIPE)
             self.processes.append(process)
         except Exception as e:
             logger.error(e)
@@ -254,6 +259,7 @@ class ProjectWorkspace(object):
         if self.project_workspace_dir and os.path.exists(self.project_workspace_dir):
             shutil.rmtree(self.project_workspace_dir)
 
+
 def wait_process(process, callback):
     retcode = process.poll()
     if retcode is not None:
@@ -271,11 +277,11 @@ class VenvRunner(object):
     _spider_settings = None
     _prepare_finish = False
 
-    def __init__(self, eggf, settings = None):
+    def __init__(self, eggf, settings=None):
         self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         if settings:
             self._spider_settings = settings
-        self._project_workspace = ProjectWorkspace()
+        self._project_workspace = ProjectWorkspace('spider')
         self._project_workspace.put_egg(eggf)
 
     @gen.coroutine
@@ -303,3 +309,5 @@ class VenvRunner(object):
         raise gen.Return(ret)
 
 
+class PackageNotFoundException(Exception):
+    pass

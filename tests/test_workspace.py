@@ -1,6 +1,6 @@
 from tornado.testing import gen_test, AsyncTestCase
 from tornado.ioloop import IOLoop
-from scrapydd.workspace import ProjectWorkspace
+from scrapydd.workspace import ProjectWorkspace, VenvRunner
 from scrapydd.exceptions import ProcessFailed
 import tempfile
 import os
@@ -75,3 +75,15 @@ def file_is_in_dir(dir, file):
         return False
 
     return file_is_in_dir(dir, parent_dir)
+
+
+class VenvRunnerTest(AsyncTestCase):
+    @gen_test(timeout=200)
+    def test_list(self):
+        eggf = open(test_project_file, 'rb')
+        target = VenvRunner(eggf)
+        spider_list = yield target.list()
+        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider'],
+                         spider_list)
+
+    
