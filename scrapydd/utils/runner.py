@@ -48,8 +48,9 @@ def project_environment(project):
 def install_requirements(distribute):
     requires = [x.key for x in distribute.requires()]
     if requires:
+        output = open('pip.log', 'w')
         p = Popen([sys.executable, '-m', 'pip', 'install', ','.join(requires)], stdout=PIPE, stderr=PIPE)
-        print(p.stdout.read())
+        # print(p.stdout.read())
         return p.wait()
     return 0
 
