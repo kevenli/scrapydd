@@ -1,6 +1,6 @@
 from tornado.testing import gen_test, AsyncTestCase
 from tornado.ioloop import IOLoop
-from scrapydd.workspace import ProjectWorkspace, VenvRunner
+from scrapydd.workspace import ProjectWorkspace, VenvRunner, SpiderSetting
 from scrapydd.exceptions import ProcessFailed
 import tempfile
 import os
@@ -86,4 +86,13 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider'],
                          spider_list)
 
-    
+    @gen_test(timeout=200)
+    def test_crawl(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('fail_spider')
+        target = VenvRunner(eggf, spider_settings)
+        ret = yield target.crawl()
+        self.assertIsNotNone(ret)
+        self.assertEqual(0, ret.ret_code)
+        self.assertIsNotNone(ret.items_file)
+        self.assertTrue(os.path.exists(ret.items_file))

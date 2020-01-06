@@ -278,6 +278,7 @@ class VenvRunner(object):
     _prepare_finish = False
 
     def __init__(self, eggf, settings=None):
+
         self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         if settings:
             self._spider_settings = settings
@@ -302,12 +303,84 @@ class VenvRunner(object):
         raise gen.Return(ret)
 
     @gen.coroutine
-    def crawl(self):
-        spider_settings = self._spider_settings
-        yield self._prepare()
-        ret = yield self._project_workspace.run_spider(spider_settings.spider_name, spider_settings.spider_parameters)
-        raise gen.Return(ret)
+    def crawl(self, spider_settings):
+        """
+        Parameters:
+            spider_settings (SpiderSetting): spider settings object.
+        """
+        try:
+            yield self._prepare()
+            f_crawl_log = open('crawl.log', 'wb')
+            ret = yield self._project_workspace.run_spider(spider_settings.spider_name,
+                                                           spider_settings.spider_parameters,
+                                                           f_output=f_crawl_log,
+                                                           project=spider_settings.project_name)
+            f_crawl_log.close()
+            result = CrawlResult(0, items_file=ret)
+        except Exception as ex:
+            logger.error(ex)
+            result = CrawlResult(1, error_message=str(ex))
+        raise gen.Return(result)
 
 
 class PackageNotFoundException(Exception):
     pass
+
+
+class SpiderSetting(object):
+    spider_name = None
+    project_name = None
+    extra_requirements = None
+    spider_parameters = None
+
+    def __init__(self, spider_name, extra_requirements=None, spider_parameters=None, project_name=None):
+        self.spider_name = spider_name
+        self.extra_requirements = extra_requirements or []
+        self.spider_parameters = spider_parameters or {}
+        self.project_name = project_name
+
+    def to_json(self):
+        d = {
+            'task'
+        }
+        return json.dumps(d)
+
+    @classmethod
+    def from_json(cls, json_str):
+        parsed = json.loads(json_str)
+        spider_name = parsed['task']['spider_name']
+        project_name = parsed['task'].get('project_name')
+        extra_requirements = parsed['task'].get('extra_requirements')
+        spider_parameters = {}
+        obj = cls(spider_name, extra_requirements, spider_parameters, project_name)
+        return obj
+
+    @classmethod
+    def from_file(cls, file_path):
+        with open(file_path, 'r') as f:
+            json_content = f.read()
+            return SpiderSetting.from_json(json_content)
+
+
+class CrawlResult(object):
+    _items_file = None
+    _crawl_logfile = None
+    _ret_code = 0
+    _console_output = None
+
+    def __init__(self, ret_code, error_message=None, items_file=None):
+        self._ret_code = ret_code
+        self._error_message = error_message
+        self._items_file = items_file
+
+    @property
+    def ret_code(self):
+        return self._ret_code
+
+    @property
+    def error_message(self):
+        return self._error_message
+
+    @property
+    def items_file(self):
+        return self._items_file

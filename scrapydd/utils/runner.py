@@ -52,7 +52,7 @@ def install_requirements(distribute):
         return p.wait()
     return 0
 
-def main():
+def main(argv=None):
     from scrapy.cmdline import execute
     from scrapy.settings import Settings
     settings = Settings()
@@ -68,7 +68,7 @@ def main():
         extra_settings_module = os.environ.get('SCRAPY_EXTRA_SETTINGS_MODULE')
         if extra_settings_module:
             settings.setmodule(extra_settings_module)
-        return execute(settings=settings)
+        return execute(argv=argv, settings=settings)
     project = os.environ['SCRAPY_PROJECT']
     with project_environment(project):
         execute()

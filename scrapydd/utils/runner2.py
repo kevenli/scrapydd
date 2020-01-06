@@ -44,6 +44,7 @@ from tornado.gen import coroutine, Return
 from tornado.ioloop import IOLoop
 import json
 import docker
+from scrapydd.workspace import SpiderSetting
 
 logger = logging.getLogger(__name__)
 
@@ -102,34 +103,6 @@ class SpiderRunner(object):
 
     def kill(self):
         self.workspace.kill_process()
-
-
-class SpiderSetting(object):
-    spider_name = None
-    project_name = None
-    extra_requirements = None
-    spider_parameters = None
-    def __init__(self):
-        pass
-
-    def to_json(self):
-        pass
-
-    @classmethod
-    def from_json(cls, json_str):
-        parsed = json.loads(json_str)
-        obj = cls()
-        obj.spider_name = parsed['task']['spider_name']
-        obj.project_name = parsed['task']['project_name']
-        obj.extra_requirements = parsed['task']['extra_requirements']
-        obj.spider_parameters = {}
-        return obj
-
-    @classmethod
-    def from_file(cls, file_path):
-        with open(file_path, 'r') as f:
-            json_content = f.read()
-            return SpiderSetting.from_json(json_content)
 
 
 class DockerRunner(object):
