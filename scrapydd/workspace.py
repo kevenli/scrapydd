@@ -15,6 +15,7 @@ from w3lib.url import path_to_file_uri
 from shutil import copyfileobj
 from six import ensure_str
 from os import path
+import docker
 
 logger = logging.getLogger(__name__)
 
@@ -277,11 +278,8 @@ class VenvRunner(object):
     _spider_settings = None
     _prepare_finish = False
 
-    def __init__(self, eggf, settings=None):
-
+    def __init__(self, eggf):
         self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
-        if settings:
-            self._spider_settings = settings
         self._project_workspace = ProjectWorkspace('spider')
         self._project_workspace.put_egg(eggf)
 
@@ -323,6 +321,68 @@ class VenvRunner(object):
         raise gen.Return(result)
 
 
+class DockerRunner(object):
+    image = 'kevenli/scrapydd'
+    _exit = False
+    def __init__(self, eggf):
+        self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
+        eggf.seek(0)
+        eggpath = os.path.join(self._work_dir, 'spider.egg')
+        with open(eggpath, 'wb') as f:
+            copyfileobj(eggf, f)
+        self.ioloop = IOLoop.current()
+
+    @gen.coroutine
+    def list(self):
+        client = docker.from_env()
+        volumes = {
+            self._work_dir: {'bind': '/spider_run', 'mode': 'rw'}
+        }
+        container = client.containers.run(self.image, ["scrapydd", "run", 'list', ],
+                              volumes=volumes, detach=True, working_dir='/spider_run')
+        import requests
+        while not self._exit:
+            try:
+                ret_status = container.wait(timeout=0.1)
+                ret_code = ret_status['StatusCode']
+                if ret_code == 0:
+                    output = container.logs()
+                    raise gen.Return(ensure_str(output).split())
+                else:
+                    raise Exception(container.logs())
+
+            except requests.exceptions.ReadTimeout:
+                yield gen.moment
+        raise gen.Return()
+
+    @gen.coroutine
+    def crawl(self, spider_settings):
+        client = docker.from_env()
+        volumes = {
+            self._work_dir: {'bind': '/spider_run', 'mode': 'rw'}
+        }
+        with open(path.join(self._work_dir, 'spider.json'), 'w') as f_settings:
+            f_settings.write(spider_settings.to_json())
+        container = client.containers.run(self.image, ["scrapydd", "run", 'crawl', ],
+                              volumes=volumes, detach=True, working_dir='/spider_run')
+        import requests
+        while not self._exit:
+            try:
+                ret_status = container.wait(timeout=0.1)
+                ret_code = ret_status['StatusCode']
+                if ret_code == 0:
+                    result = CrawlResult(0)
+                    raise gen.Return(result)
+                else:
+                    result = CrawlResult(1)
+                    raise gen.Return(result)
+
+            except requests.exceptions.ReadTimeout:
+                yield gen.moment
+        result = CrawlResult(1)
+        raise gen.Return(result)
+
+
 class PackageNotFoundException(Exception):
     pass
 
@@ -341,7 +401,10 @@ class SpiderSetting(object):
 
     def to_json(self):
         d = {
-            'task'
+            'task':
+                {
+                    'spider_name': self.spider_name
+                }
         }
         return json.dumps(d)
 
