@@ -4,6 +4,8 @@ from scrapydd.workspace import ProjectWorkspace, VenvRunner, SpiderSetting, Dock
 from scrapydd.exceptions import ProcessFailed
 import tempfile
 import os
+from unittest import TestCase, SkipTest
+import json
 
 test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
 
@@ -98,6 +100,7 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.items_file))
 
 
+@SkipTest("test image not built yet. It will be done at the next time develop branch merged.")
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_list(self):
@@ -119,3 +122,14 @@ class DockerRunnerTest(AsyncTestCase):
         self.assertEqual(0, ret.ret_code)
         self.assertIsNotNone(ret.items_file)
         self.assertTrue(os.path.exists(ret.items_file))
+
+
+class SpiderSettingsTest(TestCase):
+    def test_to_json(self):
+        spider_name = 'abc'
+        target = SpiderSetting(spider_name)
+
+        json_text = target.to_json()
+        json_deserialized = json.loads(json_text)
+
+        self.assertEqual(json_deserialized['spider_name'], spider_name)

@@ -401,10 +401,7 @@ class SpiderSetting(object):
 
     def to_json(self):
         d = {
-            'task':
-                {
-                    'spider_name': self.spider_name
-                }
+            'spider_name': self.spider_name
         }
         return json.dumps(d)
 
