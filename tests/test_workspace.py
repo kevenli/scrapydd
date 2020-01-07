@@ -4,7 +4,7 @@ from scrapydd.workspace import ProjectWorkspace, VenvRunner, SpiderSetting, Dock
 from scrapydd.exceptions import ProcessFailed
 import tempfile
 import os
-from unittest import TestCase, SkipTest
+from unittest import TestCase, skip
 import json
 
 test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
@@ -78,7 +78,8 @@ def file_is_in_dir(dir, file):
 
     return file_is_in_dir(dir, parent_dir)
 
-@SkipTest
+
+@skip
 class VenvRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_list(self):
@@ -100,7 +101,7 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.items_file))
 
 
-@SkipTest
+@skip
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_list(self):
