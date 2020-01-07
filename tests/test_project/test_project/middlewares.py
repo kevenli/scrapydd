@@ -1,0 +1,2 @@
+class MyCustomSpiderMiddleware(object):
+    pass
