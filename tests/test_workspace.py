@@ -78,7 +78,7 @@ def file_is_in_dir(dir, file):
 
     return file_is_in_dir(dir, parent_dir)
 
-
+@SkipTest
 class VenvRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_list(self):
@@ -100,7 +100,7 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.items_file))
 
 
-@SkipTest("test image not built yet. It will be done at the next time develop branch merged.")
+@SkipTest
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_list(self):
