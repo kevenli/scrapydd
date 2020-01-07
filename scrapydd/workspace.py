@@ -366,10 +366,11 @@ class DockerRunner(object):
         items_file_path = path.join(self._work_dir, 'items.jl')
         log_file_path = path.join(self._work_dir, 'crawl.log')
 
-        pargs = ["scrapydd", "run", 'crawl']
+        pargs = ["python", "-m", "scrapydd.utils.runner", 'crawl', spider_settings.spider_name]
         env = {}
-        #env['SCRAPY_PROJECT']
+        #env['SCRAPY_PROJECT'] = spider_settings.
         env['SCRAPY_FEED_URI'] = 'items.jl'
+        env['SCRAPY_EGG'] = 'spider.egg'
 
         container = client.containers.run(self.image, pargs,
                               volumes=volumes, detach=True, working_dir='/spider_run',
@@ -388,7 +389,6 @@ class DockerRunner(object):
                 else:
                     result = CrawlResult(1)
                     raise gen.Return(result)
-
             except requests.exceptions.ReadTimeout:
                 yield gen.moment
         result = CrawlResult(1)
