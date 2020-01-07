@@ -391,6 +391,11 @@ class DockerRunner(object):
                     raise gen.Return(result)
             except requests.exceptions.ReadTimeout:
                 yield gen.moment
+            # to hack the bug https://github.com/docker/docker-py/issues/1966
+            # which raise an ConnectonError when read timeout
+            except requests.exceptions.ConnectionError as e:
+                logger.warning(e)
+                yield gen.moment
         result = CrawlResult(1)
         raise gen.Return(result)
 

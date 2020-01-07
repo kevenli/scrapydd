@@ -98,7 +98,9 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertIsNotNone(ret)
         self.assertEqual(0, ret.ret_code)
         self.assertIsNotNone(ret.items_file)
-        self.assertTrue(os.path.exists(ret.items_file))
+        self.assertTrue(os.path.exists(ret.crawl_logfile))
+        self.assertIsNotNone(ret.crawl_logfile)
+        self.assertTrue(os.path.exists(ret.crawl_logfile))
 
 
 class DockerRunnerTest(AsyncTestCase):
