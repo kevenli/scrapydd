@@ -101,13 +101,12 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.items_file))
 
 
-@skip
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_list(self):
         eggf = open(test_project_file, 'rb')
         target = DockerRunner(eggf)
-        target.image = 'kevenli/scrapydd:develop'
+        target.image = 'scrapydd:develop'
         spider_list = yield target.list()
         self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider'],
                          spider_list)
@@ -117,12 +116,14 @@ class DockerRunnerTest(AsyncTestCase):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('fail_spider')
         target = DockerRunner(eggf)
-        target.image = 'kevenli/scrapydd:develop'
+        target.image = 'scrapydd:develop'
         ret = yield target.crawl(spider_settings)
         self.assertIsNotNone(ret)
         self.assertEqual(0, ret.ret_code)
         self.assertIsNotNone(ret.items_file)
-        self.assertTrue(os.path.exists(ret.items_file))
+        self.assertTrue(os.path.exists(ret.crawl_logfile))
+        self.assertIsNotNone(ret.crawl_logfile)
+        self.assertTrue(os.path.exists(ret.crawl_logfile))
 
 
 class SpiderSettingsTest(TestCase):
@@ -134,3 +135,13 @@ class SpiderSettingsTest(TestCase):
         json_deserialized = json.loads(json_text)
 
         self.assertEqual(json_deserialized['spider_name'], spider_name)
+
+    def test_from_json(self):
+        spider_name = 'abc'
+        json_text = '''
+        {
+            "spider_name": "abc"
+        }'''
+        target = SpiderSetting.from_json(json_text)
+        self.assertEqual(target.spider_name, spider_name)
+

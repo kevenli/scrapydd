@@ -363,15 +363,27 @@ class DockerRunner(object):
         }
         with open(path.join(self._work_dir, 'spider.json'), 'w') as f_settings:
             f_settings.write(spider_settings.to_json())
-        container = client.containers.run(self.image, ["scrapydd", "run", 'crawl', ],
-                              volumes=volumes, detach=True, working_dir='/spider_run')
+        items_file_path = path.join(self._work_dir, 'items.jl')
+        log_file_path = path.join(self._work_dir, 'crawl.log')
+
+        pargs = ["scrapydd", "run", 'crawl']
+        env = {}
+        #env['SCRAPY_PROJECT']
+        env['SCRAPY_FEED_URI'] = 'items.jl'
+
+        container = client.containers.run(self.image, pargs,
+                              volumes=volumes, detach=True, working_dir='/spider_run',
+                              environment=env)
         import requests
         while not self._exit:
             try:
                 ret_status = container.wait(timeout=0.1)
                 ret_code = ret_status['StatusCode']
                 if ret_code == 0:
-                    result = CrawlResult(0)
+                    process_output = ensure_str(container.logs())
+                    with open(log_file_path, 'w') as f:
+                        f.write(process_output)
+                    result = CrawlResult(0, items_file=items_file_path, crawl_logfile=log_file_path)
                     raise gen.Return(result)
                 else:
                     result = CrawlResult(1)
@@ -408,9 +420,9 @@ class SpiderSetting(object):
     @classmethod
     def from_json(cls, json_str):
         parsed = json.loads(json_str)
-        spider_name = parsed['task']['spider_name']
-        project_name = parsed['task'].get('project_name')
-        extra_requirements = parsed['task'].get('extra_requirements')
+        spider_name = parsed['spider_name']
+        project_name = parsed.get('project_name')
+        extra_requirements = parsed.get('extra_requirements')
         spider_parameters = {}
         obj = cls(spider_name, extra_requirements, spider_parameters, project_name)
         return obj
@@ -428,10 +440,11 @@ class CrawlResult(object):
     _ret_code = 0
     _console_output = None
 
-    def __init__(self, ret_code, error_message=None, items_file=None):
+    def __init__(self, ret_code, error_message=None, items_file=None, crawl_logfile=None):
         self._ret_code = ret_code
         self._error_message = error_message
         self._items_file = items_file
+        self._crawl_logfile = crawl_logfile
 
     @property
     def ret_code(self):
@@ -444,3 +457,7 @@ class CrawlResult(object):
     @property
     def items_file(self):
         return self._items_file
+
+    @property
+    def crawl_logfile(self):
+        return self._crawl_logfile
