@@ -24,7 +24,7 @@ warning_spider'''.split())
     def test_extract_settings(self):
         env = {}
         env['SCRAPY_EGG'] = 'tests/test_project-1.0-py2.7.egg'
-        env['SCRAPY_SETTINGS_MODULE'] = 'tests.utils.testsettings'
+        env['SCRAPY_SETTINGS_MODULE'] = 'tests.utils.somesettings'
         p = Popen([sys.executable, '-m', 'scrapydd.utils.runner', 'settings', '--get', 'SOME_SETTING'],
                   env=env, stdout=PIPE)
         while p.poll() is None:
@@ -59,7 +59,7 @@ warning_spider'''.split())
     def test_extract_settings_add_middleware(self):
         env = {}
         env['SCRAPY_EGG'] = 'tests/test_project-1.0-py2.7.egg'
-        env['SCRAPY_SETTINGS_MODULE'] = 'tests.utils.testsettings'
+        env['SCRAPY_SETTINGS_MODULE'] = 'tests.utils.somesettings'
         p = Popen([sys.executable, '-m', 'scrapydd.utils.runner', 'settings', '--get', 'SPIDER_MIDDLEWARES'],
                   env=env, stdout=PIPE)
         while p.poll() is None:
@@ -69,5 +69,3 @@ warning_spider'''.split())
         self.assertEqual(2, len(settings_spider_middlewares))
         self.assertEqual(543, settings_spider_middlewares['test_project.middlewares.MyCustomSpiderMiddleware'])
         self.assertEqual(300, settings_spider_middlewares['scrapy.spidermiddlewares.depth.DepthMiddleware'])
-
-
