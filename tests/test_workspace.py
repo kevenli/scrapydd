@@ -64,7 +64,8 @@ class ProjectWorkspaceTest(AsyncTestCase):
         target.put_egg(open(test_project_file, 'rb'), '1.0')
         yield target.install_requirements()
         spider_list = yield target.spider_list()
-        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider'],
+        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'sina_news', 'success_spider',
+                          'warning_spider'],
                          spider_list)
 
 
@@ -86,7 +87,8 @@ class VenvRunnerTest(AsyncTestCase):
         eggf = open(test_project_file, 'rb')
         target = VenvRunner(eggf)
         spider_list = yield target.list()
-        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider'],
+        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'sina_news', 'success_spider',
+                          'warning_spider'],
                          spider_list)
 
     @gen_test(timeout=200)
@@ -110,7 +112,8 @@ class DockerRunnerTest(AsyncTestCase):
         target = DockerRunner(eggf)
         target.image = 'scrapydd:develop'
         spider_list = yield target.list()
-        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider'],
+        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'sina_news', 'success_spider',
+                          'warning_spider'],
                          spider_list)
 
     @gen_test(timeout=200)
@@ -143,7 +146,7 @@ class SpiderSettingsTest(TestCase):
         json_text = '''
         {
             "spider_name": "abc"
-        }'''
+        }
+        '''
         target = SpiderSetting.from_json(json_text)
         self.assertEqual(target.spider_name, spider_name)
-
