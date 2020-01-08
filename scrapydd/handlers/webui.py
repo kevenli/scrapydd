@@ -1,9 +1,9 @@
-from .base import AppBaseHandler
-from tornado.web import authenticated
-from ..schedule import JobRunning
 import json
-from ..models import Project, Spider, session_scope, SpiderExecutionQueue
-from ..storage import ProjectStorage
+from tornado.web import authenticated
+from .base import AppBaseHandler
+from scrapydd.schedule import JobRunning
+from scrapydd.models import Project, Spider, session_scope, SpiderExecutionQueue, Trigger, SpiderParameter
+from scrapydd.storage import ProjectStorage
 
 class RunSpiderHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
@@ -44,6 +44,12 @@ class DeleteProjectHandler(AppBaseHandler):
             project = session.query(Project).filter_by(name=project_name).first()
             project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
             for spider in project.spiders:
+                triggers = session.query(Trigger).filter_by(spider_id=spider.id)
+                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
+                session.query(SpiderParameter).filter_by(spider_id=spider.id).delete()
+                session.commit()
+                for trigger in triggers:
+                    self.scheduler_manager.remove_schedule(project_name, spider.name, trigger_id=trigger.id)
                 session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
                 for historical_job in spider.historical_jobs:
                     project_storage.delete_job_data(historical_job)
