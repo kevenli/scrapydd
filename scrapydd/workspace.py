@@ -345,6 +345,10 @@ class DockerRunner(object):
     # container's file directly, upload and download files
     # via api.
     def _put_egg(self, container):
+        # check whether running in container
+        if path.exists('/.dockerenv'):
+            return
+
         import tarfile
         from io import BytesIO
         stream = BytesIO()
@@ -356,6 +360,10 @@ class DockerRunner(object):
         container.put_archive('/spider_run', tar)
 
     def _collect_files(self, container):
+        # check whether running in container
+        if path.exists('/.dockerenv'):
+            return
+
         import tarfile
         from io import BytesIO
         bits, stat = container.get_archive('/spider_run')
