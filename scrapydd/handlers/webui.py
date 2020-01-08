@@ -18,7 +18,7 @@ class RunSpiderHandler(AppBaseHandler):
                 return self.set_status(404, 'project not found.')
 
             spider = session.query(Spider).filter_by(name=spider_name, project_id = project.id).first()
-            if not project:
+            if not spider:
                 return self.set_status(404, 'spider not found.')
             try:
                 job = self.scheduler_manager.add_task(project_name, spider_name)
