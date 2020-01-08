@@ -80,7 +80,6 @@ def file_is_in_dir(dir, file):
     return file_is_in_dir(dir, parent_dir)
 
 
-@skip
 class VenvRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_list(self):
@@ -100,7 +99,7 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertIsNotNone(ret)
         self.assertEqual(0, ret.ret_code)
         self.assertIsNotNone(ret.items_file)
-        self.assertTrue(os.path.exists(ret.crawl_logfile))
+        self.assertTrue(os.path.exists(ret.items_file))
         self.assertIsNotNone(ret.crawl_logfile)
         self.assertTrue(os.path.exists(ret.crawl_logfile))
 

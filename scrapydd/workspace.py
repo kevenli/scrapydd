@@ -308,13 +308,14 @@ class VenvRunner(object):
         """
         try:
             yield self._prepare()
-            f_crawl_log = open('crawl.log', 'wb')
+            crawl_log_path = path.join(self._work_dir, 'crawl.log')
+            f_crawl_log = open(crawl_log_path, 'wb')
             ret = yield self._project_workspace.run_spider(spider_settings.spider_name,
                                                            spider_settings.spider_parameters,
                                                            f_output=f_crawl_log,
                                                            project=spider_settings.project_name)
             f_crawl_log.close()
-            result = CrawlResult(0, items_file=ret)
+            result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
         except Exception as ex:
             logger.error(ex)
             result = CrawlResult(1, error_message=str(ex))
