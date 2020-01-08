@@ -96,6 +96,8 @@ class UploadProject(AppBaseHandler):
                             "output": e.std_output,
                         })
             return
+        finally:
+            runner.clear()
 
         logger.debug('spiders: %s' % spiders)
         with session_scope() as session:
