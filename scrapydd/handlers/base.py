@@ -1,10 +1,12 @@
-import tornado.web
-import tornado.template
-import os
-from ..models import session_scope, User
-from ..security import CookieAuthenticationProvider, HmacAuthorize, BasicAuthentication
 import logging
 import json
+import os
+import tornado.web
+import tornado.template
+from scrapydd.models import session_scope, User
+from scrapydd.security import CookieAuthenticationProvider, HmacAuthorize, BasicAuthentication
+from scrapydd.workspace import VenvRunner, DockerRunner
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,16 @@ class AppBaseHandler(tornado.web.RequestHandler):
     def get_project_workspace(self, project_name):
         project_workspace_cls = self.settings.get('project_workspace_cls')
         return project_workspace_cls(project_name)
+
+    def build_runner(self, eggf):
+        runner_type = self.settings.get('runner_type', 'venv')
+        if runner_type == 'venv':
+            runner = VenvRunner(eggf)
+        elif runner_type == 'docker':
+            runner = DockerRunner(eggf)
+        else:
+            raise Exception("Not supported runner_type: %s" % runner_type)
+        return runner
 
 
 class RestBaseHandler(AppBaseHandler):

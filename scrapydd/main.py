@@ -74,13 +74,8 @@ class UploadProject(AppBaseHandler):
         eggf = BytesIO(eggfile['body'])
 
         try:
-            workspace = self.get_project_workspace(project_name)
-
-            yield workspace.init()
-            workspace.put_egg(eggf, version)
-            yield workspace.install_requirements()
-            spiders = yield workspace.spider_list()
-
+            runner = self.build_runner(eggf)
+            spiders = yield runner.list()
         except InvalidProjectEgg as e:
             logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
             self.set_status(400, reason=e.message)
@@ -554,7 +549,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
              enable_node_registration=False,
              project_storage_dir='.',
              default_project_storage_version=2,
-             project_workspace_cls = ProjectWorkspace):
+             project_workspace_cls = ProjectWorkspace,
+             runner_type='venv'):
     """
 
     @type scheduler_manager SchedulerManager
@@ -576,7 +572,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
                     enable_node_registration=enable_node_registration,
                     project_storage_dir=project_storage_dir,
                     default_project_storage_version=default_project_storage_version,
-                    project_workspace_cls=project_workspace_cls)
+                    project_workspace_cls=project_workspace_cls,
+                    runner_type=runner_type)
 
     if authentication_providers is None:
         authentication_providers = []
@@ -705,13 +702,15 @@ def start_server(argv=None):
     webhook_daemon.init()
     enable_authentication = config.getboolean('enable_authentication')
     secret_key = config.get('secret_key')
+    runner_type = config.get('runner_type')
     app = make_app(scheduler_manager, node_manager, webhook_daemon,
                    debug=is_debug,
                    enable_authentication=enable_authentication,
                    secret_key=secret_key,
                    enable_node_registration=config.getboolean('enable_node_registration', False),
                    project_storage_dir=config.get('project_storage_dir'),
-                   default_project_storage_version=config.get('default_project_storage_version'))
+                   default_project_storage_version=config.get('default_project_storage_version'),
+                   runner_type=runner_type)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)

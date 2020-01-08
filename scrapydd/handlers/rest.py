@@ -124,12 +124,8 @@ class AddVersionHandler(RestBaseHandler):
         eggf = BytesIO(eggfile['body'])
 
         try:
-            workspace = self.get_project_workspace(project_name)
-
-            yield workspace.init()
-            workspace.put_egg(eggf, version)
-            yield workspace.install_requirements()
-            spiders = yield workspace.spider_list()
+            runner = self.build_runner(eggf)
+            spiders = yield runner.list()
 
         except InvalidProjectEgg as e:
             logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
