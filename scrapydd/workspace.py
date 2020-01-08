@@ -277,6 +277,7 @@ class VenvRunner(object):
     _project_workspace = None
     _spider_settings = None
     _prepare_finish = False
+    debug = False
 
     def __init__(self, eggf):
         self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
@@ -331,6 +332,7 @@ class DockerRunner(object):
     image = 'kevenli/scrapydd'
     _exit = False
     _container = None
+    debug = False
     def __init__(self, eggf):
         self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         eggf.seek(0)
@@ -339,6 +341,38 @@ class DockerRunner(object):
             copyfileobj(eggf, f)
         self.ioloop = IOLoop.current()
 
+    # when controlling container in a container, cannot access
+    # container's file directly, upload and download files
+    # via api.
+    def _put_egg(self, container):
+        import tarfile
+        from io import BytesIO
+        stream = BytesIO()
+        out = tarfile.open(fileobj=stream, mode='w')
+        out.add(os.path.join(self._work_dir, 'spider.egg'), 'spider.egg')
+        out.close()
+        stream.seek(0)
+        tar = stream.read()
+        container.put_archive('/spider_run', tar)
+
+    def _collect_files(self, container):
+        import tarfile
+        from io import BytesIO
+        bits, stat = container.get_archive('/spider_run')
+        stream = BytesIO()
+        for chunk in bits:
+            stream.write(chunk)
+        stream.seek(0)
+        out = tarfile.open(fileobj=stream, mode='r')
+        for info in out.getmembers():
+            logger.debug(info)
+            if not info.isfile():
+                continue
+            extract_file = out.extractfile(info)
+            with open(path.join(self._work_dir, path.basename(info.name)), 'wb') as f:
+                f.write(extract_file.read())
+        out.close()
+
     @gen.coroutine
     def list(self):
         client = docker.from_env()
@@ -346,9 +380,11 @@ class DockerRunner(object):
             self._work_dir: {'bind': '/spider_run', 'mode': 'rw'}
         }
         env = {'SCRAPY_EGG': 'spider.egg'}
-        container = client.containers.run(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
+        container = client.containers.create(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
                               volumes=volumes, detach=True, working_dir='/spider_run',
                               environment=env)
+        self._put_egg(container)
+        container.start()
         self._container = container
         import requests
         while not self._exit:
@@ -357,6 +393,7 @@ class DockerRunner(object):
                 ret_code = ret_status['StatusCode']
                 if ret_code == 0:
                     output = container.logs()
+                    self._collect_files(container)
                     raise gen.Return(ensure_str(output).split())
                 else:
                     raise Exception(container.logs())
@@ -388,9 +425,11 @@ class DockerRunner(object):
         env['SCRAPY_FEED_URI'] = 'items.jl'
         env['SCRAPY_EGG'] = 'spider.egg'
 
-        container = client.containers.run(self.image, pargs,
+        container = client.containers.create(self.image, pargs,
                               volumes=volumes, detach=True, working_dir='/spider_run',
                               environment=env)
+        self._put_egg(container)
+        container.start()
         self._container = container
         import requests
         while not self._exit:
@@ -401,6 +440,7 @@ class DockerRunner(object):
                     process_output = ensure_str(container.logs())
                     with open(log_file_path, 'w') as f:
                         f.write(process_output)
+                    self._collect_files(container)
                     result = CrawlResult(0, items_file=items_file_path, crawl_logfile=log_file_path)
                     raise gen.Return(result)
                 else:
@@ -417,6 +457,8 @@ class DockerRunner(object):
         raise gen.Return(result)
 
     def clear(self):
+        if self.debug:
+            return
         if self._container:
             self._container.remove()
         del self._container

@@ -46,8 +46,10 @@ class AppBaseHandler(tornado.web.RequestHandler):
         runner_type = self.settings.get('runner_type', 'venv')
         if runner_type == 'venv':
             runner = VenvRunner(eggf)
+            runner.debug = self.settings.get('debug')
         elif runner_type == 'docker':
             runner = DockerRunner(eggf)
+            runner.debug = self.settings.get('debug')
         else:
             raise Exception("Not supported runner_type: %s" % runner_type)
         return runner

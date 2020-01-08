@@ -11,6 +11,9 @@ install:
   - docker build -f Dockerfile.dev -t scrapydd:develop .
   - pip install nose coverage
   - pip install -U codecov
-script: nosetests tests --with-coverage --cover-package=scrapydd --cover-html
+script: |
+  nosetests tests --with-coverage --cover-package=scrapydd --cover-html && \
+  docker run -w /scrapydd_src -v /var/run/docker.sock:/var/run/docker.sock \
+               scrapydd:develop nosetests tests
 after_success:
   - codecov

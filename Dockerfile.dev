@@ -9,6 +9,7 @@ ADD . /scrapydd_src
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 RUN pip install -r /scrapydd_src/requirements.txt
+RUN pip install -r /scrapydd_src/requirements_test.txt
 RUN python /scrapydd_src/setup.py install
 # ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 ENV TZ /usr/share/zoneinfo/Etc/UTC
