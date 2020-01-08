@@ -103,6 +103,20 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertIsNotNone(ret.crawl_logfile)
         self.assertTrue(os.path.exists(ret.crawl_logfile))
 
+    @gen_test(timeout=200)
+    def test_clear(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('fail_spider')
+        target = VenvRunner(eggf)
+        ret = yield target.crawl(spider_settings)
+        self.assertTrue(os.path.exists(ret.items_file))
+        self.assertTrue(os.path.exists(ret.crawl_logfile))
+
+        target.clear()
+        self.assertFalse(os.path.exists(target._work_dir))
+        self.assertFalse(os.path.exists(ret.items_file))
+        self.assertFalse(os.path.exists(ret.crawl_logfile))
+
 
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
@@ -125,9 +139,23 @@ class DockerRunnerTest(AsyncTestCase):
         self.assertIsNotNone(ret)
         self.assertEqual(0, ret.ret_code)
         self.assertIsNotNone(ret.items_file)
-        self.assertTrue(os.path.exists(ret.crawl_logfile))
+        self.assertTrue(os.path.exists(ret.items_file))
         self.assertIsNotNone(ret.crawl_logfile)
         self.assertTrue(os.path.exists(ret.crawl_logfile))
+
+    @gen_test(timeout=200)
+    def test_clear(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('fail_spider')
+        target = DockerRunner(eggf)
+        ret = yield target.crawl(spider_settings)
+        self.assertTrue(os.path.exists(ret.items_file))
+        self.assertTrue(os.path.exists(ret.crawl_logfile))
+
+        target.clear()
+        self.assertFalse(os.path.exists(target._work_dir))
+        self.assertFalse(os.path.exists(ret.items_file))
+        self.assertFalse(os.path.exists(ret.crawl_logfile))
 
 
 class SpiderSettingsTest(TestCase):

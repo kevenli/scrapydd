@@ -321,10 +321,16 @@ class VenvRunner(object):
             result = CrawlResult(1, error_message=str(ex))
         raise gen.Return(result)
 
+    def clear(self):
+        del self._project_workspace
+        if os.path.exists(self._work_dir):
+            shutil.rmtree(self._work_dir)
+
 
 class DockerRunner(object):
     image = 'kevenli/scrapydd'
     _exit = False
+    _container = None
     def __init__(self, eggf):
         self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         eggf.seek(0)
@@ -343,6 +349,7 @@ class DockerRunner(object):
         container = client.containers.run(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
                               volumes=volumes, detach=True, working_dir='/spider_run',
                               environment=env)
+        self._container = container
         import requests
         while not self._exit:
             try:
@@ -374,7 +381,8 @@ class DockerRunner(object):
         items_file_path = path.join(self._work_dir, 'items.jl')
         log_file_path = path.join(self._work_dir, 'crawl.log')
 
-        pargs = ["python", "-m", "scrapydd.utils.runner", 'crawl', spider_settings.spider_name]
+        pargs = ["python", "-m", "scrapydd.utils.runner", 'crawl', spider_settings.spider_name,
+                 '-o', 'items.jl']
         env = {}
         #env['SCRAPY_PROJECT'] = spider_settings.
         env['SCRAPY_FEED_URI'] = 'items.jl'
@@ -383,6 +391,7 @@ class DockerRunner(object):
         container = client.containers.run(self.image, pargs,
                               volumes=volumes, detach=True, working_dir='/spider_run',
                               environment=env)
+        self._container = container
         import requests
         while not self._exit:
             try:
@@ -406,6 +415,13 @@ class DockerRunner(object):
                 yield gen.moment
         result = CrawlResult(1)
         raise gen.Return(result)
+
+    def clear(self):
+        if self._container:
+            self._container.remove()
+        del self._container
+        if os.path.exists(self._work_dir):
+            shutil.rmtree(self._work_dir)
 
 
 class PackageNotFoundException(Exception):
