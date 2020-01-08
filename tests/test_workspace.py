@@ -148,6 +148,7 @@ class DockerRunnerTest(AsyncTestCase):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('fail_spider')
         target = DockerRunner(eggf)
+        target.image = 'scrapydd:develop'
         ret = yield target.crawl(spider_settings)
         self.assertTrue(os.path.exists(ret.items_file))
         self.assertTrue(os.path.exists(ret.crawl_logfile))
