@@ -341,14 +341,14 @@ class DockerRunner(object):
             copyfileobj(eggf, f)
         self.ioloop = IOLoop.current()
 
+    @property
+    def in_container(self):
+        return path.exists('/.dockerenv')
+
     # when controlling container in a container, cannot access
     # container's file directly, upload and download files
     # via api.
     def _put_egg(self, container):
-        # check whether running in container
-        if path.exists('/.dockerenv'):
-            return
-
         import tarfile
         from io import BytesIO
         stream = BytesIO()
@@ -360,10 +360,6 @@ class DockerRunner(object):
         container.put_archive('/spider_run', tar)
 
     def _collect_files(self, container):
-        # check whether running in container
-        if path.exists('/.dockerenv'):
-            return
-
         import tarfile
         from io import BytesIO
         bits, stat = container.get_archive('/spider_run')
@@ -384,12 +380,9 @@ class DockerRunner(object):
     @gen.coroutine
     def list(self):
         client = docker.from_env()
-        volumes = {
-            self._work_dir: {'bind': '/spider_run', 'mode': 'rw'}
-        }
         env = {'SCRAPY_EGG': 'spider.egg'}
         container = client.containers.create(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
-                              volumes=volumes, detach=True, working_dir='/spider_run',
+                              detach=True, working_dir='/spider_run',
                               environment=env)
         self._put_egg(container)
         container.start()
@@ -418,9 +411,6 @@ class DockerRunner(object):
     @gen.coroutine
     def crawl(self, spider_settings):
         client = docker.from_env()
-        volumes = {
-            self._work_dir: {'bind': '/spider_run', 'mode': 'rw'}
-        }
         with open(path.join(self._work_dir, 'spider.json'), 'w') as f_settings:
             f_settings.write(spider_settings.to_json())
         items_file_path = path.join(self._work_dir, 'items.jl')
@@ -434,7 +424,7 @@ class DockerRunner(object):
         env['SCRAPY_EGG'] = 'spider.egg'
 
         container = client.containers.create(self.image, pargs,
-                              volumes=volumes, detach=True, working_dir='/spider_run',
+                              detach=True, working_dir='/spider_run',
                               environment=env)
         self._put_egg(container)
         container.start()
