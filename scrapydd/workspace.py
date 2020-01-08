@@ -339,8 +339,10 @@ class DockerRunner(object):
         volumes = {
             self._work_dir: {'bind': '/spider_run', 'mode': 'rw'}
         }
-        container = client.containers.run(self.image, ["scrapydd", "run", 'list', ],
-                              volumes=volumes, detach=True, working_dir='/spider_run')
+        env = {'SCRAPY_EGG': 'spider.egg'}
+        container = client.containers.run(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
+                              volumes=volumes, detach=True, working_dir='/spider_run',
+                              environment=env)
         import requests
         while not self._exit:
             try:
