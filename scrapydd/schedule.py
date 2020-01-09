@@ -40,7 +40,6 @@ class SchedulerManager():
         self.config = config
         executors = {
             'default': ThreadPoolExecutor(20),
-            'processpool': ProcessPoolExecutor(5)
         }
         self.project_storage_dir = config.get('project_storage_dir')
         self.scheduler = TornadoScheduler(executors=executors)
