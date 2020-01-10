@@ -322,6 +322,10 @@ class VenvRunner(object):
             result = CrawlResult(1, error_message=str(ex))
         raise gen.Return(result)
 
+    def kill(self):
+        logger.info('killing process')
+        self._project_workspace.kill_process()
+
     def clear(self):
         del self._project_workspace
         if os.path.exists(self._work_dir):
@@ -453,6 +457,11 @@ class DockerRunner(object):
                 yield gen.moment
         result = CrawlResult(1)
         raise gen.Return(result)
+
+    def kill(self):
+        logger.info('killing process')
+        if self._container:
+            self._container.kill()
 
     def clear(self):
         if self.debug:

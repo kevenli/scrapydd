@@ -9,6 +9,7 @@ import json
 
 test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
 
+
 class ProjectWorkspaceTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_init(self):
@@ -117,6 +118,32 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertFalse(os.path.exists(ret.items_file))
         self.assertFalse(os.path.exists(ret.crawl_logfile))
 
+    @gen_test(timeout=200)
+    def test_kill_crawl(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('fail_spider')
+        target = VenvRunner(eggf)
+        target.image = 'scrapydd:develop'
+        future = target.crawl(spider_settings)
+        target.kill()
+        ret = yield future
+        self.assertIsNotNone(ret)
+        self.assertNotEqual(ret.ret_code, 0)
+
+    @gen_test(timeout=200)
+    def test_kill_list(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('fail_spider')
+        target = VenvRunner(eggf)
+        target.image = 'scrapydd:develop'
+        future = target.list()
+        target.kill()
+        try:
+            ret = yield future
+            self.fail("Did not caught the exception")
+        except:
+            pass
+
 
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
@@ -157,6 +184,32 @@ class DockerRunnerTest(AsyncTestCase):
         self.assertFalse(os.path.exists(target._work_dir))
         self.assertFalse(os.path.exists(ret.items_file))
         self.assertFalse(os.path.exists(ret.crawl_logfile))
+
+    @gen_test(timeout=200)
+    def test_kill_crawl(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('fail_spider')
+        target = DockerRunner(eggf)
+        target.image = 'scrapydd:develop'
+        future = target.crawl(spider_settings)
+        target.kill()
+        ret = yield future
+        self.assertIsNotNone(ret)
+        self.assertNotEqual(ret.ret_code, 0)
+
+    @gen_test(timeout=200)
+    def test_kill_list(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('fail_spider')
+        target = DockerRunner(eggf)
+        target.image = 'scrapydd:develop'
+        future = target.list()
+        target.kill()
+        try:
+            ret = yield future
+            self.fail("Did not caught the exception")
+        except:
+            pass
 
 
 class SpiderSettingsTest(TestCase):
