@@ -477,7 +477,7 @@ class RunnerFactory(object):
     def build(self, eggf):
         runner_type = self._runner_type
         if runner_type == 'venv':
-            runner = self._debug
+            runner = VenvRunner(eggf)
         elif runner_type == 'docker':
             runner = DockerRunner(eggf)
             runner.image = self._docker_image

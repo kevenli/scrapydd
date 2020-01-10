@@ -1,4 +1,4 @@
-FROM python:3.8.1-alpine3.11
+FROM kevenli/scrapydd-dockerbase:py3
 
 WORKDIR /scrapydd
 RUN apk add libffi-dev \

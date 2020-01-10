@@ -73,8 +73,8 @@ class UploadProject(AppBaseHandler):
         eggfile = self.request.files['egg'][0]
         eggf = BytesIO(eggfile['body'])
 
+        runner = self.build_runner(eggf)
         try:
-            runner = self.build_runner(eggf)
             spiders = yield runner.list()
         except InvalidProjectEgg as e:
             logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
