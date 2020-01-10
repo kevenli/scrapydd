@@ -1,20 +1,52 @@
+import os
+from six import ensure_str, ensure_binary
+from w3lib.http import basic_auth_header
 from tornado.testing import AsyncHTTPTestCase
+from tornado.concurrent import Future
+from tornado.web import create_signed_value
+from tornado.httputil import HTTPHeaders
 from scrapydd.poster.encode import multipart_encode
 from scrapydd.security import encrypt_password
-from w3lib.http import basic_auth_header
 from scrapydd.models import init_database, session_scope, User, Project, Spider
 from scrapydd.config import Config
-import os
 from scrapydd.schedule import SchedulerManager
 from scrapydd.nodes import NodeManager
 from scrapydd.main import make_app
 from scrapydd.webhook import WebhookDaemon
 from scrapydd.settting import SpiderSettingLoader
 from scrapydd.storage import ProjectStorage
-from tornado.concurrent import Future
-from tornado.web import create_signed_value
-from tornado.httputil import HTTPHeaders
-from six import ensure_str, ensure_binary
+from scrapydd.workspace import CrawlResult
+
+
+class TestRunnerStub:
+    def __init__(self, eggf):
+        pass
+
+    def list(self):
+        ret = ['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider']
+        future = Future()
+        future.set_result(ret)
+        return future
+
+    def crawl(self, settings):
+        future = Future()
+        future.set_result(CrawlResult(0))
+        return future
+
+    def clear(self):
+        pass
+
+
+class TestRunnerFactoryStub:
+    _runner_cls = None
+
+    def __init__(self, runner_cls=None):
+        self._runner_cls = runner_cls
+
+    def build(self, eggf):
+        if self._runner_cls:
+            return self._runner_cls(eggf)
+        return TestRunnerStub(eggf)
 
 
 class AppTest(AsyncHTTPTestCase):
@@ -72,9 +104,10 @@ class AppTest(AsyncHTTPTestCase):
         node_manager.init()
         webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
         webhook_daemon.init()
+        runner_factory = TestRunnerFactoryStub()
         return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123',
-                        project_workspace_cls=ProjectWorkspaceStub,
-                        project_storage_dir='./test_data')
+                        project_storage_dir='./test_data',
+                        runner_factory=runner_factory)
 
     def _upload_test_project(self):
         post_data = {}
@@ -97,7 +130,7 @@ class SecureAppTest(AppTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        secret_key = '123';
+        secret_key = '123'
         with session_scope() as session:
             user = session.query(User).filter_by(username='admin').first()
             user.password = encrypt_password('password', secret_key)
@@ -147,21 +180,3 @@ class SecureAppTest(AppTest):
         databuffer = ''.join(datagen)
         response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
         self.assertEqual(200, response.code)
-
-class ProjectWorkspaceStub():
-    def __init__(self, project_name, base_workdir=None):
-        pass
-
-    def init(self):
-        pass
-
-    def put_egg(self, eggfile, version):
-        pass
-
-    def install_requirements(self, extra_requirements=None):
-        pass
-
-    def spider_list(self):
-        future = Future()
-        future.set_result(['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider'])
-        return future

@@ -30,7 +30,8 @@ class MainTest(AsyncHTTPTestCase):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None, secret_key='123')
+        runner_factory = RunnerFactory(config)
+        return make_app(scheduler_manager, node_manager, None, secret_key='123', runner_factory=runner_factory)
 
     def _delproject(self):
         postdata = {'project': 'test_project'}

@@ -464,6 +464,29 @@ class DockerRunner(object):
             shutil.rmtree(self._work_dir)
 
 
+class RunnerFactory(object):
+    _runner_type = 'venv'
+    _docker_image = 'kevenli/scrapydd'
+    _debug = False
+
+    def __init__(self, config):
+        self._runner_type = config.get('runner_type', 'venv')
+        self._docker_image = config.get('runner.docker.image', 'kevenli/scrapydd')
+        self._debug = config.getboolean('debug')
+
+    def build(self, eggf):
+        runner_type = self._runner_type
+        if runner_type == 'venv':
+            runner = self._debug
+        elif runner_type == 'docker':
+            runner = DockerRunner(eggf)
+            runner.image = self._docker_image
+        else:
+            raise Exception("Not supported runner_type: %s" % runner_type)
+        runner.debug = self._debug
+        return runner
+
+
 class PackageNotFoundException(Exception):
     pass
 

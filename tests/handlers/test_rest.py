@@ -11,7 +11,7 @@ from scrapydd.webhook import WebhookDaemon
 from scrapydd.settting import SpiderSettingLoader
 from scrapydd.config import Config
 from scrapydd.exceptions import InvalidProjectEgg, ProcessFailed
-from ..base import AppTest, ProjectWorkspaceStub
+from tests.base import AppTest, TestRunnerStub, TestRunnerFactoryStub
 
 
 base_dir = path.join(path.dirname(path.dirname(__file__)))
@@ -61,14 +61,14 @@ class AddVersionHandlerTest(AppTest):
             self.assertIsNotNone(project)
             self.assertEqual(project.name, project_name)
 
+
 class AddVersionHandlerTest_InvalidProjectEgg(AppTest):
-    class InvalidProjectWorkspaceStub(ProjectWorkspaceStub):
-        def spider_list(self):
+    class InvalidProjectWorkspaceStub(TestRunnerStub):
+        def list(self):
             future = Future()
             future.set_exception(InvalidProjectEgg())
             return future
 
-    @skip
     def test_post(self):
         project_name = 'test_project'
         post_data = {}
@@ -92,19 +92,20 @@ class AddVersionHandlerTest_InvalidProjectEgg(AppTest):
         node_manager.init()
         webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
         webhook_daemon.init()
+        runner_cls = AddVersionHandlerTest_InvalidProjectEgg.InvalidProjectWorkspaceStub
+        runner_factory = TestRunnerFactoryStub(runner_cls)
         return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123',
-                        project_workspace_cls=AddVersionHandlerTest_InvalidProjectEgg.InvalidProjectWorkspaceStub,
-                        project_storage_dir='./test_data')
+                        project_storage_dir='./test_data',
+                        runner_factory=runner_factory)
 
 
 class AddVersionHandlerTest_ProcessFail(AppTest):
-    class ProcessFailProjectWorkspaceStub(ProjectWorkspaceStub):
-        def spider_list(self):
+    class ProcessFailProjectWorkspaceStub(TestRunnerStub):
+        def list(self):
             future = Future()
             future.set_exception(ProcessFailed())
             return future
 
-    @skip
     def test_post(self):
         project_name = 'test_project'
         post_data = {}
@@ -128,9 +129,11 @@ class AddVersionHandlerTest_ProcessFail(AppTest):
         node_manager.init()
         webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
         webhook_daemon.init()
+        runner_cls = AddVersionHandlerTest_ProcessFail.ProcessFailProjectWorkspaceStub
+        runner_factory = TestRunnerFactoryStub(runner_cls)
         return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123',
-                        project_workspace_cls=AddVersionHandlerTest_ProcessFail.ProcessFailProjectWorkspaceStub,
-                        project_storage_dir='./test_data')
+                        project_storage_dir='./test_data',
+                        runner_factory=runner_factory)
 
 
 class DeleteProjectHandlerTest(AppTest):

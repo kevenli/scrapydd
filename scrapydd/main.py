@@ -26,7 +26,7 @@ import signal
 from .stream import PostDataStreamer
 from .webhook import WebhookDaemon
 from .daemonize import daemonize
-from .workspace import ProjectWorkspace
+from .workspace import RunnerFactory
 from .cluster import ClusterNode
 from .ssl_gen import SSLCertificateGenerator
 from .settting import SpiderSettingLoader
@@ -551,8 +551,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
              enable_node_registration=False,
              project_storage_dir='.',
              default_project_storage_version=2,
-             project_workspace_cls = ProjectWorkspace,
-             runner_type='venv'):
+             runner_factory=None):
     """
 
     @type scheduler_manager SchedulerManager
@@ -574,8 +573,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
                     enable_node_registration=enable_node_registration,
                     project_storage_dir=project_storage_dir,
                     default_project_storage_version=default_project_storage_version,
-                    project_workspace_cls=project_workspace_cls,
-                    runner_type=runner_type)
+                    runner_factory=runner_factory,
+                    )
 
     if authentication_providers is None:
         authentication_providers = []
@@ -702,9 +701,11 @@ def start_server(argv=None):
 
     webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
     webhook_daemon.init()
+
+    runner_factory = RunnerFactory(config)
+
     enable_authentication = config.getboolean('enable_authentication')
     secret_key = config.get('secret_key')
-    runner_type = config.get('runner_type')
     app = make_app(scheduler_manager, node_manager, webhook_daemon,
                    debug=is_debug,
                    enable_authentication=enable_authentication,
@@ -712,7 +713,7 @@ def start_server(argv=None):
                    enable_node_registration=config.getboolean('enable_node_registration', False),
                    project_storage_dir=config.get('project_storage_dir'),
                    default_project_storage_version=config.get('default_project_storage_version'),
-                   runner_type=runner_type)
+                   runner_factory=runner_factory)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
