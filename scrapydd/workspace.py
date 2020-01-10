@@ -514,19 +514,28 @@ class SpiderSetting(object):
 
     def to_json(self):
         d = {
-            'spider_name': self.spider_name
+            'spider_name': self.spider_name,
+            'project_name': self.project_name,
+            'extra_requirements': self.extra_requirements,
+            'spider_parameters': self.spider_parameters
         }
         return json.dumps(d)
 
     @classmethod
     def from_json(cls, json_str):
         parsed = json.loads(json_str)
-        spider_name = parsed['spider_name']
-        project_name = parsed.get('project_name')
-        extra_requirements = parsed.get('extra_requirements')
-        spider_parameters = {}
-        obj = cls(spider_name, extra_requirements, spider_parameters, project_name)
-        return obj
+        return SpiderSetting.from_dict(parsed)
+
+    @classmethod
+    def from_dict(cls, dic):
+        """
+        type: (cls, dict) -> SpiderSetting
+        """
+        spider_name = dic['spider_name']
+        project_name = dic.get('project_name')
+        extra_requirements = dic.get('extra_requirements')
+        spider_parameters = dic.get('spider_parameters')
+        return cls(spider_name, extra_requirements, spider_parameters, project_name)
 
     @classmethod
     def from_file(cls, file_path):

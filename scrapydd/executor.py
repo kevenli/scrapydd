@@ -388,7 +388,7 @@ class TaskExecutor():
         self.workspace_dir = tempfile.mkdtemp(prefix='ddjob-%s-%s-' % (task.project_name, task.id))
         if not os.path.exists(self.workspace_dir):
             os.makedirs(self.workspace_dir)
-        self.output_file = str(os.path.join(self.workspace_dir, '%s.log' % self.task.id))
+        self.output_file = str(os.path.join(self.workspace_dir, 'crawl.log' % self.task.id))
         self._f_output = open(self.output_file, 'w')
         self.on_subprocess_start = None
         self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.workspace_dir,

@@ -208,7 +208,7 @@ class DockerRunnerTest(AsyncTestCase):
         try:
             ret = yield future
             self.fail("Did not caught the exception")
-        except:
+        except Exception:
             pass
 
 
@@ -221,13 +221,34 @@ class SpiderSettingsTest(TestCase):
         json_deserialized = json.loads(json_text)
 
         self.assertEqual(json_deserialized['spider_name'], spider_name)
+        self.assertEqual(json_deserialized['project_name'], None)
+        self.assertEqual(json_deserialized['extra_requirements'], [])
+        self.assertEqual(json_deserialized['spider_parameters'], {})
 
     def test_from_json(self):
         spider_name = 'abc'
         json_text = '''
         {
-            "spider_name": "abc"
+            "spider_name": "abc",
+            "project_name": "xyz",
+            "extra_requirements": [
+                "scrapy",
+                "beautifulsoup4"
+            ],
+            "spider_parameters" : {
+                "parameter_a" : "value_a",
+                "parameter_b" : "value_b"
+            }
         }
         '''
         target = SpiderSetting.from_json(json_text)
         self.assertEqual(target.spider_name, spider_name)
+        self.assertEqual(target.project_name, 'xyz')
+        self.assertEqual(target.extra_requirements, [
+            "scrapy",
+            "beautifulsoup4"
+        ])
+        self.assertEqual(target.spider_parameters, {
+            'parameter_a': 'value_a',
+            'parameter_b': 'value_b'
+        })
