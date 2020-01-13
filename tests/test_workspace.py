@@ -126,9 +126,11 @@ class VenvRunnerTest(AsyncTestCase):
         target.image = 'scrapydd:develop'
         future = target.crawl(spider_settings)
         target.kill()
-        ret = yield future
-        self.assertIsNotNone(ret)
-        self.assertNotEqual(ret.ret_code, 0)
+        try:
+            ret = yield future
+            self.fail("Didnot caught ProcessFailed exception")
+        except ProcessFailed:
+            pass
 
     @gen_test(timeout=200)
     def test_kill_list(self):
@@ -140,8 +142,8 @@ class VenvRunnerTest(AsyncTestCase):
         target.kill()
         try:
             ret = yield future
-            self.fail("Did not caught the exception")
-        except:
+            self.fail("Did not caught the ProcessFailed")
+        except ProcessFailed:
             pass
 
 
@@ -193,9 +195,12 @@ class DockerRunnerTest(AsyncTestCase):
         target.image = 'scrapydd:develop'
         future = target.crawl(spider_settings)
         target.kill()
-        ret = yield future
-        self.assertIsNotNone(ret)
-        self.assertNotEqual(ret.ret_code, 0)
+        try:
+            ret = yield future
+            self.fail("Didnot caught ProcessFailed exception")
+        except ProcessFailed:
+            pass
+
 
     @gen_test(timeout=200)
     def test_kill_list(self):
@@ -207,8 +212,8 @@ class DockerRunnerTest(AsyncTestCase):
         target.kill()
         try:
             ret = yield future
-            self.fail("Did not caught the exception")
-        except Exception:
+            self.fail("Did not caught the ProcessFailed")
+        except ProcessFailed:
             pass
 
 

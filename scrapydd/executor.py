@@ -9,7 +9,7 @@ from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
 from .stream import MultipartRequestBodyProducer
 import socket
 from tornado import gen
-from .workspace import ProjectWorkspace
+from .workspace import ProjectWorkspace, RunnerFactory, SpiderSetting
 import tempfile
 import shutil
 from .exceptions import *
@@ -169,6 +169,7 @@ class Executor():
 
         self.httpclient = NodeAsyncHTTPClient(self.service_base, key=node_key, secret_key=secret_key,
                                               defaults=httpclient_defaults)
+        self.runner_factory = RunnerFactory(config)
 
     def start(self):
         self.register_node()
@@ -290,7 +291,8 @@ class Executor():
 
     def execute_task(self, task):
         egg_downloader = ProjectEggDownloader(service_base=self.service_base, client=self.httpclient)
-        executor = TaskExecutor(task, egg_downloader=egg_downloader, keep_files=self.keep_job_files)
+        executor = TaskExecutor(task, egg_downloader=egg_downloader,
+                                runner_factory=self.runner_factory, keep_files=self.keep_job_files)
         pid = None
         future = executor.execute()
         self.post_start_task(task, pid)
@@ -375,12 +377,17 @@ class Executor():
 
 
 class TaskExecutor():
-    def __init__(self, task, egg_downloader, keep_files=False):
-        '''
+    def __init__(self, task, egg_downloader, runner_factory, keep_files=False):
+        """
         @type task: SpiderTask
-        '''
+        @type egg_downloader: ProjectEggDownloader
+        @type runner_factory: RunnerFactory
+        """
         self.task = task
         self.egg_downloader = egg_downloader
+        self._runner_factory = runner_factory
+        self._spider_settings = SpiderSetting(task.spider_name, task.extra_requirements,
+                                              task.spider_parameters, task.project_name)
         self._f_output = None
         self.output_file = None
         self.items_file = None
@@ -388,33 +395,23 @@ class TaskExecutor():
         self.workspace_dir = tempfile.mkdtemp(prefix='ddjob-%s-%s-' % (task.project_name, task.id))
         if not os.path.exists(self.workspace_dir):
             os.makedirs(self.workspace_dir)
-        self.output_file = str(os.path.join(self.workspace_dir, 'crawl.log' % self.task.id))
+        self.output_file = str(os.path.join(self.workspace_dir, 'crawl.log'))
         self._f_output = open(self.output_file, 'w')
         self.on_subprocess_start = None
-        self.workspace = ProjectWorkspace(self.task.project_name, base_workdir=self.workspace_dir,
-                                          keep_files=keep_files)
         self.keep_files = keep_files
-
-        with open(os.path.join(self.workspace_dir, 'spider.json'), 'w') as spider_settings_f:
-            json.dump(task.settings, spider_settings_f)
 
     @gen.coroutine
     def execute(self):
         try:
-            yield self.workspace.init()
+
             logger.info('start fetch spider egg.')
             downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.id)
             with open(downloaded_egg, 'rb') as egg_f:
-                self.workspace.put_egg(egg_f, self.task.project_version)
-            logger.info('fetch spider egg done.')
-            yield self.workspace.install_requirements(self.task.extra_requirements)
-            logger.info('start run spider.')
-            run_spider_future = self.workspace.run_spider(self.task.spider_name, self.task.spider_parameters,
-                                                          f_output=self._f_output, project=self.task.project_name)
-            run_spider_pid = self.workspace.processes[0].pid
-            if self.on_subprocess_start:
-                self.on_subprocess_start(self.task, run_spider_pid)
-            self.items_file = yield run_spider_future
+                runner = self._runner_factory.build(egg_f)
+                self._runner = runner
+            crawl_result = yield runner.crawl(self._spider_settings)
+            self.items_file = crawl_result.items_file
+            self.output_file = crawl_result.crawl_logfile
             result = self.complete(0)
         except ProcessFailed as e:
             logger.warning('Process Failed when executing task %s: %s' % (self.task.id, e))
@@ -453,10 +450,13 @@ class TaskExecutor():
             logger.debug('delete task executor for task %s' % self.task.id)
             if self.workspace_dir and os.path.exists(self.workspace_dir):
                 shutil.rmtree(self.workspace_dir)
+            if self._runner:
+                self._runner.clear()
+                self._runner = None
 
     def kill(self):
         self._f_output.write("Received a kill command, stopping spider.")
-        self.workspace.kill_process()
+        self.runner.kill()
 
 
 class ProjectEggDownloader(object):

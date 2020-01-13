@@ -307,19 +307,15 @@ class VenvRunner(object):
         Parameters:
             spider_settings (SpiderSetting): spider settings object.
         """
-        try:
-            yield self._prepare()
-            crawl_log_path = path.join(self._work_dir, 'crawl.log')
-            f_crawl_log = open(crawl_log_path, 'wb')
-            ret = yield self._project_workspace.run_spider(spider_settings.spider_name,
-                                                           spider_settings.spider_parameters,
-                                                           f_output=f_crawl_log,
-                                                           project=spider_settings.project_name)
-            f_crawl_log.close()
-            result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
-        except Exception as ex:
-            logger.error(ex)
-            result = CrawlResult(1, error_message=str(ex))
+        yield self._prepare()
+        crawl_log_path = path.join(self._work_dir, 'crawl.log')
+        f_crawl_log = open(crawl_log_path, 'wb')
+        ret = yield self._project_workspace.run_spider(spider_settings.spider_name,
+                                                       spider_settings.spider_parameters,
+                                                       f_output=f_crawl_log,
+                                                       project=spider_settings.project_name)
+        f_crawl_log.close()
+        result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
         raise gen.Return(result)
 
     def kill(self):
@@ -401,7 +397,7 @@ class DockerRunner(object):
                     self._collect_files(container)
                     raise gen.Return(ensure_str(output).split())
                 else:
-                    raise Exception(container.logs())
+                    raise ProcessFailed(err_output=container.logs())
 
             except requests.exceptions.ReadTimeout:
                 yield gen.moment
@@ -447,7 +443,7 @@ class DockerRunner(object):
                     raise gen.Return(result)
                 else:
                     result = CrawlResult(1)
-                    raise gen.Return(result)
+                    raise ProcessFailed(err_output=container.logs())
             except requests.exceptions.ReadTimeout:
                 yield gen.moment
             # to hack the bug https://github.com/docker/docker-py/issues/1966
