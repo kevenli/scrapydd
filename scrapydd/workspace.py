@@ -333,6 +333,7 @@ class DockerRunner(object):
     _exit = False
     _container = None
     debug = False
+
     def __init__(self, eggf):
         self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         eggf.seek(0)
@@ -382,8 +383,8 @@ class DockerRunner(object):
         client = docker.from_env()
         env = {'SCRAPY_EGG': 'spider.egg'}
         container = client.containers.create(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
-                              detach=True, working_dir='/spider_run',
-                              environment=env)
+                                             detach=True, working_dir='/spider_run',
+                                             environment=env)
         self._put_egg(container)
         container.start()
         self._container = container
@@ -419,13 +420,13 @@ class DockerRunner(object):
         pargs = ["python", "-m", "scrapydd.utils.runner", 'crawl', spider_settings.spider_name,
                  '-o', 'items.jl']
         env = {}
-        #env['SCRAPY_PROJECT'] = spider_settings.
+        # env['SCRAPY_PROJECT'] = spider_settings.
         env['SCRAPY_FEED_URI'] = 'items.jl'
         env['SCRAPY_EGG'] = 'spider.egg'
 
         container = client.containers.create(self.image, pargs,
-                              detach=True, working_dir='/spider_run',
-                              environment=env)
+                                             detach=True, working_dir='/spider_run',
+                                             environment=env)
         self._put_egg(container)
         container.start()
         self._container = container
@@ -476,7 +477,7 @@ class RunnerFactory(object):
 
     def __init__(self, config):
         self._runner_type = config.get('runner_type', 'venv')
-        self._docker_image = config.get('runner.docker.image', 'kevenli/scrapydd')
+        self._docker_image = config.get('runner_docker_image', 'kevenli/scrapydd')
         self._debug = config.getboolean('debug')
 
     def build(self, eggf):
