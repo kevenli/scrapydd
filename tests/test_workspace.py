@@ -105,6 +105,22 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.crawl_logfile))
 
     @gen_test(timeout=200)
+    def test_crawl_overwrite_setting(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('log_spider', spider_parameters={'SOME_SETTING': '2'})
+        target = VenvRunner(eggf)
+        ret = yield target.crawl(spider_settings)
+        self.assertIsNotNone(ret)
+        self.assertEqual(0, ret.ret_code)
+        self.assertIsNotNone(ret.items_file)
+        self.assertTrue(os.path.exists(ret.items_file))
+        self.assertIsNotNone(ret.crawl_logfile)
+        self.assertTrue(os.path.exists(ret.crawl_logfile))
+        with open(ret.crawl_logfile, 'r') as f:
+            crawl_log = f.read()
+        self.assertTrue('SOME_SETTING: 2' in crawl_log)
+
+    @gen_test(timeout=200)
     def test_crawl_process_fail(self):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('NO_EXIST_SPIDER')
