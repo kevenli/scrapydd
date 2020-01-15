@@ -1,12 +1,11 @@
 import sys
 import os
 import os.path
-import pkg_resources
 import logging
 import tempfile
 import shutil
 import json
-from io import StringIO, BytesIO
+from io import BytesIO
 from zipfile import ZipFile
 from w3lib.url import path_to_file_uri
 from shutil import copyfileobj
@@ -17,6 +16,7 @@ from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 from tornado import gen
 import docker
+import requests
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 
 logger = logging.getLogger(__name__)
@@ -453,7 +453,6 @@ class DockerRunner(object):
         container.start()
 
     def _wait_container(self, container):
-        import requests
         try:
             ret_status = container.wait(timeout=0.1)
             ret_code = ret_status['StatusCode']
@@ -485,8 +484,6 @@ class DockerRunner(object):
         else:
             self._remove_container(container)
             raise ProcessFailed(err_output=logs)
-
-        raise gen.Return()
 
     @gen.coroutine
     def crawl(self, spider_settings):
@@ -549,9 +546,6 @@ class DockerRunner(object):
         else:
             self._remove_container(container)
             raise ProcessFailed(err_output=process_output)
-
-        result = CrawlResult(1)
-        raise gen.Return(result)
 
     @gen.coroutine
     def settings_module(self):
@@ -692,16 +686,3 @@ class CrawlResult(object):
     @property
     def crawl_logfile(self):
         return self._crawl_logfile
-
-
-def load_package_settings_module(eggpath):
-    """Activate a Scrapy egg file. This is meant to be used from egg runners
-    to activate a Scrapy egg file. Don't use it from other code as it may
-    leave unwanted side effects.
-    """
-    try:
-        d = next(pkg_resources.find_distributions(eggpath))
-    except StopIteration:
-        raise ValueError("Unknown or corrupt egg")
-    settings_module = d.get_entry_info('scrapy', 'settings').module_name
-    return settings_module
