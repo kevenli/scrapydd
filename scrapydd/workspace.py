@@ -496,6 +496,15 @@ class DockerRunner(object):
 
         Returns:
             Future: future
+
+        As the settings values are forced writen with %(key)s = '%(value)s' format, the origin
+        value type will lost, every settings values are strings. However, it would not be a
+        problem since scrapy settings support a series of strong-typed settings value get interfaces.
+        Always use strong-typed value retrieving method such as settings.getbool, getfloat, getint etc
+        can prevent you from TypeError.
+
+        see: https://docs.scrapy.org/en/latest/topics/api.html#scrapy.settings.BaseSettings.get
+
         """
         with open(path.join(self._work_dir, 'spider.json'), 'w') as f_settings:
             f_settings.write(spider_settings.to_json())

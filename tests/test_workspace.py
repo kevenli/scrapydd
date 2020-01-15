@@ -4,7 +4,7 @@ from scrapydd.workspace import ProjectWorkspace, VenvRunner, SpiderSetting, Dock
 from scrapydd.exceptions import ProcessFailed
 import tempfile
 import os
-from unittest import TestCase, skip
+from unittest import TestCase, skip, SkipTest
 import json
 
 test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
@@ -174,9 +174,9 @@ class VenvRunnerTest(AsyncTestCase):
         except ProcessFailed:
             pass
 
-    @skip
     @gen_test(timeout=200)
     def test_settings_module(self):
+        raise SkipTest("Venv need a new scrapydd version published to be tested.")
         eggf = open(test_project_file, 'rb')
         target = VenvRunner(eggf)
         ret = yield target.settings_module()
