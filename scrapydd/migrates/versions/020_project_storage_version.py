@@ -2,6 +2,8 @@ from sqlalchemy import *
 from migrate import *
 meta = MetaData()
 
+
+
 def upgrade(migrate_engine):
     meta.bind = migrate_engine
     projects_table = Table('projects', meta, autoload=True)

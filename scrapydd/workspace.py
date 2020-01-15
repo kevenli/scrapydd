@@ -1,21 +1,22 @@
 import sys
 import os
 import os.path
-from tornado.concurrent import Future
-from tornado.ioloop import IOLoop
-from tornado import gen
-from subprocess import Popen, PIPE
+import pkg_resources
 import logging
 import tempfile
 import shutil
-from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 import json
 from zipfile import ZipFile
 from w3lib.url import path_to_file_uri
 from shutil import copyfileobj
 from six import ensure_str
 from os import path
+from subprocess import Popen, PIPE
+from tornado.concurrent import Future
+from tornado.ioloop import IOLoop
+from tornado import gen
 import docker
+from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +153,38 @@ class ProjectWorkspace(object):
                     stdout = process.stdout.read()
                     stdout = ensure_str(stdout)
                     future.set_result(stdout.splitlines())
+                else:
+                    # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
+                    future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
+                return
+            IOLoop.current().call_later(1, check_process)
+
+        check_process()
+        return future
+
+    def settings_module(self):
+        future = Future()
+        cwd = self.project_workspace_dir
+        try:
+            env = os.environ.copy()
+            env['SCRAPY_PROJECT'] = self.project_name
+            env['SCRAPY_EGG'] = 'spider.egg'
+            process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings_module', 'spider.egg'],
+                            env=env, cwd=cwd, stdout=PIPE,
+                            stderr=PIPE)
+        except Exception as e:
+            logger.error(e)
+            future.set_exception(e)
+            return future
+
+        def check_process():
+            logger.debug('poll')
+            retcode = process.poll()
+            if retcode is not None:
+                if retcode == 0:
+                    stdout = process.stdout.read()
+                    stdout = ensure_str(stdout).strip()
+                    future.set_result(stdout)
                 else:
                     # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
                     future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
@@ -309,14 +342,27 @@ class VenvRunner(object):
         """
         yield self._prepare()
         crawl_log_path = path.join(self._work_dir, 'crawl.log')
-        f_crawl_log = open(crawl_log_path, 'wb')
-        ret = yield self._project_workspace.run_spider(spider_settings.spider_name,
-                                                       spider_settings.spider_parameters,
-                                                       f_output=f_crawl_log,
-                                                       project=spider_settings.project_name)
-        f_crawl_log.close()
-        result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
-        raise gen.Return(result)
+        f_crawl_log = open(crawl_log_path, 'w')
+        try:
+            ret = yield self._project_workspace.run_spider(spider_settings.spider_name,
+                                                           spider_settings.spider_parameters,
+                                                           f_output=f_crawl_log,
+                                                           project=spider_settings.project_name)
+            f_crawl_log.close()
+            result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
+            raise gen.Return(result)
+        except ProcessFailed:
+            f_crawl_log.close()
+            with open(crawl_log_path, 'r') as f_log:
+                error_log = f_log.read()
+            raise ProcessFailed(err_output=error_log)
+
+
+    @gen.coroutine
+    def settings_module(self):
+        yield self._prepare()
+        ret = yield self._project_workspace.settings_module()
+        raise gen.Return(ret)
 
     def kill(self):
         logger.info('killing process')
@@ -335,12 +381,13 @@ class DockerRunner(object):
     debug = False
 
     def __init__(self, eggf):
+        self._client = docker.from_env()
         self._work_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
         eggf.seek(0)
-        eggpath = os.path.join(self._work_dir, 'spider.egg')
-        with open(eggpath, 'wb') as f:
+        self._egg_file = os.path.join(self._work_dir, 'spider.egg')
+        with open(self._egg_file, 'wb') as f:
             copyfileobj(eggf, f)
-        self.ioloop = IOLoop.current()
+        self._ioloop = IOLoop.current()
 
     @property
     def in_container(self):
@@ -378,40 +425,57 @@ class DockerRunner(object):
                 f.write(extract_file.read())
         out.close()
 
+    def _remove_container(self, container):
+        if self._container == container:
+            self._container = None
+
+        if not self.debug:
+            container.remove()
+
+    def _start_container(self, container):
+        if self._container is not None:
+            raise Exception("Container is running.")
+        self._container = container
+        container.start()
+
+    def _wait_container(self, container):
+        import requests
+        try:
+            ret_status = container.wait(timeout=0.1)
+            ret_code = ret_status['StatusCode']
+            return ret_code
+        except requests.exceptions.ReadTimeout:
+            return None
+        # to hack the bug https://github.com/docker/docker-py/issues/1966
+        # which raise an ConnectonError when read timeout
+        except requests.exceptions.ConnectionError as e:
+            return None
+
     @gen.coroutine
     def list(self):
-        client = docker.from_env()
         env = {'SCRAPY_EGG': 'spider.egg'}
-        container = client.containers.create(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
-                                             detach=True, working_dir='/spider_run',
-                                             environment=env)
+        container = self._client.containers.create(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
+                                                   detach=True, working_dir='/spider_run',
+                                                   environment=env)
         self._put_egg(container)
-        container.start()
-        self._container = container
-        import requests
-        while not self._exit:
-            try:
-                ret_status = container.wait(timeout=0.1)
-                ret_code = ret_status['StatusCode']
-                if ret_code == 0:
-                    output = container.logs()
-                    self._collect_files(container)
-                    raise gen.Return(ensure_str(output).split())
-                else:
-                    raise ProcessFailed(err_output=container.logs())
+        self._start_container(container)
+        ret_code = self._wait_container(container)
+        while ret_code is None:
+            yield gen.moment
+            ret_code = self._wait_container(container)
+        logs = container.logs()
+        if ret_code == 0:
+            self._collect_files(container)
+            self._remove_container(container)
+            raise gen.Return(ensure_str(logs).split())
+        else:
+            self._remove_container(container)
+            raise ProcessFailed(err_output=logs)
 
-            except requests.exceptions.ReadTimeout:
-                yield gen.moment
-            # to hack the bug https://github.com/docker/docker-py/issues/1966
-            # which raise an ConnectonError when read timeout
-            except requests.exceptions.ConnectionError as e:
-                logger.warning(e)
-                yield gen.moment
         raise gen.Return()
 
     @gen.coroutine
     def crawl(self, spider_settings):
-        client = docker.from_env()
         with open(path.join(self._work_dir, 'spider.json'), 'w') as f_settings:
             f_settings.write(spider_settings.to_json())
         items_file_path = path.join(self._work_dir, 'items.jl')
@@ -420,40 +484,52 @@ class DockerRunner(object):
         pargs = ["python", "-m", "scrapydd.utils.runner", 'crawl', spider_settings.spider_name,
                  '-o', 'items.jl']
         env = {}
-        # env['SCRAPY_PROJECT'] = spider_settings.
         env['SCRAPY_FEED_URI'] = 'items.jl'
         env['SCRAPY_EGG'] = 'spider.egg'
 
-        container = client.containers.create(self.image, pargs,
-                                             detach=True, working_dir='/spider_run',
-                                             environment=env)
+        container = self._client.containers.create(self.image, pargs,
+                                                   detach=True, working_dir='/spider_run',
+                                                   environment=env)
         self._put_egg(container)
-        container.start()
-        self._container = container
-        import requests
-        while not self._exit:
-            try:
-                ret_status = container.wait(timeout=0.1)
-                ret_code = ret_status['StatusCode']
-                if ret_code == 0:
-                    process_output = ensure_str(container.logs())
-                    with open(log_file_path, 'w') as f:
-                        f.write(process_output)
-                    self._collect_files(container)
-                    result = CrawlResult(0, items_file=items_file_path, crawl_logfile=log_file_path)
-                    raise gen.Return(result)
-                else:
-                    result = CrawlResult(1)
-                    raise ProcessFailed(err_output=container.logs())
-            except requests.exceptions.ReadTimeout:
-                yield gen.moment
-            # to hack the bug https://github.com/docker/docker-py/issues/1966
-            # which raise an ConnectonError when read timeout
-            except requests.exceptions.ConnectionError as e:
-                logger.warning(e)
-                yield gen.moment
+        self._start_container(container)
+        ret_code = self._wait_container(container)
+        while ret_code is None:
+            yield gen.moment
+            ret_code = self._wait_container(container)
+
+        process_output = ensure_str(container.logs())
+        if ret_code == 0:
+            with open(log_file_path, 'w') as f:
+                f.write(process_output)
+            self._collect_files(container)
+            result = CrawlResult(0, items_file=items_file_path, crawl_logfile=log_file_path)
+            self._remove_container(container)
+            raise gen.Return(result)
+        else:
+            self._remove_container(container)
+            raise ProcessFailed(err_output=process_output)
+
         result = CrawlResult(1)
         raise gen.Return(result)
+
+    @gen.coroutine
+    def settings_module(self):
+        pargs = ["python", "-m", "scrapydd.utils.extract_settings_module", 'spider.egg']
+        container = self._client.containers.create(self.image, pargs,
+                                                   detach=True, working_dir='/spider_run')
+        self._put_egg(container)
+        self._start_container(container)
+        ret_code = self._wait_container(container)
+        while ret_code is None:
+            yield gen.moment
+            ret_code = self._wait_container(container)
+
+        output = ensure_str(container.logs()).strip()
+        self._remove_container(container)
+        if ret_code == 0:
+            raise gen.Return(output)
+        else:
+            raise ProcessFailed(err_output=output)
 
     def kill(self):
         logger.info('killing process')
@@ -568,3 +644,16 @@ class CrawlResult(object):
     @property
     def crawl_logfile(self):
         return self._crawl_logfile
+
+
+def load_package_settings_module(eggpath):
+    """Activate a Scrapy egg file. This is meant to be used from egg runners
+    to activate a Scrapy egg file. Don't use it from other code as it may
+    leave unwanted side effects.
+    """
+    try:
+        d = next(pkg_resources.find_distributions(eggpath))
+    except StopIteration:
+        raise ValueError("Unknown or corrupt egg")
+    settings_module = d.get_entry_info('scrapy', 'settings').module_name
+    return settings_module

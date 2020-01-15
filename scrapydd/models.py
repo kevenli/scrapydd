@@ -51,6 +51,17 @@ class Project(Base):
     version = Column(String(length=50))
     storage_version = Column(Integer, nullable=False)
 
+
+class ProjectPackage(Base):
+    __tablename__ = 'project_package'
+
+    project_id = Column(Integer, ForeignKey('projects.id'), primary_key=True)
+    type = Column(String(length=255), nullable=False)
+    spider_list = Column(String(length=255), nullable=False)
+    settings_module = Column(String(length=255), default=False)
+    project = relationship("project", back_populates="package", uselist=False)
+
+
 class Spider(Base):
     __tablename__ = 'spiders'
 
@@ -209,8 +220,8 @@ def _make_session():
     global _Session
     return _Session()
 
-Session = _make_session
 
+Session = _make_session
 
 
 @contextmanager

@@ -105,6 +105,18 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.crawl_logfile))
 
     @gen_test(timeout=200)
+    def test_crawl_process_fail(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('NO_EXIST_SPIDER')
+        target = VenvRunner(eggf)
+        try:
+            ret = yield target.crawl(spider_settings)
+            self.fail('Did not caught ProcessFail exception.')
+        except ProcessFailed as e:
+            self.assertIsNotNone(e.err_output)
+            self.assertTrue("KeyError: 'Spider not found: NO_EXIST_SPIDER'" in e.err_output)
+
+    @gen_test(timeout=200)
     def test_clear(self):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('fail_spider')
@@ -146,6 +158,13 @@ class VenvRunnerTest(AsyncTestCase):
         except ProcessFailed:
             pass
 
+    @gen_test(timeout=200)
+    def test_settings_module(self):
+        eggf = open(test_project_file, 'rb')
+        target = VenvRunner(eggf)
+        ret = yield target.settings_module()
+        self.assertEqual('test_project.settings', ret)
+
 
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
@@ -186,6 +205,15 @@ class DockerRunnerTest(AsyncTestCase):
         self.assertFalse(os.path.exists(target._work_dir))
         self.assertFalse(os.path.exists(ret.items_file))
         self.assertFalse(os.path.exists(ret.crawl_logfile))
+
+    @gen_test(timeout=200)
+    def test_settings_module(self):
+        eggf = open(test_project_file, 'rb')
+        target = DockerRunner(eggf)
+        target.image = 'scrapydd:develop'
+        ret = yield target.settings_module()
+        self.assertIsNone(target._container)
+        self.assertEqual('test_project.settings', ret)
 
     @gen_test(timeout=200)
     def test_kill_crawl(self):
