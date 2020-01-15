@@ -59,7 +59,10 @@ class ProjectPackage(Base):
     type = Column(String(length=255), nullable=False)
     spider_list = Column(String(length=255), nullable=False)
     settings_module = Column(String(length=255), default=False)
-    project = relationship("project", back_populates="package", uselist=False)
+    project = relationship("Project")
+
+
+Project.package = relationship("ProjectPackage", uselist=False)
 
 
 class Spider(Base):
