@@ -40,6 +40,7 @@ from .handlers import webui
 from .storage import ProjectStorage
 import json
 from .scripts.upgrade_filestorage import upgrade as upgrade_project_storage
+from .scripts.upgrade_projectpackage import upgrade as upgrade_project_package
 
 logger = logging.getLogger(__name__)
 
@@ -667,6 +668,7 @@ def start_server(argv=None):
     is_debug=config.getboolean('debug')
     init_database()
     upgrade_project_storage()
+    upgrade_project_package()
     bind_address = config.get('bind_address')
     bind_port = config.getint('bind_port')
     try:
