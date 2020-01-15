@@ -518,7 +518,7 @@ class DockerRunner(object):
             settings_module_file = BytesIO()
             settings_module_file.write(b'from %s import *\n' % ensure_binary(spider_settings.base_settings_module))
             for k, v in spider_settings.spider_parameters.items():
-                settings_module_file.write(ensure_binary("%s=%s\n" % (k, v)))
+                settings_module_file.write(ensure_binary("%s='%s'\n" % (k, v)))
             settings_module_file.seek(0)
             self._put_file(container, 'settings.py', settings_module_file)
 
@@ -612,18 +612,21 @@ class SpiderSetting(object):
     spider_parameters = None
     base_settings_module = None
 
-    def __init__(self, spider_name, extra_requirements=None, spider_parameters=None, project_name=None):
+    def __init__(self, spider_name, extra_requirements=None, spider_parameters=None, project_name=None,
+                 base_settings_module=None):
         self.spider_name = spider_name
         self.extra_requirements = extra_requirements or []
         self.spider_parameters = spider_parameters or {}
         self.project_name = project_name
+        self.base_settings_module = base_settings_module
 
     def to_json(self):
         d = {
             'spider_name': self.spider_name,
             'project_name': self.project_name,
             'extra_requirements': self.extra_requirements,
-            'spider_parameters': self.spider_parameters
+            'spider_parameters': self.spider_parameters,
+            'base_settings_module': self.base_settings_module
         }
         return json.dumps(d)
 
@@ -641,7 +644,10 @@ class SpiderSetting(object):
         project_name = dic.get('project_name')
         extra_requirements = dic.get('extra_requirements')
         spider_parameters = dic.get('spider_parameters')
-        return cls(spider_name, extra_requirements, spider_parameters, project_name)
+        base_settings_module = dic.get('base_settings_module')
+
+        return cls(spider_name, extra_requirements, spider_parameters, project_name,
+                   base_settings_module=base_settings_module)
 
     @classmethod
     def from_file(cls, file_path):

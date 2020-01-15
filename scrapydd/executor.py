@@ -386,8 +386,7 @@ class TaskExecutor():
         self.task = task
         self.egg_downloader = egg_downloader
         self._runner_factory = runner_factory
-        self._spider_settings = SpiderSetting(task.spider_name, task.extra_requirements,
-                                              task.spider_parameters, task.project_name)
+        self._spider_settings = SpiderSetting.from_dict(task.settings['task'])
         self._f_output = None
         self.output_file = None
         self.items_file = None
@@ -403,7 +402,6 @@ class TaskExecutor():
     @gen.coroutine
     def execute(self):
         try:
-
             logger.info('start fetch spider egg.')
             downloaded_egg = yield self.egg_downloader.download_egg_future(self.task.id)
             with open(downloaded_egg, 'rb') as egg_f:

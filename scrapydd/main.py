@@ -111,8 +111,10 @@ class UploadProject(AppBaseHandler):
                 project.storage_version = int(self.settings.get('default_project_storage_version'))
             project.version = version
             session.add(project)
-            package = ProjectPackage()
-            package.project = project
+            package = project.package
+            if not package:
+                package = ProjectPackage()
+                package.project = project
             package.type = 'scrapy'
             package.settings_module = project_settings_module
             package.spider_list = ','.join(spiders)

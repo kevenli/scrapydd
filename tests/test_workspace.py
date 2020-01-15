@@ -211,7 +211,7 @@ class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_crawl_overwrite_setting(self):
         eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('log_spider', spider_parameters={'SOME_SETTING': '2'})
+        spider_settings = SpiderSetting('log_spider', spider_parameters={'SOME_SETTING': 'abc'})
         spider_settings.base_settings_module = 'test_project.settings'
         target = DockerRunner(eggf)
         target.image = 'scrapydd:develop'
@@ -224,7 +224,7 @@ class DockerRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.crawl_logfile))
         with open(ret.crawl_logfile, 'r') as f:
             crawl_log = f.read()
-        self.assertIn('SOME_SETTING: 2', crawl_log)
+        self.assertIn('SOME_SETTING: abc', crawl_log)
 
     @gen_test(timeout=200)
     def test_clear(self):

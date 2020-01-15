@@ -203,7 +203,8 @@ class ExecuteNextHandler(NodeBaseHandler):
                     'project_name': next_task.project_name,
                     'version': project.version,
                     'extra_requirements': extra_requirements,
-                    'spider_parameters': {parameter.parameter_key: parameter.value for parameter in spider.parameters}
+                    'spider_parameters': {parameter.parameter_key: parameter.value for parameter in spider.parameters},
+                    'base_settings_module': project.package.settings_module,
                 }}
             self.write(json.dumps(response_data))
 
