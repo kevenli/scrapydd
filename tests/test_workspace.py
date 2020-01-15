@@ -174,6 +174,7 @@ class VenvRunnerTest(AsyncTestCase):
         except ProcessFailed:
             pass
 
+    @skip
     @gen_test(timeout=200)
     def test_settings_module(self):
         eggf = open(test_project_file, 'rb')
