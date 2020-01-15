@@ -6,10 +6,11 @@ import logging
 import tempfile
 import shutil
 import json
+from io import StringIO, BytesIO
 from zipfile import ZipFile
 from w3lib.url import path_to_file_uri
 from shutil import copyfileobj
-from six import ensure_str
+from six import ensure_str, ensure_binary
 from os import path
 from subprocess import Popen, PIPE
 from tornado.concurrent import Future
@@ -398,10 +399,23 @@ class DockerRunner(object):
     # via api.
     def _put_egg(self, container):
         import tarfile
-        from io import BytesIO
         stream = BytesIO()
         out = tarfile.open(fileobj=stream, mode='w')
         out.add(os.path.join(self._work_dir, 'spider.egg'), 'spider.egg')
+        out.close()
+        stream.seek(0)
+        tar = stream.read()
+        container.put_archive('/spider_run', tar)
+
+    def _put_file(self, container, path, fileobj):
+        import tarfile
+        stream = BytesIO()
+        out = tarfile.open(fileobj=stream, mode='w')
+        tarinfo = tarfile.TarInfo(name=path)
+        fileobj.seek(0, os.SEEK_END)
+        tarinfo.size = fileobj.tell()
+        fileobj.seek(0)
+        out.addfile(tarinfo, fileobj)
         out.close()
         stream.seek(0)
         tar = stream.read()
@@ -476,20 +490,38 @@ class DockerRunner(object):
 
     @gen.coroutine
     def crawl(self, spider_settings):
+        """
+        Parameters:
+            spider_settings (SpiderSetting): spider settings object.
+
+        Returns:
+            Future: future
+        """
         with open(path.join(self._work_dir, 'spider.json'), 'w') as f_settings:
             f_settings.write(spider_settings.to_json())
         items_file_path = path.join(self._work_dir, 'items.jl')
         log_file_path = path.join(self._work_dir, 'crawl.log')
+
 
         pargs = ["python", "-m", "scrapydd.utils.runner", 'crawl', spider_settings.spider_name,
                  '-o', 'items.jl']
         env = {}
         env['SCRAPY_FEED_URI'] = 'items.jl'
         env['SCRAPY_EGG'] = 'spider.egg'
+        if spider_settings.base_settings_module:
+            env['SCRAPY_SETTINGS_MODULE'] = 'settings'
 
         container = self._client.containers.create(self.image, pargs,
                                                    detach=True, working_dir='/spider_run',
                                                    environment=env)
+        if spider_settings.base_settings_module:
+            settings_module_file = BytesIO()
+            settings_module_file.write(b'from %s import *\n' % ensure_binary(spider_settings.base_settings_module))
+            for k, v in spider_settings.spider_parameters.items():
+                settings_module_file.write(ensure_binary("%s=%s\n" % (k, v)))
+            settings_module_file.seek(0)
+            self._put_file(container, 'settings.py', settings_module_file)
+
         self._put_egg(container)
         self._start_container(container)
         ret_code = self._wait_container(container)
@@ -578,6 +610,7 @@ class SpiderSetting(object):
     project_name = None
     extra_requirements = None
     spider_parameters = None
+    base_settings_module = None
 
     def __init__(self, spider_name, extra_requirements=None, spider_parameters=None, project_name=None):
         self.spider_name = spider_name

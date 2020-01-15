@@ -9,7 +9,7 @@ from tornado.web import authenticated
 from tornado import gen
 from io import StringIO, BytesIO
 from .models import Session, Project, Spider, Trigger, SpiderExecutionQueue, Node, init_database, HistoricalJob, \
-    SpiderWebhook, session_scope, SpiderSettings, WebhookJob, SpiderParameter, User
+    SpiderWebhook, session_scope, SpiderSettings, WebhookJob, SpiderParameter, User, ProjectPackage
 from .schedule import SchedulerManager
 from .nodes import NodeManager
 import datetime
@@ -77,6 +77,7 @@ class UploadProject(AppBaseHandler):
         runner = self.build_runner(eggf)
         try:
             spiders = yield runner.list()
+            project_settings_module = yield runner.settings_module()
         except InvalidProjectEgg as e:
             logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
             self.set_status(400, reason=e.message)
@@ -110,6 +111,12 @@ class UploadProject(AppBaseHandler):
                 project.storage_version = int(self.settings.get('default_project_storage_version'))
             project.version = version
             session.add(project)
+            package = ProjectPackage()
+            package.project = project
+            package.type = 'scrapy'
+            package.settings_module = project_settings_module
+            package.spider_list = ','.join(spiders)
+            session.add(package)
             session.flush()
             project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
             project_storage.put_egg(eggf, version)
