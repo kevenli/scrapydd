@@ -1,4 +1,5 @@
-FROM python:2.7-alpine
+# FROM python:2.7-alpine
+FROM kevenli/scrapydd-dockerbase:py2
 
 WORKDIR /scrapydd
 RUN apk add python2-dev libffi-dev \
