@@ -1,7 +1,8 @@
 import logging
 from tornado.gen import coroutine, Return
 from scrapydd.workspace import RunnerFactory
-from scrapydd.models import session_scope, ProjectPackage, Project, Spider
+from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trigger, SpiderExecutionQueue, \
+    SpiderParameter
 from scrapydd.storage import ProjectStorage
 
 
@@ -61,3 +62,25 @@ class ProjectManager:
 
             session.commit()
         raise Return(project)
+
+    def delete_project(self, user_id, project_id):
+        with session_scope() as session:
+            project = session.query(Project).get(project_id)
+            project_storage = ProjectStorage(self.project_storage_dir, project,
+                                             self.default_project_storage_version)
+            for spider in project.spiders:
+                triggers = session.query(Trigger).filter_by(spider_id=spider.id)
+                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
+                session.query(SpiderParameter).filter_by(spider_id=spider.id).delete()
+                session.commit()
+                for trigger in triggers:
+                    self.scheduler_manager.remove_schedule(project.name, spider.name, trigger_id=trigger.id)
+                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
+                for historical_job in spider.historical_jobs:
+                    project_storage.delete_job_data(historical_job)
+                    session.delete(historical_job)
+                session.delete(spider)
+            project_storage.delete_egg()
+            session.delete(project.package)
+            session.delete(project)
+

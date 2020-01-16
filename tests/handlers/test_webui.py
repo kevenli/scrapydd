@@ -1,8 +1,8 @@
-from ..base import AppTest
-from scrapydd.storage import ProjectStorage
-from scrapydd.models import session_scope, Project, Spider
 from os import path
 from six.moves.urllib.parse import urlencode
+from scrapydd.storage import ProjectStorage
+from scrapydd.models import session_scope, Project, Spider
+from ..base import AppTest
 
 
 class TestDeleteProjectHandler(AppTest):
@@ -32,11 +32,63 @@ class TestDeleteProjectHandler(AppTest):
 
 
 class RunSpiderHandlerTest(AppTest):
+    def init_project(self, project_name):
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project_name).first()
+            if project:
+                self.project_manager.delete_project('', project.id)
+        AppTest.init_project()
+
+    def test_post_insecure(self):
+        project_name = 'test_project'
+        spider_name = 'error_spider'
+        url = '/projects/%s/spiders/%s/run' % (project_name, spider_name)
+        res = self.fetch(url, method='POST', body=b'')
+        self.assertEqual(403, res.code)
+
     def test_post(self):
         project_name = 'test_project'
         spider_name = 'error_spider'
+        self.init_project(project_name)
+
         url = '/projects/%s/spiders/%s/run' % (project_name, spider_name)
         headers = {'Cookie': "_xsrf=dummy"}
         post_data = {'_xsrf': 'dummy'}
         res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
         self.assertEqual(200, res.code)
+
+    def test_post_no_project(self):
+        project_name = 'PROJECT_NOT_EXIST'
+        spider_name = 'error_spider'
+        self.init_project(project_name)
+
+        url = '/projects/%s/spiders/%s/run' % (project_name, spider_name)
+        headers = {'Cookie': "_xsrf=dummy"}
+        post_data = {'_xsrf': 'dummy'}
+        res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
+        self.assertEqual(404, res.code)
+
+    def test_post_no_spider(self):
+        project_name = 'test_project'
+        spider_name = 'SPIDER_NOT_EXIST'
+        self.init_project(project_name)
+        url = '/projects/%s/spiders/%s/run' % (project_name, spider_name)
+        headers = {'Cookie': "_xsrf=dummy"}
+        post_data = {'_xsrf': 'dummy'}
+        res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
+        self.assertEqual(404, res.code)
+
+    def test_post_already_running(self):
+        project_name = 'test_project'
+        spider_name = 'error_spider'
+        self.init_project(project_name)
+        url = '/projects/%s/spiders/%s/run' % (project_name, spider_name)
+        headers = {'Cookie': "_xsrf=dummy"}
+        post_data = {'_xsrf': 'dummy'}
+        # Run a job first
+        res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
+        self.assertEqual(200, res.code)
+
+        # The next fire it, it raise an JobRunning
+        res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
+        self.assertEqual(400, res.code)

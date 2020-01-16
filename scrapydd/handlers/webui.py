@@ -58,22 +58,11 @@ class DeleteProjectHandler(AppBaseHandler):
     def post(self, project_name):
         with session_scope() as session:
             project = session.query(Project).filter_by(name=project_name).first()
-            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
-            for spider in project.spiders:
-                triggers = session.query(Trigger).filter_by(spider_id=spider.id)
-                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
-                session.query(SpiderParameter).filter_by(spider_id=spider.id).delete()
-                session.commit()
-                for trigger in triggers:
-                    self.scheduler_manager.remove_schedule(project_name, spider.name, trigger_id=trigger.id)
-                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
-                for historical_job in spider.historical_jobs:
-                    project_storage.delete_job_data(historical_job)
-                    session.delete(historical_job)
-                session.delete(spider)
-            project_storage.delete_egg()
-            session.delete(project.package)
-            session.delete(project)
+            if not project:
+                return self.set_status(404, 'Project not found.')
+
+        project_manager = self.settings.get('project_manager')
+        project_manager.delete_project(self.current_user, project_id=project.id)
 
 
 class ProjectSettingsHandler(AppBaseHandler):

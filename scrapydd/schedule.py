@@ -1,29 +1,22 @@
-
-from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
-    SpiderSettings, Node
-from apscheduler.schedulers.tornado import TornadoScheduler
-from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
-from apscheduler.triggers.cron import CronTrigger
-from sqlite3 import IntegrityError
-from tornado.ioloop import IOLoop, PeriodicCallback
 import uuid
 import logging
 import datetime
+from apscheduler.schedulers.tornado import TornadoScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+from apscheduler.triggers.cron import CronTrigger
+from tornado.ioloop import IOLoop, PeriodicCallback
+from sqlalchemy import distinct, desc, or_, and_
+from six import string_types, ensure_str
+from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
+    SpiderSettings, Node
 from .exceptions import *
 from .config import Config
-from sqlalchemy import distinct, desc, or_, and_
-import os
 from .mail import MailSender
 from .storage import ProjectStorage
-from six import string_types, ensure_str
 
-
-
-def generate_job_id():
-    jobid = uuid.uuid4().hex
-    return jobid
 
 logger = logging.getLogger(__name__)
+
 
 JOB_STATUS_PENDING = 0
 JOB_STATUS_RUNNING = 1
@@ -31,6 +24,20 @@ JOB_STATUS_SUCCESS = 2
 JOB_STATUS_FAIL = 3
 JOB_STATUS_WARNING = 4
 JOB_STATUS_STOPPING = 5
+JOB_STATUS_CANCEL = 6
+
+
+class JobNotFound(Exception):
+    pass
+
+
+class InvalidJobStatus(Exception):
+    pass
+
+
+def generate_job_id():
+    jobid = uuid.uuid4().hex
+    return jobid
 
 
 class SchedulerManager():
@@ -203,6 +210,30 @@ class SchedulerManager():
             session.commit()
             session.refresh(executing)
             return executing
+
+    def cancel_task(self, job_id):
+        with session_scope() as session:
+            job = session.query(SpiderExecutionQueue).get(job_id)
+            if not job:
+                raise JobNotFound()
+            if job.status not in (2, 3):
+                raise InvalidJobStatus('Invliad status.')
+            job.status = JOB_STATUS_CANCEL
+            job.update_time = datetime.datetime.now()
+            historical_job = HistoricalJob()
+            historical_job.id = job.id
+            historical_job.spider_id = job.spider_id
+            historical_job.project_name = job.project_name
+            historical_job.spider_name = job.spider_name
+            historical_job.fire_time = job.fire_time
+            historical_job.start_time = job.start_time
+            historical_job.complete_time = job.update_time
+            historical_job.status = job.status
+            session.delete(job)
+            session.add(historical_job)
+
+            session.commit()
+            session.refresh(historical_job)
 
     def on_node_expired(self, node_id):
         session = Session()

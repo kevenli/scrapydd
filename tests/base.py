@@ -86,16 +86,18 @@ class AppTest(AsyncHTTPTestCase):
     project_storage_dir = './test_data'
     default_project_storage_version = 2
     project_manager = ProjectManager(runner_factory, project_storage_dir, default_project_storage_version)
+    scheduler_manager = None
 
     def get_app(self):
         config = Config()
-        scheduler_manager = SchedulerManager(config=config)
-        scheduler_manager.init()
-        node_manager = NodeManager(scheduler_manager)
+        if self.scheduler_manager is None:
+            self.scheduler_manager = SchedulerManager(Config())
+        self.scheduler_manager.init()
+        node_manager = NodeManager(self.scheduler_manager)
         node_manager.init()
         webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
         webhook_daemon.init()
-        return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123',
+        return make_app(self.scheduler_manager, node_manager, webhook_daemon, secret_key='123',
                         project_storage_dir=self.project_storage_dir,
                         runner_factory=self.runner_factory,
                         project_manager=self.project_manager)
