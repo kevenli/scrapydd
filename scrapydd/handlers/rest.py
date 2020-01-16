@@ -209,6 +209,7 @@ class DeleteProjectHandler(RestBaseHandler):
                 session.delete(spider)
 
             project_storage.delete_egg()
+            session.delete(project.package)
             session.delete(project)
 
         logger.info('project %s deleted' % project_name)
