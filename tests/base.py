@@ -5,6 +5,7 @@ from tornado.testing import AsyncHTTPTestCase
 from tornado.concurrent import Future
 from tornado.web import create_signed_value
 from tornado.httputil import HTTPHeaders
+from tornado.ioloop import IOLoop
 from scrapydd.poster.encode import multipart_encode
 from scrapydd.security import encrypt_password
 from scrapydd.models import init_database, session_scope, User, Project, Spider
@@ -75,32 +76,11 @@ class AppTest(AsyncHTTPTestCase):
                     'success_spider',
                     'warning_spider']
 
+        ioloop = IOLoop.current()
         with open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb') as egg_file:
-            with session_scope() as session:
-                project = session.query(Project).filter_by(name=project_name).first()
-                if project is None:
-                    project = Project()
-                    project.name = project_name
-                    project.storage_version = 2
-                project.version = version
-                session.add(project)
-                session.flush()
-                session.refresh(project)
-
-                project_storage = ProjectStorage('.', project)
-                project_storage.put_egg(egg_file, version)
-
-                for spider_name in spiders:
-                    spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
-                    if spider is None:
-                        spider = Spider()
-                        spider.name = spider_name
-                        spider.project_id = project.id
-                        session.add(spider)
-                        session.flush()
-                        session.refresh(spider)
-
-                session.commit()
+            def fun():
+                AppTest.project_manager.upload_project('test', project_name, version, egg_file)
+            ioloop.run_sync(fun)
 
     runner_factory = TestRunnerFactoryStub()
     project_storage_dir = './test_data'

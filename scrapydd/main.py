@@ -48,71 +48,6 @@ logger = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(__file__)
 
 
-class MainHandler(AppBaseHandler):
-    @authenticated
-    def get(self):
-        session = Session()
-        projects = list(session.query(Project).order_by(Project.name))
-        self.render('index.html', projects=projects)
-        session.close()
-
-
-class UploadProject(AppBaseHandler):
-    except_project_settings = ['NEWSPIDER_MODULE',
-                               'SPIDER_MODULES',
-                               'BOT_NAME',
-                               'USER_AGENT',
-                               'LOG_LEVEL',
-                               'PROJECT',
-                               'SETTINGS_MODULE',
-                               ]
-
-    @authenticated
-    @gen.coroutine
-    def post(self):
-        project_name = self.get_body_argument('project')
-        version = self.get_body_argument('version')
-        eggfile = self.request.files['egg'][0]
-        eggf = BytesIO(eggfile['body'])
-        project_manager = self.settings.get('project_manager')
-
-        try:
-            project = yield project_manager.upload_project(self.current_user, project_name,
-                                                           version, eggf)
-            with session_scope() as session:
-                project = session.query(Project).get(project.id)
-                spiders = project.spiders
-
-        except InvalidProjectEgg as e:
-            logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
-            self.set_status(400, reason=e.message)
-            self.finish("<html><title>%(code)d: %(message)s</title>"
-                        "<body><pre>%(output)s</pre></body></html>" % {
-                            "code": 400,
-                            "message": e.message,
-                            "output": e.detail,
-                        })
-            return
-        except ProcessFailed as e:
-            logger.error('Error when uploading project, %s, %s' % (e.message, e.std_output))
-            self.set_status(400, reason=e.message)
-            self.finish("<html><title>%(code)d: %(message)s</title>"
-                        "<body><pre>%(output)s</pre></body></html>" % {
-                            "code": 400,
-                            "message": e.message,
-                            "output": e.std_output,
-                        })
-            return
-
-        if self.request.path.endswith('.json'):
-            self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
-        else:
-            self.render("uploadproject.html")
-
-    @authenticated
-    def get(self):
-        self.render("uploadproject.html")
-
 class AddScheduleHandler(AppBaseHandler):
     def initialize(self, scheduler_manager):
         super(AddScheduleHandler, self).initialize()
@@ -568,10 +503,10 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
     settings['node_manager'] = node_manager
 
     return tornado.web.Application([
-        (r"/", MainHandler),
+        (r"/", webui.MainHandler),
         (r'/signin', SigninHandler),
         (r'/logout', LogoutHandler),
-        (r'/uploadproject', UploadProject),
+        (r'/uploadproject', webui.UploadProject),
 
         # scrapyd apis
         (r'/addversion.json', rest.AddVersionHandler),
