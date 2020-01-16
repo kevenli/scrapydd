@@ -16,6 +16,7 @@ from scrapydd.webhook import WebhookDaemon
 from scrapydd.settting import SpiderSettingLoader
 from scrapydd.storage import ProjectStorage
 from scrapydd.workspace import CrawlResult
+from scrapydd.project import ProjectManager
 
 
 class TestRunnerStub:
@@ -35,6 +36,11 @@ class TestRunnerStub:
 
     def clear(self):
         pass
+
+    def settings_module(self):
+        future = Future()
+        future.set_result('test_project.settings')
+        return future
 
 
 class TestRunnerFactoryStub:
@@ -96,6 +102,11 @@ class AppTest(AsyncHTTPTestCase):
 
                 session.commit()
 
+    runner_factory = TestRunnerFactoryStub()
+    project_storage_dir = './test_data'
+    default_project_storage_version = 2
+    project_manager = ProjectManager(runner_factory, project_storage_dir, default_project_storage_version)
+
     def get_app(self):
         config = Config()
         scheduler_manager = SchedulerManager(config=config)
@@ -104,10 +115,10 @@ class AppTest(AsyncHTTPTestCase):
         node_manager.init()
         webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
         webhook_daemon.init()
-        runner_factory = TestRunnerFactoryStub()
         return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123',
-                        project_storage_dir='./test_data',
-                        runner_factory=runner_factory)
+                        project_storage_dir=self.project_storage_dir,
+                        runner_factory=self.runner_factory,
+                        project_manager=self.project_manager)
 
     def _upload_test_project(self):
         post_data = {}

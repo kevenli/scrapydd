@@ -15,6 +15,7 @@ from .nodes import NodeManager
 import datetime
 from .config import Config
 from .process import fork_processes
+from .project import ProjectManager
 import os.path
 import sys
 import logging
@@ -73,11 +74,15 @@ class UploadProject(AppBaseHandler):
         version = self.get_body_argument('version')
         eggfile = self.request.files['egg'][0]
         eggf = BytesIO(eggfile['body'])
+        project_manager = self.settings.get('project_manager')
 
-        runner = self.build_runner(eggf)
         try:
-            spiders = yield runner.list()
-            project_settings_module = yield runner.settings_module()
+            project = yield project_manager.upload_project(self.current_user, project_name,
+                                                           version, eggf)
+            with session_scope() as session:
+                project = session.query(Project).get(project.id)
+                spiders = project.spiders
+
         except InvalidProjectEgg as e:
             logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
             self.set_status(400, reason=e.message)
@@ -98,48 +103,11 @@ class UploadProject(AppBaseHandler):
                             "output": e.std_output,
                         })
             return
-        finally:
-            runner.clear()
 
-        logger.debug('spiders: %s' % spiders)
-        with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
-
-            if project is None:
-                project = Project()
-                project.name = project_name
-                project.storage_version = int(self.settings.get('default_project_storage_version'))
-            project.version = version
-            session.add(project)
-            package = project.package
-            if not package:
-                package = ProjectPackage()
-                package.project = project
-            package.type = 'scrapy'
-            package.settings_module = project_settings_module
-            package.spider_list = ','.join(spiders)
-            session.add(package)
-            session.flush()
-            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project)
-            project_storage.put_egg(eggf, version)
-            session.refresh(project)
-
-            for spider_name in spiders:
-                spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
-                if spider is None:
-                    spider = Spider()
-                    spider.name = spider_name
-                    spider.project_id = project.id
-                    session.add(spider)
-                    session.commit()
-                    session.refresh(spider)
-
-                session.commit()
-
-            if self.request.path.endswith('.json'):
-                self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
-            else:
-                self.render("uploadproject.html")
+        if self.request.path.endswith('.json'):
+            self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
+        else:
+            self.render("uploadproject.html")
 
     @authenticated
     def get(self):
@@ -561,7 +529,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
              enable_node_registration=False,
              project_storage_dir='.',
              default_project_storage_version=2,
-             runner_factory=None):
+             runner_factory=None,
+             project_manager=None):
     """
 
     @type scheduler_manager SchedulerManager
@@ -571,6 +540,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
 
     :return: tornado.web.Application
     """
+    if project_manager is None:
+        project_manager = ProjectManager(runner_factory, project_storage_dir, default_project_storage_version)
 
     settings = dict(cookie_secret=secret_key,
                     login_url="/signin",
@@ -584,6 +555,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None, authenticatio
                     project_storage_dir=project_storage_dir,
                     default_project_storage_version=default_project_storage_version,
                     runner_factory=runner_factory,
+                    project_manager=project_manager,
                     )
 
     if authentication_providers is None:

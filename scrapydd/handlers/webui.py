@@ -56,6 +56,7 @@ class DeleteProjectHandler(AppBaseHandler):
                     session.delete(historical_job)
                 session.delete(spider)
             project_storage.delete_egg()
+            session.delete(project.package)
             session.delete(project)
 
 

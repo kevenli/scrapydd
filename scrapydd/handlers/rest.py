@@ -123,9 +123,13 @@ class AddVersionHandler(RestBaseHandler):
         eggfile = self.request.files['egg'][0]
         eggf = BytesIO(eggfile['body'])
 
+        project_manager = self.settings.get('project_manager')
         try:
-            runner = self.build_runner(eggf)
-            spiders = yield runner.list()
+            project = yield project_manager.upload_project(self.current_user, project_name,
+                                                     version, eggf)
+            with session_scope() as session:
+                project = session.query(Project).get(project.id)
+                spiders = project.spiders
 
         except InvalidProjectEgg as e:
             logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
@@ -147,37 +151,7 @@ class AddVersionHandler(RestBaseHandler):
                             "output": e.std_output,
                         })
             return
-        finally:
-            runner.clear()
-
-        logger.debug('spiders: %s' % spiders)
-        with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
-            if project is None:
-                project = Project()
-                project.name = project_name
-                project.storage_version = int(self.settings.get('default_project_storage_version'))
-            project.version = version
-            session.add(project)
-            session.flush()
-            session.refresh(project)
-
-            project_storage = ProjectStorage(self.settings.get('project_storage_dir'), project=project)
-            eggf.seek(0)
-            project_storage.put_egg(eggf, version)
-
-            for spider_name in spiders:
-                spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
-                if spider is None:
-                    spider = Spider()
-                    spider.name = spider_name
-                    spider.project_id = project.id
-                    session.add(spider)
-                    session.commit()
-                    session.refresh(spider)
-
-                session.commit()
-            self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
+        self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
 
 
 class ScheduleHandler(RestBaseHandler):
