@@ -5,7 +5,7 @@ from tornado.web import authenticated
 from tornado import gen
 from .base import AppBaseHandler
 from scrapydd.schedule import JobRunning
-from scrapydd.models import session_scope, Project, Spider, session_scope, SpiderExecutionQueue, Trigger, SpiderParameter
+from scrapydd.models import Project, Spider, session_scope, SpiderExecutionQueue, Trigger, SpiderParameter
 from scrapydd.storage import ProjectStorage
 from scrapydd.workspace import ProcessFailed, InvalidProjectEgg
 

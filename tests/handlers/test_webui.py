@@ -4,6 +4,7 @@ from scrapydd.models import session_scope, Project, Spider
 from os import path
 from six.moves.urllib.parse import urlencode
 
+
 class TestDeleteProjectHandler(AppTest):
     def test_post(self):
         project_name = 'test_project'
@@ -28,3 +29,14 @@ class TestDeleteProjectHandler(AppTest):
             self.assertIsNone(session.query(Project).filter_by(name=project_name).first())
 
             self.assertEqual(0, len(session.query(Spider).filter_by(project_id=project.id).all()))
+
+
+class RunSpiderHandlerTest(AppTest):
+    def test_post(self):
+        project_name = 'test_project'
+        spider_name = 'error_spider'
+        url = '/projects/%s/spiders/%s/run' % (project_name, spider_name)
+        headers = {'Cookie': "_xsrf=dummy"}
+        post_data = {'_xsrf': 'dummy'}
+        res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
+        self.assertEqual(200, res.code)
