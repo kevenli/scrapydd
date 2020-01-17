@@ -92,3 +92,12 @@ class RunSpiderHandlerTest(AppTest):
         # The next fire it, it raise an JobRunning
         res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
         self.assertEqual(400, res.code)
+
+
+class ProjectSettingsHandlerTest(AppTest):
+    def test_get(self):
+        project_name = 'test_project'
+        self.init_project()
+        url = '/projects/%s/settings' % (project_name, )
+        res = self.fetch(url, method='GET')
+        self.assertEqual(200, res.code)
