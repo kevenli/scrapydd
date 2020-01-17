@@ -2,6 +2,7 @@ from os import path
 from six.moves.urllib.parse import urlencode
 from scrapydd.storage import ProjectStorage
 from scrapydd.models import session_scope, Project, Spider
+from scrapydd.poster.encode import multipart_encode
 from ..base import AppTest
 
 
@@ -101,3 +102,30 @@ class ProjectSettingsHandlerTest(AppTest):
         url = '/projects/%s/settings' % (project_name, )
         res = self.fetch(url, method='GET')
         self.assertEqual(200, res.code)
+
+
+class UploadProjectTest(AppTest):
+    def test_get(self):
+        url = '/uploadproject'
+        res = self.fetch(url, method='GET')
+        self.assertEqual(200, res.code)
+
+    def test_post(self):
+        project_name = 'test_project'
+        post_data = {}
+        post_data['egg'] = open(path.join(path.dirname(__file__), '..', 'test_project-1.0-py2.7.egg'), 'rb')
+        post_data['project'] = project_name
+        post_data['version'] = '1.0'
+        post_data['_xsrf'] = 'dummy'
+
+        datagen, headers = multipart_encode(post_data)
+        databuffer = b''.join(datagen)
+        headers['Cookie'] = "_xsrf=dummy"
+        response = self.fetch('/uploadproject', method='POST', headers=headers, body=databuffer)
+
+        self.assertEqual(200, response.code)
+
+        with session_scope() as session:
+            project = session.query(Project).filter_by(name=project_name).first()
+            self.assertIsNotNone(project)
+            self.assertEqual(project.name, project_name)
