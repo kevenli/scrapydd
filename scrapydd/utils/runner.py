@@ -46,10 +46,15 @@ def project_environment(project):
             os.remove(eggpath)
 
 def install_requirements(distribute):
-    requires = [x.key for x in distribute.requires()]
+    requires = [str(x) for x in distribute.requires()]
     if requires:
-        p = Popen([sys.executable, '-m', 'pip', 'install', ','.join(requires)], stdout=PIPE, stderr=PIPE)
-        return p.wait()
+        pargs = [sys.executable, '-m', 'pip', 'install']
+        pargs += requires
+        p = Popen(pargs, stdout=PIPE, stderr=PIPE)
+        ret = p.wait()
+        if ret:
+            print(p.stderr, file=sys.stderr)
+        return ret
     return 0
 
 def main(argv=None):
