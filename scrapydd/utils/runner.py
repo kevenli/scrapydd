@@ -4,7 +4,7 @@ import tempfile
 import os
 import pkg_resources
 from contextlib import contextmanager
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 from six import ensure_binary
 from six import next
 from ..eggstorage import FilesystemEggStorage
@@ -48,16 +48,22 @@ def project_environment(project):
 def install_requirements(distribute, append_log=False):
     requires = [str(x) for x in distribute.requires()]
     if requires:
+        env = os.environ.copy()
+        # python -W ignore: ignore the python2 deprecate warning.
+        # pip --disable-pip-version-check: ignore pip version warning.
         pargs = [sys.executable, '-W', 'ignore', '-m', 'pip', '--disable-pip-version-check',
                  'install']
         pargs += requires
         stdout = PIPE
         if append_log:
-            stdout = open('pip.log', 'wb')
-            stdout.write(ensure_binary(' '.join(pargs) + '\n'))
-        p = Popen(pargs, stdout=stdout, stderr=sys.stderr)
-        ret = p.wait()
-        return ret
+            stdout = open('pip.log', 'w')
+        p = Popen(pargs, stdout=stdout, stderr=sys.stderr, env=env)
+        try:
+            ret = p.wait(timeout=60)
+            return ret
+        except TimeoutExpired:
+            sys.stderr.write('pip install process timeout:\n')
+            return 1
     return 0
 
 
