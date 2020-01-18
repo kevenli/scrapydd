@@ -1,14 +1,13 @@
 import sys
-import os
 import shutil
 import tempfile
-from contextlib import contextmanager
-from ..eggstorage import FilesystemEggStorage
 import os
 import pkg_resources
-from six import next
+from contextlib import contextmanager
 from subprocess import Popen, PIPE
-
+from six import ensure_binary
+from six import next
+from ..eggstorage import FilesystemEggStorage
 
 def activate_egg(eggpath):
     """Activate a Scrapy egg file. This is meant to be used from egg runners
@@ -45,17 +44,22 @@ def project_environment(project):
         if eggpath:
             os.remove(eggpath)
 
-def install_requirements(distribute):
+
+def install_requirements(distribute, append_log=False):
     requires = [str(x) for x in distribute.requires()]
     if requires:
-        pargs = [sys.executable, '-m', 'pip', 'install']
+        pargs = [sys.executable, '-W', 'ignore', '-m', 'pip', '--disable-pip-version-check',
+                 'install']
         pargs += requires
-        p = Popen(pargs, stdout=PIPE, stderr=PIPE)
+        stdout = PIPE
+        if append_log:
+            stdout = open('pip.log', 'wb')
+            stdout.write(ensure_binary(' '.join(pargs) + '\n'))
+        p = Popen(pargs, stdout=stdout, stderr=sys.stderr)
         ret = p.wait()
-        if ret:
-            print(p.stderr, file=sys.stderr)
         return ret
     return 0
+
 
 def main(argv=None):
     from scrapy.cmdline import execute
