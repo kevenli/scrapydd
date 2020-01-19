@@ -4,8 +4,10 @@ import tempfile
 import os
 import pkg_resources
 from contextlib import contextmanager
-from subprocess import Popen, PIPE, TimeoutExpired
-from six import ensure_binary
+if os.name == 'posix' and sys.version_info[0] < 3:
+    import subprocess32 as subprocess
+else:
+    import subprocess
 from six import next
 from ..eggstorage import FilesystemEggStorage
 
@@ -54,14 +56,14 @@ def install_requirements(distribute, append_log=False):
         pargs = [sys.executable, '-W', 'ignore', '-m', 'pip', '--disable-pip-version-check',
                  'install']
         pargs += requires
-        stdout = PIPE
+        stdout = subprocess.PIPE
         if append_log:
             stdout = open('pip.log', 'w')
-        p = Popen(pargs, stdout=stdout, stderr=sys.stderr, env=env)
+        p = subprocess.Popen(pargs, stdout=stdout, stderr=sys.stderr, env=env)
         try:
             ret = p.wait(timeout=60)
             return ret
-        except TimeoutExpired:
+        except subprocess.TimeoutExpired:
             sys.stderr.write('pip install process timeout:\n')
             return 1
     return 0

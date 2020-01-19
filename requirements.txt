@@ -3,6 +3,7 @@ attrs>=17.4.0
 docker
 requests==2.20.0
 pysyncobj>=0.2.3
+subprocess32
 scrapy
 service-identity
 six>=1.12
