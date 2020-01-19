@@ -1,0 +1,7 @@
+sut:
+  dockerfile: dockerfiles/Dockerfile.develop.py3
+  build: ..
+  working_dir: /scrapydd_src
+  volumes:
+    - "/var/run/docker.sock:/var/run/docker.sock"
+  command: python -m nose tests --exe

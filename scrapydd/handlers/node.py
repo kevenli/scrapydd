@@ -196,7 +196,7 @@ class ExecuteNextHandler(NodeBaseHandler):
                     .filter_by(spider_id=spider.id, setting_key='extra_requirements').first()
 
                 extra_requirements = extra_requirements_setting.value if extra_requirements_setting else ''
-                response_data['data'] = {'task': {
+                task = {
                     'task_id': next_task.id,
                     'spider_id': next_task.spider_id,
                     'spider_name': next_task.spider_name,
@@ -204,8 +204,10 @@ class ExecuteNextHandler(NodeBaseHandler):
                     'version': project.version,
                     'extra_requirements': extra_requirements,
                     'spider_parameters': {parameter.parameter_key: parameter.value for parameter in spider.parameters},
-                    'base_settings_module': project.package.settings_module,
-                }}
+                }
+                if project.package:
+                    task['base_settings_module'] = project.package.settings_module
+                response_data['data'] = {'task': task}
             self.write(json.dumps(response_data))
 
 
