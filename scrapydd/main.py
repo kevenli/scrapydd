@@ -55,50 +55,6 @@ LOGGER = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(__file__)
 
 
-class AddScheduleHandler(AppBaseHandler):
-    # pylint: disable=arguments-differ
-    def initialize(self, scheduler_manager):
-        super(AddScheduleHandler, self).initialize()
-        self.scheduler_manager = scheduler_manager
-
-    @authenticated
-    def post(self):
-        project = self.get_argument('project')
-        spider = self.get_argument('spider')
-        cron = self.get_argument('cron')
-
-        with session_scope() as session:
-            project = session.query(Project).filter(Project.name == project) \
-                .first()
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider).first()
-        try:
-            self.scheduler_manager.add_schedule(project, spider, cron)
-            response_data = {
-                'status': 'ok',
-            }
-            self.write(json.dumps(response_data))
-        except SpiderNotFound:
-            response_data = {
-                'status': 'error',
-                'errormsg': 'spider not found',
-            }
-            self.write(json.dumps(response_data))
-        except ProjectNotFound:
-            response_data = {
-                'status': 'error',
-                'errormsg': 'project not found',
-            }
-            self.write(json.dumps(response_data))
-        except InvalidCronExpression:
-            response_data = {
-                'status': 'error',
-                'errormsg': 'invalid cron expression.',
-            }
-            self.write(json.dumps(response_data))
-
-
 class ProjectList(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
@@ -624,7 +580,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'/schedule.json', rest.ScheduleHandler,
          {'scheduler_manager': scheduler_manager}),
 
-        (r'/add_schedule.json', AddScheduleHandler,
+        (r'/add_schedule.json', rest.AddScheduleHandler,
          {'scheduler_manager': scheduler_manager}),
         (r'/projects', ProjectList),
         (r'/spiders', SpiderListHandler),
