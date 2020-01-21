@@ -1,27 +1,36 @@
-from unittest import TestCase
-from scrapydd.main import *
-from scrapydd.config import Config
-from scrapydd.models import init_database
-from tornado.testing import AsyncHTTPTestCase, gen_test
-from tornado.web import create_signed_value
-from scrapydd.poster.encode import multipart_encode
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
 import os.path
 import logging
-from .base import AppTest
+import datetime
 from six import ensure_binary, ensure_str
 from six.moves.urllib.parse import urlencode
-from scrapydd.stream import MultipartRequestBodyProducer
+from tornado.testing import AsyncHTTPTestCase
+from tornado.web import create_signed_value
+from scrapydd.main import make_app
+from scrapydd.config import Config
+from scrapydd.models import init_database, Node, session_scope
+from scrapydd.models import Project, Spider, SpiderExecutionQueue
+from scrapydd.poster.encode import multipart_encode
+from scrapydd.schedule import SchedulerManager
+from scrapydd.nodes import NodeManager
+from scrapydd.workspace import RunnerFactory
+from .base import AppTest
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
+
+TEST_EGG_FILE = os.path.join(os.path.dirname(__file__),
+                             'test_project-1.0-py2.7.egg')
 
 
 class MainTest(AsyncHTTPTestCase):
     @classmethod
     def setUpClass(cls):
         os.environ['ASYNC_TEST_TIMEOUT'] = '500'
-        if os._exists('test.db'):
+        if os.path.exists('test.db'):
             os.remove('test.db')
-        config = Config(values = {'database_url': 'sqlite:///test.db'})
+        config = Config(values={'database_url': 'sqlite:///test.db'})
         init_database(config)
 
     def get_app(self):
@@ -31,18 +40,20 @@ class MainTest(AsyncHTTPTestCase):
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
         runner_factory = RunnerFactory(config)
-        return make_app(scheduler_manager, node_manager, None, secret_key='123', runner_factory=runner_factory)
+        return make_app(scheduler_manager, node_manager, None,
+                        secret_key='123', runner_factory=runner_factory)
 
     def _delproject(self):
         postdata = {'project': 'test_project'}
-        response = self.fetch('/delproject.json', method='POST', body=urlencode(postdata))
+        response = self.fetch('/delproject.json', method='POST',
+                              body=urlencode(postdata))
         self.assertIn(response.code, [404, 200])
 
     def _upload_test_project(self):
         # upload a project
 
         post_data = {}
-        post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
+        post_data['egg'] = open(TEST_EGG_FILE, 'rb')
         post_data['project'] = 'test_project'
         post_data['version'] = '1.0'
 
@@ -73,10 +84,11 @@ class SecurityTest(MainTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        return make_app(scheduler_manager, node_manager, None, enable_authentication=True, secret_key='123')
+        return make_app(scheduler_manager, node_manager,
+                        None, enable_authentication=True, secret_key='123')
 
     def test_no_cookie(self):
-        response = self.fetch('/',follow_redirects=False)
+        response = self.fetch('/', follow_redirects=False)
         self.assertEqual(302, response.code)
 
     def test_with_cookie(self):
@@ -95,7 +107,7 @@ class UploadTest(MainTest):
     def test_logging_init(self):
         self.skipTest('no logging init')
 
-    def test_MainHandler(self):
+    def test_get(self):
         response = self.fetch('/')
         self.assertEqual(200, response.code)
 
@@ -104,14 +116,14 @@ class UploadTest2(AppTest):
     def test_logging_init(self):
         self.skipTest('no logging init')
 
-    def test_MainHandler(self):
+    def test_get(self):
         response = self.fetch('/')
         self.assertEqual(200, response.code)
 
-    def test_UploadProject_post(self):
+    def test_uploadproject_post(self):
         project_name = 'test_project'
         post_data = {}
-        post_data['egg'] = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
+        post_data['egg'] = open(TEST_EGG_FILE, 'rb')
         post_data['project'] = project_name
         post_data['version'] = '1.0'
         post_data['_xsrf'] = 'dummy'
@@ -131,7 +143,6 @@ class UploadTest2(AppTest):
 
 class ScheduleHandlerTest(AppTest):
     def test_post(self):
-        from scrapydd.models import SpiderExecutionQueue
         with session_scope() as session:
             session.query(SpiderExecutionQueue).delete()
             session.commit()
@@ -171,7 +182,8 @@ class AddScheduleHandlerTest(AppTest):
             '_xsrf':'dummy',
         }
 
-        response = self.fetch('/add_schedule.json', method='POST', body=urlencode(postdata),
+        response = self.fetch('/add_schedule.json', method='POST',
+                              body=urlencode(postdata),
                               headers={"Cookie": "_xsrf=dummy"})
         self.assertEqual(200, response.code)
         self.assertIn(b'ok', response.body)
@@ -181,12 +193,6 @@ class ProjectListTest(MainTest):
     def test_get(self):
         response = self.fetch('/projects')
         self.assertEqual(200, response.code)
-
-
-class SpiderInstanceHandlerTest(MainTest):
-    def test_get(self):
-        spider = 'success_spider'
-        response = self.fetch('/')
 
 
 class NodesHandlerTest(MainTest):
@@ -210,12 +216,15 @@ class NodesHandlerTest(MainTest):
 
 class SpiderInstanceHandler2Test(AppTest):
     def test_get(self):
+        self._upload_test_project()
         with session_scope() as session:
             spider = session.query(Spider).first()
             project = spider.project
 
         self.assertIsNotNone(spider)
-        response = self.fetch('/projects/%s/spiders/%s' % (project.name, spider.name))
+        self.assertIsNotNone(project)
+        response = self.fetch('/projects/%s/spiders/%s' % (project.name,
+                                                           spider.name))
         self.assertEqual(200, response.code)
 
 
@@ -224,7 +233,6 @@ class SpiderEggHandlerTest(AppTest):
         self._upload_test_project()
         with session_scope() as session:
             spider = session.query(Spider).first()
-            project = spider.project
 
         self.assertIsNotNone(spider)
         response = self.fetch('/spiders/%d/egg' % (spider.id, ))
@@ -237,5 +245,7 @@ class SpiderEggHandlerTest(AppTest):
             project = spider.project
 
         self.assertIsNotNone(spider)
-        response = self.fetch('/projects/%s/spiders/%s/egg' % ('test_project', 'log_spider'))
+        self.assertIsNotNone(project)
+        response = self.fetch('/projects/%s/spiders/%s/egg' % ('test_project',
+                                                               'log_spider'))
         self.assertEqual(200, response.code)

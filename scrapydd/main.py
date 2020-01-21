@@ -276,8 +276,6 @@ class DeleteSpiderJobHandler(AppBaseHandler):
             return self.write('Success.')
 
 
-
-
 class JobsHandler(AppBaseHandler):
     # pylint: disable=arguments-differ
     def initialize(self, scheduler_manager):
