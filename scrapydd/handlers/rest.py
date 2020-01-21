@@ -230,7 +230,7 @@ class DeleteProjectHandler(RestBaseHandler):
             spiders = session.query(Spider).filter_by(project_id=project.id)
             for spider in spiders:
                 triggers = session.query(Trigger)\
-                    .filter_by(spider_id=spider.id).list()
+                    .filter_by(spider_id=spider.id)
                 session.query(SpiderExecutionQueue)\
                     .filter_by(spider_id=spider.id).delete()
                 session.query(SpiderParameter)\
