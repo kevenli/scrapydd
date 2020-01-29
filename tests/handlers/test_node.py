@@ -1,12 +1,13 @@
-from ..base import AppTest
-from scrapydd.models import session_scope, Node, SpiderExecutionQueue, HistoricalJob, NodeKey
-import datetime
-from six.moves.urllib.parse import urlencode
-from tornado.httpclient import HTTPRequest
+import uuid
 import unittest
 import json
-from scrapydd.poster.encode import multipart_encode
+import datetime
+from six import ensure_binary
+from six.moves.urllib.parse import urlencode
 from six import BytesIO
+from tornado.httpclient import HTTPRequest
+from scrapydd.models import session_scope, Node, SpiderExecutionQueue, HistoricalJob, NodeKey
+from scrapydd.poster.encode import multipart_encode
 from scrapydd.main import make_app
 from scrapydd.webhook import WebhookDaemon
 from scrapydd.settting import SpiderSettingLoader
@@ -15,8 +16,7 @@ from scrapydd.nodes import NodeManager
 from scrapydd.config import Config
 from scrapydd.security import generate_digest, generate_random_string
 from scrapydd.stream import MultipartRequestBodyProducer
-import uuid
-from six import ensure_binary
+from tests.base import AppTest
 
 
 class NodeTest(AppTest):
@@ -275,7 +275,8 @@ class RegisterNodeHandlerSecureTest(NodeSecureTest):
         headers = {'Authorization': '%s %s %s' % ('HMAC',
                                                   node_key.key,
                                                   generate_digest(node_key.secret_key, 'POST', '/nodes/register', '', ''))}
-        response = self.fetch('/nodes/register', method="POST", body="", headers=headers)
+        response = self.fetch('/nodes/register', method="POST", body="",
+                              headers=headers)
         self.assertEqual(200, response.code)
         new_node_id = json.loads(response.body)['id']
         self.assertTrue(new_node_id > 0)
