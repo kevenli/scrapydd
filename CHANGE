@@ -1,3 +1,12 @@
+V0.7.0:
+
+* add storage_version of Project entity
+* add default_project_storage_version configuration, version with "2" support data stored by project.
+* support project deleting.
+* add ProjectPackage entity, store egg related information.
+* add "runner_type" config, support "docker" runner type.
+* add "runner_docker_image" config, docker image for runner.
+
 v0.6.5:
 
 * modify tag matching rule: none tag agent cannot run any spider tag against none.
