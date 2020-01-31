@@ -6,8 +6,9 @@ from tornado.testing import AsyncHTTPTestCase
 import os
 from scrapydd.config import Config
 from scrapydd.nodes import NodeManager
-from scrapydd.main import *
+from scrapydd.storage import ProjectStorage
 from scrapydd.poster.encode import multipart_encode
+from scrapydd.main import make_app
 from scrapydd.schedule import *
 from .base import AppTest
 from six.moves.urllib.parse import urlencode
@@ -90,17 +91,19 @@ class ScheduleTest(AsyncHTTPTestCase):
                     'warning_spider']
         egg_file = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
         with session_scope() as session:
-            storage = FilesystemEggStorage({})
-            egg_file.seek(0)
-            storage.put(egg_file, project_name, version)
             project = session.query(Project).filter_by(name=project_name).first()
             if project is None:
                 project = Project()
                 project.name = project_name
+                project.storage_version = 2
             project.version = version
             session.add(project)
             session.commit()
             session.refresh(project)
+
+            project_storage = ProjectStorage(self._app.settings.get('project_storage_dir'), project)
+            egg_file.seek(0)
+            project_storage.put_egg(egg_file, version)
 
             for spider_name in spiders:
                 spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()

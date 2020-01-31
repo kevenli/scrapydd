@@ -1,12 +1,17 @@
-import tornado.web
-import tornado.template
-import os
-from ..models import session_scope, User
-from ..security import CookieAuthenticationProvider, HmacAuthorize, BasicAuthentication
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
 import logging
 import json
+import os
+import tornado.web
+import tornado.template
+from scrapydd.models import session_scope, User, Project, Spider
+from scrapydd.security import CookieAuthenticationProvider, HmacAuthorize
+from scrapydd.security import BasicAuthentication
+from scrapydd.exceptions import ProjectNotFound, SpiderNotFound
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 BASE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
 
@@ -36,9 +41,25 @@ class AppBaseHandler(tornado.web.RequestHandler):
     def data_received(self, chunk):
         pass
 
+    def build_runner(self, eggf):
+        factory = self.settings.get('runner_factory')
+        return factory.build(eggf)
+
+    def get_spider(self, session, project_name, spider_name):
+        project = session.query(Project) \
+            .filter_by(name=project_name).first()
+        if not project:
+            raise ProjectNotFound()
+
+        spider = session.query(Spider) \
+            .filter_by(project_id=project.id, name=spider_name).first()
+        if not spider:
+            raise SpiderNotFound()
+        return spider
+
 
 class RestBaseHandler(AppBaseHandler):
-    authentication_providers = [HmacAuthorize(),  BasicAuthentication()]
+    authentication_providers = [HmacAuthorize(), BasicAuthentication()]
 
     def check_xsrf_cookie(self):
         return None

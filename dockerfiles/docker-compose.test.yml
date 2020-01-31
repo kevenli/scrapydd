@@ -1,0 +1,16 @@
+version: '2'
+services:
+  sut:
+    image: scrapydd:develop
+    working_dir: /scrapydd_src
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    command: python -m nose tests --exe
+    depends_on:
+      - build_image
+
+  build_image:
+    image: scrapydd:develop
+    build:
+      context: ..
+      dockerfile: dockerfiles/Dockerfile.develop.py3

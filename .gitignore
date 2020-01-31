@@ -13,3 +13,6 @@ scrapydd.conf
 .coverage
 .vagrant
 cover
+
+items
+data

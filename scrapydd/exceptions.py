@@ -61,3 +61,6 @@ class WebhookJobOverMemoryLimitError(WebhookJobFailedError):
 
 class WebhookJobJlDecodeError(WebhookJobFailedError):
     pass
+
+class EggFileNotFound(Exception):
+    pass

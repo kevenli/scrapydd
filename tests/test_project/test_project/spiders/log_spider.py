@@ -13,4 +13,4 @@ class LogSpiderSpider(scrapy.Spider):
     def parse(self, response):
         logging.debug('debug message')
         logging.debug('info message')
-        time.sleep(60)
+        logging.info('SOME_SETTING: %s' % self.settings.get('SOME_SETTING'))

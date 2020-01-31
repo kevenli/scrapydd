@@ -1,0 +1,38 @@
+{% extends "../base_sidebar.html" %}
+{% block sidebar %}
+{% include ../sidebars/sidebar_project.html %}
+{% end %}
+{% block content %}
+  <h1>Project: {{project.name}}</h1>
+
+  <input id="btnDelete" class="btn btn-danger" value="Delete" />
+  <input type="hidden" id="projectName" name="projectName" value="{{project.name}}" />
+
+  <script>
+    function getCookie(name) {
+        var r = document.cookie.match("\\b" + name + "=([^;]*)\\b");
+        return r ? r[1] : undefined;
+    }
+
+    $(function(){
+        $("#btnDelete").click(function(){
+          var project = $('#projectName').val();
+          xsrf = getCookie("_xsrf");
+          $.ajax({
+              url: '/projects/' + project + '/delete',
+              method: "POST",
+              headers: {'X-XSRFToken': xsrf},
+              success: function(){
+                  alert('Project deleted.');
+                  window.location.href = '/';
+              },
+              error: function(jqXHR, textStatus, errorThrown){
+                  alert(textStatus + ':' + errorThrown);
+              }
+          });
+      })
+
+    });
+
+  </script>
+{% end %}

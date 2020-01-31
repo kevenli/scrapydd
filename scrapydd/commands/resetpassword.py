@@ -2,6 +2,7 @@ from ..models import User, session_scope, init_database
 from ..config import Config
 from getpass import getpass
 from ..security import encrypt_password
+from six.moves import input
 
 class ResetPasswordCommand():
     def run(self):

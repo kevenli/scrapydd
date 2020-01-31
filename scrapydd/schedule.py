@@ -1,28 +1,22 @@
-
-from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
-    SpiderSettings, Node
-from apscheduler.schedulers.tornado import TornadoScheduler
-from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
-from apscheduler.triggers.cron import CronTrigger
-from sqlite3 import IntegrityError
-from tornado.ioloop import IOLoop, PeriodicCallback
 import uuid
 import logging
 import datetime
+from apscheduler.schedulers.tornado import TornadoScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+from apscheduler.triggers.cron import CronTrigger
+from tornado.ioloop import IOLoop, PeriodicCallback
+from sqlalchemy import distinct, desc, or_, and_
+from six import string_types, ensure_str
+from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
+    SpiderSettings, Node
 from .exceptions import *
 from .config import Config
-from sqlalchemy import distinct, desc, or_, and_
-import os
 from .mail import MailSender
-from six import string_types
+from .storage import ProjectStorage
 
-
-
-def generate_job_id():
-    jobid = uuid.uuid4().hex
-    return jobid
 
 logger = logging.getLogger(__name__)
+
 
 JOB_STATUS_PENDING = 0
 JOB_STATUS_RUNNING = 1
@@ -30,6 +24,20 @@ JOB_STATUS_SUCCESS = 2
 JOB_STATUS_FAIL = 3
 JOB_STATUS_WARNING = 4
 JOB_STATUS_STOPPING = 5
+JOB_STATUS_CANCEL = 6
+
+
+class JobNotFound(Exception):
+    pass
+
+
+class InvalidJobStatus(Exception):
+    pass
+
+
+def generate_job_id():
+    jobid = uuid.uuid4().hex
+    return jobid
 
 
 class SchedulerManager():
@@ -39,8 +47,8 @@ class SchedulerManager():
         self.config = config
         executors = {
             'default': ThreadPoolExecutor(20),
-            'processpool': ProcessPoolExecutor(5)
         }
+        self.project_storage_dir = config.get('project_storage_dir')
         self.scheduler = TornadoScheduler(executors=executors)
 
         self.poll_task_queue_callback = None
@@ -203,6 +211,30 @@ class SchedulerManager():
             session.refresh(executing)
             return executing
 
+    def cancel_task(self, job_id):
+        with session_scope() as session:
+            job = session.query(SpiderExecutionQueue).get(job_id)
+            if not job:
+                raise JobNotFound()
+            if job.status not in (2, 3):
+                raise InvalidJobStatus('Invliad status.')
+            job.status = JOB_STATUS_CANCEL
+            job.update_time = datetime.datetime.now()
+            historical_job = HistoricalJob()
+            historical_job.id = job.id
+            historical_job.spider_id = job.spider_id
+            historical_job.project_name = job.project_name
+            historical_job.spider_name = job.spider_name
+            historical_job.fire_time = job.fire_time
+            historical_job.start_time = job.start_time
+            historical_job.complete_time = job.update_time
+            historical_job.status = job.status
+            session.delete(job)
+            session.add(historical_job)
+
+            session.commit()
+            session.refresh(historical_job)
+
     def on_node_expired(self, node_id):
         session = Session()
         for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.node_id==node_id, SpiderExecutionQueue.status == 1):
@@ -339,6 +371,8 @@ class SchedulerManager():
         job.status = job_status
         job.update_time = datetime.datetime.now()
 
+        project_storage = ProjectStorage(self.project_storage_dir, job.spider.project)
+
         historical_job = HistoricalJob()
         historical_job.id = job.id
         historical_job.spider_id = job.spider_id
@@ -349,28 +383,31 @@ class SchedulerManager():
         historical_job.complete_time = job.update_time
         historical_job.status = job.status
         if log_file:
-            historical_job.log_file = log_file
+            #historical_job.log_file = log_file
             import re
             items_crawled_pattern = re.compile("\'item_scraped_count\': (\d+),")
             error_log_pattern = re.compile("\'log_count/ERROR\': (\d+),")
             warning_log_pattern = re.compile("\'log_count/WARNING\': (\d+),")
-            with open(log_file, 'r') as f:
-                log_content = f.read()
-                m = items_crawled_pattern.search(log_content)
-                if m:
-                    historical_job.items_count = int(m.group(1))
+            #with open(log_file, 'r') as f:
+            log_content = ensure_str(log_file.read())
+            m = items_crawled_pattern.search(log_content)
+            if m:
+                historical_job.items_count = int(m.group(1))
 
-                m = error_log_pattern.search(log_content)
-                if m and historical_job.status == JOB_STATUS_SUCCESS:
-                    historical_job.status = JOB_STATUS_FAIL
-                m = warning_log_pattern.search(log_content)
-                if m and historical_job.status == JOB_STATUS_SUCCESS:
-                    historical_job.status = JOB_STATUS_WARNING
+            m = error_log_pattern.search(log_content)
+            if m and historical_job.status == JOB_STATUS_SUCCESS:
+                historical_job.status = JOB_STATUS_FAIL
+            m = warning_log_pattern.search(log_content)
+            if m and historical_job.status == JOB_STATUS_SUCCESS:
+                historical_job.status = JOB_STATUS_WARNING
 
-        if items_file:
-            historical_job.items_file = items_file
+        #if items_file:
+        #    historical_job.items_file = items_file
+        log_file.seek(0)
+        project_storage.put_job_data(job, log_file, items_file)
         session.delete(job)
         session.add(historical_job)
+
         session.commit()
         session.refresh(historical_job)
 
@@ -405,10 +442,10 @@ class SchedulerManager():
         for row in spiders:
             spider_id = row[0]
             with session_scope() as session:
-                over_limitation_jobs = list(session.query(HistoricalJob)\
-                    .filter(HistoricalJob.spider_id==spider_id)\
-                    .order_by(desc(HistoricalJob.complete_time))\
-                    .slice(job_history_limit_each_spider, 1000)\
+                over_limitation_jobs = list(session.query(HistoricalJob)
+                    .filter(HistoricalJob.spider_id==spider_id)
+                    .order_by(desc(HistoricalJob.complete_time))
+                    .slice(job_history_limit_each_spider, 1000)
                     .all())
             for over_limitation_job in over_limitation_jobs:
                 self._remove_histical_job(over_limitation_job)
@@ -470,26 +507,13 @@ class SchedulerManager():
 
         with session_scope() as session:
             job = session.query(HistoricalJob).filter(HistoricalJob.id == job.id).first()
-            if job.items_file:
-                try:
-                    os.remove(job.items_file)
-                except Exception as e:
-                    logger.warning(e.message)
-
-            if job.log_file:
-                try:
-                    os.remove(job.log_file)
-                except Exception as e:
-                    logger.warning(e.message)
-
-            original_log_file = os.path.join('logs', job.project_name, job.spider_name, '%s.log' % job.id)
-            if os.path.exists(original_log_file):
-                os.remove(original_log_file)
-
-            original_items_file = os.path.join('items', job.project_name, job.spider_name, '%s.jl' % job.id)
-            if os.path.exists(original_items_file):
-                os.remove(original_items_file)
+            spider = job.spider
+            project = spider.project
+            project_storage_dir = self.config.get('project_storage_dir')
+            project_storage = ProjectStorage(project_storage_dir, project)
+            project_storage.delete_job_data(job)
             session.delete(job)
+            session.commit()
 
     def remove_schedule(self, project_name, spider_name, trigger_id):
         with session_scope() as session:

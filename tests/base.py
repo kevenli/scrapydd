@@ -1,19 +1,59 @@
+import os
+from six import ensure_str, ensure_binary
+from w3lib.http import basic_auth_header
 from tornado.testing import AsyncHTTPTestCase
+from tornado.concurrent import Future
+from tornado.web import create_signed_value
+from tornado.httputil import HTTPHeaders
+from tornado.ioloop import IOLoop
 from scrapydd.poster.encode import multipart_encode
 from scrapydd.security import encrypt_password
-from w3lib.http import basic_auth_header
 from scrapydd.models import init_database, session_scope, User, Project, Spider
 from scrapydd.config import Config
-import os
 from scrapydd.schedule import SchedulerManager
 from scrapydd.nodes import NodeManager
 from scrapydd.main import make_app
-from scrapydd.eggstorage import FilesystemEggStorage
 from scrapydd.webhook import WebhookDaemon
 from scrapydd.settting import SpiderSettingLoader
-from tornado.web import create_signed_value
-from tornado.httputil import HTTPHeaders
-from six import ensure_str, ensure_binary
+from scrapydd.storage import ProjectStorage
+from scrapydd.workspace import CrawlResult
+from scrapydd.project import ProjectManager
+
+
+class TestRunnerStub:
+    def __init__(self, eggf):
+        pass
+
+    def list(self):
+        ret = ['error_spider', 'fail_spider', 'log_spider', 'success_spider', 'warning_spider']
+        future = Future()
+        future.set_result(ret)
+        return future
+
+    def crawl(self, settings):
+        future = Future()
+        future.set_result(CrawlResult(0))
+        return future
+
+    def clear(self):
+        pass
+
+    def settings_module(self):
+        future = Future()
+        future.set_result('test_project.settings')
+        return future
+
+
+class TestRunnerFactoryStub:
+    _runner_cls = None
+
+    def __init__(self, runner_cls=None):
+        self._runner_cls = runner_cls
+
+    def build(self, eggf):
+        if self._runner_cls:
+            return self._runner_cls(eggf)
+        return TestRunnerStub(eggf)
 
 
 class AppTest(AsyncHTTPTestCase):
@@ -35,41 +75,32 @@ class AppTest(AsyncHTTPTestCase):
                     'log_spider',
                     'success_spider',
                     'warning_spider']
-        egg_file = open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb')
-        with session_scope() as session:
-            storage = FilesystemEggStorage({})
-            egg_file.seek(0)
-            storage.put(egg_file, project_name, version)
-            project = session.query(Project).filter_by(name=project_name).first()
-            if project is None:
-                project = Project()
-                project.name = project_name
-            project.version = version
-            session.add(project)
-            session.commit()
-            session.refresh(project)
 
-            for spider_name in spiders:
-                spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
-                if spider is None:
-                    spider = Spider()
-                    spider.name = spider_name
-                    spider.project_id = project.id
-                    session.add(spider)
-                    session.commit()
-                    session.refresh(spider)
+        ioloop = IOLoop.current()
+        with open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb') as egg_file:
+            def fun():
+                AppTest.project_manager.upload_project('test', project_name, version, egg_file)
+            ioloop.run_sync(fun)
 
-                session.commit()
+    runner_factory = TestRunnerFactoryStub()
+    project_storage_dir = './test_data'
+    default_project_storage_version = 2
+    project_manager = ProjectManager(runner_factory, project_storage_dir, default_project_storage_version)
+    scheduler_manager = None
 
     def get_app(self):
         config = Config()
-        scheduler_manager = SchedulerManager(config=config)
-        scheduler_manager.init()
-        node_manager = NodeManager(scheduler_manager)
+        if self.scheduler_manager is None:
+            self.scheduler_manager = SchedulerManager(Config())
+        self.scheduler_manager.init()
+        node_manager = NodeManager(self.scheduler_manager)
         node_manager.init()
         webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
         webhook_daemon.init()
-        return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123')
+        return make_app(self.scheduler_manager, node_manager, webhook_daemon, secret_key='123',
+                        project_storage_dir=self.project_storage_dir,
+                        runner_factory=self.runner_factory,
+                        project_manager=self.project_manager)
 
     def _upload_test_project(self):
         post_data = {}
@@ -78,9 +109,10 @@ class AppTest(AsyncHTTPTestCase):
         post_data['version'] = '1.0'
 
         datagen, headers = multipart_encode(post_data)
-        databuffer = ''.join(datagen)
+        databuffer = b''.join(datagen)
         response = self.fetch('/addversion.json', method='POST', headers=headers, body=databuffer)
         self.assertEqual(200, response.code)
+        post_data['egg'].close()
 
 class SecureAppTest(AppTest):
     secret_key = '123'
@@ -91,7 +123,7 @@ class SecureAppTest(AppTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        secret_key = '123';
+        secret_key = '123'
         with session_scope() as session:
             user = session.query(User).filter_by(username='admin').first()
             user.password = encrypt_password('password', secret_key)

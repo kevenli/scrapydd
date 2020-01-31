@@ -5,6 +5,7 @@ import scrapydd.agent
 import scrapydd.ssl_gen
 from scrapydd.commands.resetpassword import ResetPasswordCommand
 from scrapydd.commands.package import PackageCommand
+from scrapydd.commands.run import main as run_command
 
 usage = '''
 usage: scrapydd {command} [options]
@@ -15,6 +16,7 @@ Available commands:
     add_schedule:   add a schedule to spider.
     reset_password: reset user password.
     package:        package current project egg.
+    run:            run spider package.
 
 use scrapydd {command} --help for further help.
 '''
@@ -39,6 +41,8 @@ def main():
         ResetPasswordCommand().run()
     elif cmd == 'package':
         PackageCommand().run()
+    elif cmd == 'run':
+        run_command(argv[1:])
     elif cmd == '--help':
         print_commands(argv)
     elif cmd == '--version' or cmd == '-v':

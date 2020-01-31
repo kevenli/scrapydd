@@ -1,22 +1,31 @@
-from tornado import gen
-from ..eggstorage import FilesystemEggStorage
-from ..exceptions import InvalidProjectEgg, ProcessFailed
-from ..workspace import ProjectWorkspace
-from .base import RestBaseHandler
-from ..models import session_scope, Spider, SpiderExecutionQueue, Project, SpiderSettings, NodeKey, Node
+"""
+Rest api handlers
+"""
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+import hmac
 import logging
 import json
+from tornado import gen
 from tornado.web import authenticated
-from ..security import generate_digest
-import hmac
-from ..schedule import JobRunning
 from six import BytesIO
 from six import ensure_str
+from ..exceptions import InvalidProjectEgg, ProcessFailed, ProjectNotFound
+from ..exceptions import SpiderNotFound, InvalidCronExpression
+from .base import RestBaseHandler
+from ..models import session_scope, Spider, SpiderExecutionQueue, Project
+from ..models import SpiderSettings, NodeKey
+from ..models import Trigger, SpiderParameter
+from ..security import generate_digest
+from ..schedule import JobRunning
+from ..storage import ProjectStorage
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 class GetNextJobHandler(RestBaseHandler):
+    # pylint: disable=arguments-differ
     scheduler_manager = None
 
     def initialize(self, scheduler_manager=None):
@@ -32,26 +41,34 @@ class GetNextJobHandler(RestBaseHandler):
             response_data = {'data': None}
 
             if next_task is not None:
-                spider = session.query(Spider).filter_by(id=next_task.spider_id).first()
+                spider = session.query(Spider)\
+                    .filter_by(id=next_task.spider_id).first()
                 if not spider:
-                    logger.error('Task %s has not spider, deleting.' % next_task.id)
-                    session.query(SpiderExecutionQueue).filter_by(id=next_task.id).delete()
+                    LOGGER.error('Task %s has not spider, deleting.',
+                                 next_task.id)
+                    session.query(SpiderExecutionQueue)\
+                        .filter_by(id=next_task.id).delete()
                     self.set_status(400)
                     self.write({'data': None})
                     return
 
-                project = session.query(Project).filter_by(id=spider.project_id).first()
+                project = session.query(Project)\
+                    .filter_by(id=spider.project_id).first()
                 if not project:
-                    logger.error('Task %s has not project, deleting.' % next_task.id)
-                    session.query(SpiderExecutionQueue).filter_by(id=next_task.id).delete()
+                    LOGGER.error('Task %s has not project, deleting.',
+                                 next_task.id)
+                    session.query(SpiderExecutionQueue)\
+                        .filter_by(id=next_task.id).delete()
                     self.set_status(400)
                     self.write({'data': None})
                     return
 
                 extra_requirements_setting = session.query(SpiderSettings) \
-                    .filter_by(spider_id=spider.id, setting_key='extra_requirements').first()
+                    .filter_by(spider_id=spider.id,
+                               setting_key='extra_requirements').first()
 
-                extra_requirements = extra_requirements_setting.value if extra_requirements_setting else ''
+                extra_requirements = extra_requirements_setting.value if \
+                    extra_requirements_setting else ''
                 response_data['data'] = {'task': {
                     'task_id': next_task.id,
                     'spider_id': next_task.spider_id,
@@ -59,12 +76,15 @@ class GetNextJobHandler(RestBaseHandler):
                     'project_name': next_task.project_name,
                     'version': project.version,
                     'extra_requirements': extra_requirements,
-                    'spider_parameters': {parameter.parameter_key: parameter.value for parameter in spider.parameters}
+                    'spider_parameters': {
+                        parameter.parameter_key: parameter.value
+                        for parameter in spider.parameters}
                 }}
             self.write(json.dumps(response_data))
 
 
 class RestRegisterNodeHandler(RestBaseHandler):
+    # pylint: disable=arguments-differ
     @authenticated
     def post(self):
         node_key = self.current_user
@@ -73,7 +93,8 @@ class RestRegisterNodeHandler(RestBaseHandler):
             tags = None if tags == '' else tags
             remote_ip = self.request.remote_ip
             node_manager = self.settings.get('node_manager')
-            node = node_manager.create_node(remote_ip, tags=tags, key_id=node_key.id)
+            node = node_manager.create_node(remote_ip,
+                                            tags=tags, key_id=node_key.id)
             node_key.used_node_id = node.id
             session.add(node_key)
             session.commit()
@@ -81,40 +102,43 @@ class RestRegisterNodeHandler(RestBaseHandler):
 
 
     def get_current_user(self):
-        authorization = self.request.headers.get("Authorization", "").split(" ")
+        authorization = self.request.headers.get("Authorization", "")\
+            .split(" ")
         if len(authorization) != 3:
-            logging.info("Invalid Authorization header {}".format(authorization))
+            logging.info("Invalid Authorization header %s", authorization)
             return None
 
         algorithm, key, provided_digest = authorization
         if algorithm != "HMAC":
-            logging.info("Invalid algorithm {}".format(algorithm))
+            logging.info("Invalid algorithm %s", algorithm)
             return None
 
         with session_scope() as session:
             user_key = session.query(NodeKey).filter_by(key=key).first()
 
             if user_key is None:
-                logging.info("Invalid HMAC key {}".format(key))
+                logging.info("Invalid HMAC key %s", key)
                 return None
 
             if user_key.is_deleted:
-                logging.info("Invalid HMAC key {}".format(key))
+                logging.info("Invalid HMAC key %s", key)
                 return None
 
             secret = user_key.secret_key
             expected_digest = generate_digest(
-                secret, self.request.method, self.request.path, self.request.query,
+                secret, self.request.method, self.request.path,
+                self.request.query,
                 self.request.body)
 
             if not hmac.compare_digest(expected_digest, provided_digest):
-                logging.info("Invalid HMAC digest {}".format(provided_digest))
+                logging.info("Invalid HMAC digest %s", provided_digest)
                 return None
 
             return user_key
 
 
 class AddVersionHandler(RestBaseHandler):
+    # pylint: disable=arguments-differ
     @authenticated
     @gen.coroutine
     def post(self):
@@ -123,64 +147,44 @@ class AddVersionHandler(RestBaseHandler):
         eggfile = self.request.files['egg'][0]
         eggf = BytesIO(eggfile['body'])
 
+        project_manager = self.settings.get('project_manager')
         try:
-            workspace = ProjectWorkspace(project_name)
+            project = yield project_manager.upload_project(
+                self.current_user, project_name,
+                version, eggf)
+            with session_scope() as session:
+                project = session.query(Project).get(project.id)
+                spiders = project.spiders
 
-            yield workspace.init()
-            workspace.put_egg(eggf, version)
-            yield workspace.install_requirements()
-            spiders = yield workspace.spider_list()
-
-        except InvalidProjectEgg as e:
-            logger.error('Error when uploading project, %s %s' % (e.message, e.detail))
-            self.set_status(400, reason=e.message)
+        except InvalidProjectEgg as ex:
+            LOGGER.error('Error when uploading project, %s %s',
+                         ex.message,
+                         ex.detail)
+            self.set_status(400, reason=ex.message)
             self.finish("<html><title>%(code)d: %(message)s</title>"
                         "<body><pre>%(output)s</pre></body></html>" % {
                             "code": 400,
-                            "message": e.message,
-                            "output": e.detail,
+                            "message": ex.message,
+                            "output": ex.detail,
                         })
             return
-        except ProcessFailed as e:
-            logger.error('Error when uploading project, %s, %s' % (e.message, e.std_output))
-            self.set_status(400, reason=e.message)
+        except ProcessFailed as ex:
+            LOGGER.error('Error when uploading project, %s, %s',
+                         ex.message,
+                         ex.std_output)
+            self.set_status(400, reason=ex.message)
             self.finish("<html><title>%(code)d: %(message)s</title>"
                         "<body><pre>%(output)s</pre></body></html>" % {
                             "code": 400,
-                            "message": e.message,
-                            "output": e.std_output,
+                            "message": ex.message,
+                            "output": ex.std_output,
                         })
             return
-
-        logger.debug('spiders: %s' % spiders)
-        with session_scope() as session:
-            storage = FilesystemEggStorage({})
-            eggf.seek(0)
-            storage.put(eggf, project_name, version)
-            project = session.query(Project).filter_by(name=project_name).first()
-            if project is None:
-                project = Project()
-                project.name = project_name
-            project.version = version
-            session.add(project)
-            session.commit()
-            session.refresh(project)
-
-            for spider_name in spiders:
-                spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
-                if spider is None:
-                    spider = Spider()
-                    spider.name = spider_name
-                    spider.project_id = project.id
-                    session.add(spider)
-                    session.commit()
-                    session.refresh(spider)
-
-                session.commit()
-            self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
+        self.write(json.dumps({'status': 'ok', 'spiders': len(spiders)}))
 
 
 class ScheduleHandler(RestBaseHandler):
+    # pylint: disable=arguments-differ
     def initialize(self, scheduler_manager):
         super(ScheduleHandler, self).initialize()
         self.scheduler_manager = scheduler_manager
@@ -198,10 +202,100 @@ class ScheduleHandler(RestBaseHandler):
                 'jobid': jobid
             }
             self.write(json.dumps(response_data))
-        except JobRunning as e:
+        except JobRunning as ex:
             response_data = {
                 'status': 'error',
-                'errormsg': 'job is running with jobid %s' % e.jobid
+                'errormsg': 'job is running with jobid %s' % ex.jobid
             }
             self.set_status(400, 'job is running')
             self.write(json.dumps(response_data))
+
+
+class DeleteProjectHandler(RestBaseHandler):
+    # pylint: disable=arguments-differ
+    def initialize(self, scheduler_manager):
+        super(DeleteProjectHandler, self).initialize()
+        self.scheduler_manager = scheduler_manager
+
+    @authenticated
+    def post(self):
+        project_name = self.get_argument('project')
+        with session_scope() as session:
+            project = session.query(Project)\
+                .filter_by(name=project_name).first()
+            project_storage = ProjectStorage(
+                self.settings.get('project_storage_dir'), project)
+            if not project:
+                return self.set_status(404, 'project not found.')
+            spiders = session.query(Spider).filter_by(project_id=project.id)
+            for spider in spiders:
+                triggers = session.query(Trigger)\
+                    .filter_by(spider_id=spider.id)
+                session.query(SpiderExecutionQueue)\
+                    .filter_by(spider_id=spider.id).delete()
+                session.query(SpiderParameter)\
+                    .filter_by(spider_id=spider.id).delete()
+                session.commit()
+                for trigger in triggers:
+                    self.scheduler_manager\
+                        .remove_schedule(project_name,
+                                         spider.name,
+                                         trigger_id=trigger.id)
+
+                for job in spider.historical_jobs:
+                    project_storage.delete_job_data(job)
+                    session.delete(job)
+                session.delete(spider)
+
+            project_storage.delete_egg()
+            session.delete(project.package)
+            session.delete(project)
+
+        LOGGER.info('project %s deleted', project_name)
+        return self.write('Project deleted.')
+
+
+class AddScheduleHandler(RestBaseHandler):
+    # pylint: disable=arguments-differ
+    def initialize(self, scheduler_manager):
+        super(AddScheduleHandler, self).initialize()
+        self.scheduler_manager = scheduler_manager
+
+    @authenticated
+    def post(self):
+        project_name = self.get_argument('project')
+        spider_name = self.get_argument('spider')
+        cron = self.get_argument('cron')
+
+        with session_scope() as session:
+            try:
+                spider = self.get_spider(session, project_name, spider_name)
+            except SpiderNotFound:
+                response_data = {
+                    'status': 'error',
+                    'errormsg': 'spider not found',
+                }
+                self.set_status(404)
+                return self.write(json.dumps(response_data))
+            except ProjectNotFound:
+                response_data = {
+                    'status': 'error',
+                    'errormsg': 'project not found',
+                }
+                self.set_status(404)
+                return self.write(json.dumps(response_data))
+            try:
+                self.scheduler_manager.add_schedule(spider.project,
+                                                    spider, cron)
+                response_data = {
+                    'status': 'ok',
+                }
+                return self.write(json.dumps(response_data))
+
+            except InvalidCronExpression:
+                response_data = {
+                    'status': 'error',
+                    'errormsg': 'invalid cron expression.',
+                }
+                self.set_status(400)
+                return self.write(json.dumps(response_data))

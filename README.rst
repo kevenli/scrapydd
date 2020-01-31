@@ -71,12 +71,14 @@ Docker-Compose
           - "6800:6800"
         volumes:
           - "/scrapydd/server:/scrapydd"
+          - "/var/run/docker.sock:/var/run/docker.sock"
         command: scrapydd server
     
       scrapydd-agent:
         image: "kevenli/scrapydd"
         volumes:
           - "/scrapydd/server:/scrapydd"
+          - "/var/run/docker.sock:/var/run/docker.sock"
         links:
           - scrapydd-server
         environment:

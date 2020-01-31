@@ -31,7 +31,7 @@ class Config(object):
                     with open(source, 'r') as f:
                         self.cp.readfp(f)
         else:
-            self.cp = SafeConfigParser(values)
+            self.cp = ConfigParser(values)
             self.cp.add_section(self.SECTION)
 
     def _getsources(self):

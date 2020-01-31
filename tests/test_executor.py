@@ -1,9 +1,14 @@
 import unittest
-from scrapydd.agent import AgentConfig
-from scrapydd.executor import SpiderTask, TaskExecutor
-from tornado.concurrent import Future
-from tornado.ioloop import IOLoop, PeriodicCallback
 import logging
+import os.path
+from tornado.concurrent import Future
+from tornado.ioloop import IOLoop
+from tornado.testing import AsyncHTTPTestCase, gen_test
+from tornado.web import RequestHandler, Application
+from tornado.httpclient import HTTPError
+from scrapydd.agent import AgentConfig
+from scrapydd.executor import SpiderTask, TaskExecutor, ProjectEggDownloader
+
 
 @unittest.skip
 class TaskExecutorTests(unittest.TestCase):
@@ -21,6 +26,52 @@ class FakeEggDownloader(object):
         ret_future = Future()
         ret_future.set_result(self.egg_filepath)
         return ret_future
+
+
+class DownloadEggHandler(RequestHandler):
+    def get(self, job_id):
+        if job_id == '404':
+            return self.set_status(404, 'Not Found')
+
+        with open('tests/test_project-1.0-py2.7.egg', 'rb') as f:
+            self.write(f.read())
+
+
+class DownloadEgg404Handler(RequestHandler):
+    def get(self, job_id):
+        self.set_status(404, 'Not Found')
+
+
+class ProjectEggDownloaderTest(AsyncHTTPTestCase):
+    def get_app(self):
+        return Application([
+            (r"/jobs/(\w+)/egg", DownloadEggHandler)
+        ])
+
+    @gen_test
+    def test_download_egg_future(self):
+        job_id = 'xxx'
+        target = ProjectEggDownloader(self.get_url('/'))
+        download_path = yield target.download_egg_future(job_id)
+        self.assertIsNotNone(download_path)
+        self.assertTrue(os.path.exists(download_path))
+        self.assertTrue(os.path.exists(target.download_path))
+
+        target_download_path = target.download_path
+        del target
+        self.assertFalse(os.path.exists(download_path))
+        self.assertFalse(os.path.exists(target_download_path))
+
+    @gen_test
+    def test_download_egg_future_fail(self):
+        job_id = '404'
+        target = ProjectEggDownloader(self.get_url('/some_error_request/'))
+        try:
+            download_path = yield target.download_egg_future(job_id)
+            self.fail("No exception caught")
+        except HTTPError as e:
+            self.assertEqual(404, e.code)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)

@@ -49,6 +49,19 @@ HTTPS port to listen on, specify this key will enable SSL mode.
 
 Default: None
 
+runner_type
+~~~~~~~~~~~
+Project package runner, Default: venv.
+
+Available options: venv(run sub-command on VirtuanEnv), docker (run sub-command on
+Docker container)
+
+runner_docker_image
+~~~~~~~~~~~~~~~~~~~
+Runner container image name, Default: kevenli/scrpaydd
+
+This effects when runner_type is docker.
+
 server_name
 ~~~~~~~~~~~~
 Server's hostname.
