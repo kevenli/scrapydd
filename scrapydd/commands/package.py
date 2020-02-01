@@ -27,7 +27,7 @@ def _build_egg():
     if not os.path.exists('setup.py'):
         scrapy_project_settings = get_config()
         settings = scrapy_project_settings.get('settings', 'default')
-        project = scrapy_project_settings.get('deploy', 'project', 'project')
+        project = scrapy_project_settings.get('deploy', 'project')
         _create_default_setup_py(settings=settings, project=project)
     d = 'dist'
     retry_on_eintr(check_call, [sys.executable, 'setup.py', 'clean', '-a', 'bdist_egg', '-d', d],
