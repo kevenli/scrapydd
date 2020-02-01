@@ -1,3 +1,12 @@
+"""
+models module controls database connection and data modules.
+"""
+# pylint: disable=invalid-name
+# pylint: disable=too-few-public-methods
+# pylint: disable=missing-class-docstring
+import os
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine, schema, Column, desc
 from sqlalchemy.types import Integer, String, DateTime, Text, Boolean
 from sqlalchemy.orm import sessionmaker
@@ -7,18 +16,17 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from migrate.versioning.api import version_control, upgrade
 from migrate.exceptions import DatabaseAlreadyControlledError
-import os
-from contextlib import contextmanager
+
 from .config import Config
 
 metadata = schema.MetaData()
 Base = declarative_base(metadata=metadata)
 
-#database_url = 'mysql://scrapydd:scrapydd@localhost/scrapydd'
 database_url = 'sqlite:///database.db'
 engine = create_engine(database_url)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 _Session = None
+
 
 class User(Base):
     __tablename__ = 'user'
@@ -73,9 +81,12 @@ class Spider(Base):
     project = relationship('Project')
     name = Column(String(length=50))
     settings = relationship("SpiderSettings",
-                         collection_class=attribute_mapped_collection('setting_key'))
+                            collection_class=
+                            attribute_mapped_collection('setting_key'))
 
-Project.spiders = relationship("Spider", order_by = Spider.id)
+
+Project.spiders = relationship("Spider", order_by=Spider.id)
+
 
 class Trigger(Base):
     __tablename__ = 'triggers'
@@ -83,6 +94,7 @@ class Trigger(Base):
     id = Column(Integer, primary_key=True)
     spider_id = Column(Integer, ForeignKey('spiders.id'))
     cron_pattern = Column(String(length=50))
+
 
 Spider.triggers = relationship("Trigger", order_by=Trigger.id)
 
@@ -154,7 +166,9 @@ class HistoricalJob(Base):
     items_file = Column(String(500))
     items_count = Column(Integer)
 
-Spider.historical_jobs = relationship("HistoricalJob", order_by=desc(HistoricalJob.start_time))
+
+Spider.historical_jobs = relationship("HistoricalJob",
+                                      order_by=desc(HistoricalJob.start_time))
 
 
 class SpiderWebhook(Base):
@@ -177,8 +191,8 @@ class WebhookJob(Base):
     status_obj = relationship('JobStatus')
     log = Column(Text)
 
-HistoricalJob.webhook_job = relationship('WebhookJob', uselist=False)
 
+HistoricalJob.webhook_job = relationship('WebhookJob', uselist=False)
 
 
 class SpiderSettings(Base):
@@ -198,10 +212,18 @@ class SpiderParameter(Base):
     parameter_key = Column(String(length=50), nullable=False)
     value = Column(String(length=200))
 
+
 Spider.parameters = relationship('SpiderParameter', order_by=SpiderParameter.parameter_key)
 
 
+# pylint: disable=global-statement
 def init_database(config=None):
+    """
+    Initiate database config, database operations
+    cannot operate before this initializing.
+    :param config: (Config) config which contains database settings.
+    :return: None
+    """
     if config is None:
         config = Config()
 
@@ -211,7 +233,6 @@ def init_database(config=None):
     database_url = config.get('database_url')
     engine = create_engine(database_url)
     _Session = sessionmaker(bind=engine, expire_on_commit=False)
-    #global Session
     db_repository = os.path.join(os.path.dirname(__file__), 'migrates')
     try:
         version_control(url=database_url, repository=db_repository)
@@ -219,6 +240,8 @@ def init_database(config=None):
         pass
     upgrade(database_url, db_repository)
 
+
+# pylint: disable=global-statement
 def _make_session():
     global _Session
     return _Session()
