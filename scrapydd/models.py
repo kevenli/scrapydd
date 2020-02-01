@@ -6,9 +6,10 @@ models module controls database connection and data modules.
 # pylint: disable=missing-class-docstring
 import os
 from contextlib import contextmanager
+import enum
 
 from sqlalchemy import create_engine, schema, Column, desc
-from sqlalchemy.types import Integer, String, DateTime, Text, Boolean
+from sqlalchemy.types import Integer, String, DateTime, Text, Boolean, Enum
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.ext.declarative import declarative_base
@@ -211,6 +212,32 @@ class SpiderParameter(Base):
     spider_id = Column(Integer, ForeignKey('spiders.id'))
     parameter_key = Column(String(length=50), nullable=False)
     value = Column(String(length=200))
+
+
+class SysSpiderPlugin(Base):
+    __tablename__ = 'sys_spiderplugins'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(length=50), nullable=False)
+    location = Column(String(length=255), nullable=False)
+
+
+class SpiderPluginParameterDatatype(enum.Enum):
+    string = 1
+    int = 2
+    bool = 3
+
+
+class SysSpiderPluginParameter(Base):
+    __tablename__ = 'sys_spiderpluginparameters'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    plugin_id = Column(Integer, ForeignKey('sys_spiderplugins.id'),
+                       nullable=False)
+    key = Column(String(length=50), nullable=False)
+    datatype = Column(Enum(SpiderPluginParameterDatatype), nullable=False)
+    required = Column(Boolean, nullable=False)
+    default_value = Column(String(length=255))
 
 
 Spider.parameters = relationship('SpiderParameter', order_by=SpiderParameter.parameter_key)
