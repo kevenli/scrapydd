@@ -10,10 +10,11 @@ class SpiderPluginManagerTest(AsyncTestCase):
     @gen_test(timeout=120)
     def test_add_sys_plugin(self):
         target = SpiderPluginManager()
-        f_egg = open(os.path.join(os.path.dirname(__file__), 'test_plugin',
+        plugin_name = 'test_plugin'
+        f_egg = open(os.path.join(os.path.dirname(__file__), plugin_name,
                                   'dist',
                                   'test_plugin-1.0-py3.7.egg'), 'rb')
-        actual = yield target.get_plugin_info(f_egg)
+        actual = yield target.get_plugin_info(f_egg, plugin_name)
         self.assertEqual('test_plugin', actual.get('name'))
         self.assertIsNotNone(actual.get('parameters'))
         parameters = actual.get('parameters')

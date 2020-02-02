@@ -53,10 +53,10 @@ def install_requirements(distribute, append_log=False):
         env = os.environ.copy()
         # python -W ignore: ignore the python2 deprecate warning.
         # pip --disable-pip-version-check: ignore pip version warning.
-        pargs = [sys.executable, '-W', 'ignore', '-m', 'pip',  '--disable-pip-version-check',
+        pargs = [sys.executable, '-W', 'ignore', '-m', 'pip',
+                 '--disable-pip-version-check',
                  'install']
         pargs += requires
-        # pargs += ['--user']
         stdout = subprocess.PIPE
         if append_log:
             stdout = open('pip.log', 'w')
