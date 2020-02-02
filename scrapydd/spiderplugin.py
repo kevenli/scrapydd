@@ -15,7 +15,7 @@ class SpiderPluginManager:
         pass
 
     def _init_venv(self, work_dir):
-        builder = venv.EnvBuilder(with_pip=True)
+        builder = venv.EnvBuilder(system_site_packages=True, with_pip=True)
         builder.create(work_dir)
         if sys.platform == 'win32':
             bin_dir = 'Scripts'

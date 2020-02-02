@@ -14,6 +14,6 @@ install:
 script: |
   nosetests tests --with-coverage --cover-package=scrapydd --cover-html && \
   docker run -w /scrapydd_src -v /var/run/docker.sock:/var/run/docker.sock \
-                   scrapydd:develop.py3 nosetests tests --exe
+                   scrapydd:develop nosetests tests --exe
 after_success:
   - codecov
