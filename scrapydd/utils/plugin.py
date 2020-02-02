@@ -52,25 +52,19 @@ def desc(egg_path):
     except IndexError:
         raise ValueError("Unknown or corrupt egg")
 
-    execute_entry_point = distribution.get_entry_map('scrapydd.plugin.execute')
-    desc_entry_point = distribution.get_entry_map('scrapydd.plugin.desc')
+    execute_entry_point = distribution.get_entry_map('scrapydd.spliderplugin')
 
     if not execute_entry_point:
         sys.stderr.write('Cannot find plugin execute entrypoint')
-        return sys.exit(1)
-
-    if not desc_entry_point:
-        sys.stderr.write('Cannot find plugin desc entrypoint')
         return sys.exit(1)
 
     install_requirements(distribution)
     distribution.activate()
 
     execute_name = next(iter(execute_entry_point))
-    desc_name = next(iter(desc_entry_point))
 
-    plugin_desc = desc_entry_point[desc_name].load()
-    output = plugin_desc()
+    plugin_desc = execute_entry_point[execute_name].load()
+    output = plugin_desc().desc()
     print(output)
 
 

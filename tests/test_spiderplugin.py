@@ -13,7 +13,7 @@ class SpiderPluginManagerTest(AsyncTestCase):
         plugin_name = 'test_plugin'
         f_egg = open(os.path.join(os.path.dirname(__file__), plugin_name,
                                   'dist',
-                                  'test_plugin-1.0-py3.7.egg'), 'rb')
+                                  'test_plugin-1.0-py3.6.egg'), 'rb')
         actual = yield target.get_plugin_info(f_egg, plugin_name)
         self.assertEqual('test_plugin', actual.get('name'))
         self.assertIsNotNone(actual.get('parameters'))

@@ -1,4 +1,21 @@
 import json
+from .base import SpiderPlugin
+
+
+class TestPlugin(SpiderPlugin):
+    def desc(self):
+        return desc()
+
+    def execute(self, parameters):
+        return execute(parameters)
+
+    def validate(self, parameters):
+        try:
+            enabled = get_bool(parameters.get('ENABLED', True))
+        except ValueError:
+            return False
+
+        return True
 
 
 def get_bool(value):

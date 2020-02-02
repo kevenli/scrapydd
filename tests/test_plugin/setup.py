@@ -6,12 +6,9 @@ setup(
     description='test_plugin',
     packages=find_packages(),
     entry_points={
-        'scrapydd.plugin.execute': [
-            'test_plugin = test_plugin.plugin:execute',
+        'scrapydd.spliderplugin': [
+            'test_plugin = test_plugin.plugin:TestPlugin',
         ],
-        'scrapydd.plugin.desc': [
-            'test_plugin = test_plugin.plugin:desc',
-        ]
     },
     install_requires=[
         'scrapy',
