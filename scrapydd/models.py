@@ -214,6 +214,10 @@ class SpiderParameter(Base):
     value = Column(String(length=200))
 
 
+Spider.parameters = relationship('SpiderParameter',
+                                 order_by=SpiderParameter.parameter_key)
+
+
 class SysSpiderPlugin(Base):
     __tablename__ = 'sys_spiderplugins'
 
@@ -240,7 +244,8 @@ class SysSpiderPluginParameter(Base):
     default_value = Column(String(length=255))
 
 
-Spider.parameters = relationship('SpiderParameter', order_by=SpiderParameter.parameter_key)
+SysSpiderPlugin.parameters = relationship('SysSpiderPluginParameter',
+                                          order_by=SysSpiderPluginParameter.key)
 
 
 # pylint: disable=global-statement

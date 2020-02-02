@@ -11,8 +11,53 @@ from .exceptions import ProcessFailed
 
 
 class SpiderPluginManager:
-    def add_sys_plugin(self, egg_f):
-        pass
+    def __init__(self, data_dir='data'):
+        self._data_dir = data_dir
+
+    @gen.coroutine
+    def add_sys_plugin(self, egg_f, plugin_name):
+        with session_scope() as session:
+            plugin_info = yield self.get_plugin_info(egg_f, plugin_name)
+            egg_f.seek(0)
+            plugin = session.query(SysSpiderPlugin)\
+                .filter_by(name=plugin_name)\
+                .first()
+            plugin_dir = os.path.join(self._data_dir, 'sys_spider_plugins')
+            if not os.path.exists(plugin_dir):
+                os.makedirs(plugin_dir)
+            location = os.path.join(plugin_dir, '%s.egg' % plugin_name)
+
+            with open(location, 'wb') as f:
+                shutil.copyfileobj(egg_f, f)
+            if plugin is None:
+                plugin = SysSpiderPlugin(name=plugin_name, location=location)
+
+            session.add(plugin)
+            session.flush()
+            session.refresh(plugin)
+            session.query(SysSpiderPluginParameter)\
+                .filter_by(plugin_id=plugin.id)\
+                .delete()
+            for parameter_key, parameter_settings in plugin_info['parameters'].items():
+                parameter = SysSpiderPluginParameter()
+                parameter.plugin_id = plugin.id
+                parameter.key = parameter_key
+                parameter.datatype = parameter_settings['type']
+                parameter.required = parameter_settings.get('required', False)
+                parameter_default_value = parameter_settings.get('default_value')
+                if parameter_default_value:
+                    parameter_default_value = str(parameter_default_value)
+                parameter.default_value = parameter_default_value
+                session.add(parameter)
+            session.commit()
+
+    def get_plugin(self, plugin_name):
+        with session_scope() as session:
+            plugin = session.query(SysSpiderPlugin) \
+                .filter_by(name=plugin_name) \
+                .first()
+            plugin.parameters
+            return plugin
 
     def _init_venv(self, work_dir):
         builder = venv.EnvBuilder(system_site_packages=True, with_pip=True)
@@ -22,7 +67,6 @@ class SpiderPluginManager:
         else:
             bin_dir = 'bin'
         return os.path.join(work_dir, bin_dir)
-
 
     @gen.coroutine
     def get_plugin_info(self, egg_f, plugin_name):
@@ -38,14 +82,11 @@ class SpiderPluginManager:
             shutil.copyfileobj(egg_f, f_temp_egg)
 
         py_file = os.path.join(os.path.dirname(__file__), 'utils', 'plugin.py')
-        dest_file = 'plugin.py'
-        shutil.copyfile(py_file, os.path.join(plugin_cache_dir, dest_file))
-
         venv_dir = self._init_venv(work_dir)
         executable = os.path.join(venv_dir, 'python')
 
         p_args = [executable,
-                  dest_file,
+                  py_file,
                   'desc',
                   tmp_egg_path
                   ]

@@ -38,21 +38,21 @@ def desc():
             'ENABLED': {
                 'type': 'bool',
                 'required': True,
-                'default_value': 'True'
+                'default_value': True
             }
         }
     })
 
 
-def execute(settings):
-    enabled = get_bool(settings.get('ENABLED', True))
-    if enabled:
-        return '''
+TEMPLATE = '''
 try: SPIDER_MIDDLEWARES
 except NameError: SPIDER_MIDDLEWARES = {}
 SPIDER_MIDDLEWARES['scrapy_splitvariants.SplitVariantsMiddleware']= 100
 
-SPLITVARIANTS_ENABLED = True
-        '''
-    else:
-        return ''
+SPLITVARIANTS_ENABLED = %(enabled)s
+'''
+
+
+def execute(settings):
+    enabled = get_bool(settings.get('ENABLED', True))
+    return TEMPLATE % {'enabled': enabled}
