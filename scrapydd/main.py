@@ -539,6 +539,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
     """
     if project_manager is None:
         project_manager = ProjectManager(runner_factory, project_storage_dir,
+                                         scheduler_manager,
                                          default_project_storage_version)
 
     settings = dict(cookie_secret=secret_key,

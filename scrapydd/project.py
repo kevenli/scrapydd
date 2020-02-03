@@ -12,11 +12,13 @@ logger = logging.getLogger(__name__)
 class ProjectManager:
     def __init__(self, runner_factory,
                  project_storage_dir,
+                 scheduler_manager,
                  default_project_storage_version=2,
                  ):
         self.runner_factory = runner_factory
         self.project_storage_dir = project_storage_dir
         self.default_project_storage_version = default_project_storage_version
+        self.scheduler_manager = scheduler_manager
 
     @coroutine
     def upload_project(self, user_id, project_name, version, eggf):
