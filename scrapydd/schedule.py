@@ -331,7 +331,7 @@ class SchedulerManager():
         with session_scope() as session:
             node = session.query(Node).filter(Node.id == node_id).first()
             if node is None:
-                return None
+                return False
             node_tags = node.tags
             next_task = self._get_next_task(session, node_tags)
         return next_task is not None
