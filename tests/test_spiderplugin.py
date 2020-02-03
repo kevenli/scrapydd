@@ -7,6 +7,11 @@ from scrapydd.config import Config
 from scrapydd.models import init_database, SpiderPluginParameterDatatype
 
 
+TETS_PACKAGE_PATH = os.path.join(os.path.dirname(__file__), 'test_plugin',
+                                 'dist',
+                                 'test_plugin-1.0-py3.6.egg')
+
+
 class SpiderPluginManagerTest(AsyncTestCase):
     @classmethod
     def setUpClass(cls):
@@ -20,9 +25,7 @@ class SpiderPluginManagerTest(AsyncTestCase):
     def test_add_sys_plugin(self):
         target = SpiderPluginManager()
         plugin_name = 'test_plugin'
-        f_egg = open(os.path.join(os.path.dirname(__file__), plugin_name,
-                                  'dist',
-                                  'test_plugin-1.0-py3.6.egg'), 'rb')
+        f_egg = open(TETS_PACKAGE_PATH, 'rb')
         actual = yield target.get_plugin_info(f_egg, plugin_name)
         self.assertEqual('test_plugin', actual.get('name'))
         self.assertIsNotNone(actual.get('parameters'))
@@ -37,9 +40,7 @@ class SpiderPluginManagerTest(AsyncTestCase):
     def test_plugin_execute(self):
         target = SpiderPluginManager()
         plugin_name = 'test_plugin'
-        f_egg = open(os.path.join(os.path.dirname(__file__), plugin_name,
-                                  'dist',
-                                  'test_plugin-1.0-py3.6.egg'), 'rb')
+        f_egg = open(TETS_PACKAGE_PATH, 'rb')
         yield target.add_sys_plugin(f_egg, plugin_name)
         saved = target.get_plugin(plugin_name)
         self.assertIsNotNone(saved)

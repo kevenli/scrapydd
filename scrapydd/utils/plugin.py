@@ -121,9 +121,9 @@ def main():
     argv = sys.argv
     cmd = _pop_command_name(argv)
     if cmd == 'execute':
-        return execute(sys.argv[2])
+        return execute(sys.argv[1])
     elif cmd == 'desc':
-        return desc(sys.argv[2])
+        return desc(sys.argv[1])
     elif cmd == 'generate':
         parser = argparse.ArgumentParser()
         parser.add_argument('--output', dest='output', required=False,
