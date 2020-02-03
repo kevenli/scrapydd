@@ -177,7 +177,7 @@ def main():
         parser.add_argument('-i', '--input', dest='input', required=False,
                             default=None, help='input settings json file.')
         args = parser.parse_args()
-        return perform(base_module=args.base, input_file=args.intput,
+        return perform(base_module=args.base, input_file=args.input,
                        output_file=args.output)
     elif cmd == 'list':
         return list_()
