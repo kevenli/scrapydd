@@ -345,10 +345,10 @@ class NodeHeartbeatHandler(NodeBaseHandler):
             self.set_status(400, 'Node expired')
             return self.write(json.dumps(response_data))
         running_jobs = self.request.headers.get('X-DD-RunningJobs', '')
-        running_job_ids = [int(x) for x in running_jobs.split(',') if x]
+        running_job_ids = [x for x in running_jobs.split(',') if x]
         if running_jobs:
-            killing_jobs = self.scheduler_manager.jobs_running(node_id,
-                                                               running_job_ids)
+            killing_jobs = list(self.scheduler_manager.jobs_running(node_id,
+                                                               running_job_ids))
             if killing_jobs:
                 LOGGER.info('killing %s', killing_jobs)
                 self.set_header('X-DD-KillJobs',

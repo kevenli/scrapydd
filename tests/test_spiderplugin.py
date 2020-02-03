@@ -1,7 +1,6 @@
 import os
 
 from tornado.testing import AsyncTestCase, gen_test
-from tornado import gen
 
 from scrapydd.spiderplugin import SpiderPluginManager
 from scrapydd.config import Config
@@ -16,7 +15,6 @@ class SpiderPluginManagerTest(AsyncTestCase):
             os.remove('test.db')
         config = Config(values={'database_url': 'sqlite:///test.db'})
         init_database(config)
-
 
     @gen_test(timeout=120)
     def test_add_sys_plugin(self):
@@ -35,7 +33,6 @@ class SpiderPluginManagerTest(AsyncTestCase):
         self.assertEqual('bool', enabled_parameter['type'])
         self.assertEqual(True, enabled_parameter['required'])
 
-
     @gen_test(timeout=120)
     def test_plugin_execute(self):
         target = SpiderPluginManager()
@@ -50,6 +47,7 @@ class SpiderPluginManagerTest(AsyncTestCase):
         self.assertEqual(len(saved.parameters), 1)
         parameter = saved.parameters[0]
         self.assertEqual(parameter.key, 'ENABLED')
-        self.assertEqual(parameter.datatype, SpiderPluginParameterDatatype.bool)
+        self.assertEqual(parameter.datatype,
+                         SpiderPluginParameterDatatype.bool)
         self.assertEqual(parameter.required, True)
         self.assertEqual(parameter.default_value, 'True')

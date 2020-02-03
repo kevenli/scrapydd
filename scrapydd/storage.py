@@ -3,15 +3,12 @@ from shutil import copyfileobj
 from os import path
 from glob import glob
 from distutils.version import LooseVersion
-from .exceptions import EggFileNotFound
 from shutil import copyfileobj, rmtree
 import re
+from .exceptions import EggFileNotFound
+
 
 class ProjectStorage:
-    '''
-
-
-    '''
     def __init__(self, data_dir, project, storage_version=None):
         self.project = project
 
@@ -28,7 +25,8 @@ class ProjectStorage:
         elif project_storage_version == 2:
             self.storage_provider = ProjectStoragePathV2(data_dir)
         else:
-            raise Exception('Not supported project_storage_version : %s' % project_storage_version)
+            raise Exception('Not supported project_storage_version : %s',
+                            project_storage_version)
 
     def put_egg(self, eggf, version):
         eggf.seek(0)
@@ -109,7 +107,6 @@ class ProjectStorage:
         if path.exists(items_file_dir) and not(os.listdir(items_file_dir)):
             os.rmdir(items_file_dir)
 
-
     def get_job_log(self, job):
         log_file_path = self.storage_provider.get_job_log_path(job)
         return open(log_file_path, 'rb')
@@ -122,7 +119,7 @@ class ProjectStorage:
         pass
 
 
-class ProjectStoragePathV1():
+class ProjectStoragePathV1:
     '''
     The old scrapyd style data storage
     '''

@@ -59,9 +59,17 @@ class SpiderPluginManager:
             plugin.parameters
             return plugin
 
+    def get_all_plugins(self):
+        with session_scope() as session:
+            plugins = list(session.query(SysSpiderPlugin).all())
+            for plugin in plugins:
+                plugin.parameters
+            return plugins
+
     def _init_venv(self, work_dir):
-        builder = venv.EnvBuilder(system_site_packages=True, with_pip=True)
-        builder.create(work_dir)
+        if not os.path.exists(work_dir):
+            builder = venv.EnvBuilder(system_site_packages=True, with_pip=True)
+            builder.create(work_dir)
         if sys.platform == 'win32':
             bin_dir = 'Scripts'
         else:

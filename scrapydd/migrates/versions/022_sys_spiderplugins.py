@@ -9,7 +9,7 @@ class SysSpiderPlugin(Base):
     __tablename__ = 'sys_spiderplugins'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(length=50), nullable=False)
+    name = Column(String(length=50), nullable=False, unique=True)
     location = Column(String(length=255), nullable=False)
 
 

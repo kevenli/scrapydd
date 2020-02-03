@@ -31,6 +31,33 @@ class TestDeleteProjectHandler(AppTest):
 
             self.assertEqual(0, len(session.query(Spider).filter_by(project_id=project.id).all()))
 
+    def test_post_with_triggers(self):
+        project_name = 'test_project'
+        spider_name = 'error_spider'
+        self._upload_test_project()
+
+        headers = {'Cookie': "_xsrf=dummy"}
+        with session_scope() as session:
+            project = session.query(Project)\
+                .filter_by(name=project_name)\
+                .first()
+
+            post_data = {'_xsrf': 'dummy', 'cron': '0 0 0 0 0'}
+            res = self.fetch('/projects/%s/spiders/%s/triggers' % (project_name,
+                                                             spider_name),
+                             method='POST',
+                             headers=headers,
+                             body=urlencode(post_data))
+            self.assertEqual(200, res.code)
+
+
+            post_data = {'_xsrf': 'dummy'}
+            res = self.fetch('/projects/%s/delete' % project_name,
+                             method="POST",
+                             headers=headers,
+                             body=urlencode(post_data))
+            self.assertEqual(200, res.code)
+
 
 class RunSpiderHandlerTest(AppTest):
     def init_project(self, project_name):

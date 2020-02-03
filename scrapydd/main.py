@@ -36,6 +36,7 @@ from .webhook import WebhookDaemon
 from .daemonize import daemonize
 from .workspace import RunnerFactory
 from .cluster import ClusterNode
+from .spiderplugin import SpiderPluginManager
 from .ssl_gen import SSLCertificateGenerator
 from .settting import SpiderSettingLoader
 from .security import NoAuthenticationProvider
@@ -527,7 +528,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
              project_storage_dir='.',
              default_project_storage_version=2,
              runner_factory=None,
-             project_manager=None):
+             project_manager=None,
+             spider_plugin_manager=None):
     """
 
     @type scheduler_manager SchedulerManager
@@ -539,6 +541,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
     """
     if project_manager is None:
         project_manager = ProjectManager(runner_factory, project_storage_dir,
+                                         scheduler_manager,
                                          default_project_storage_version)
 
     settings = dict(cookie_secret=secret_key,
@@ -555,6 +558,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
                     default_project_storage_version,
                     runner_factory=runner_factory,
                     project_manager=project_manager,
+                    spider_plugin_manager=spider_plugin_manager,
                     )
 
     if authentication_providers is None:
@@ -607,6 +611,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
 
         (r'/admin$', admin.AdminHomeHandler),
         (r'^/admin/nodes$', admin.AdminNodesHandler),
+        (r'^/admin/spiderplugins$', admin.AdminPluginsHandler),
 
         # agent node ysing handlers
         (r'/executing/next_task', ExecuteNextHandler,
@@ -705,6 +710,8 @@ def start_server(argv=None):
 
     runner_factory = RunnerFactory(config)
 
+    spider_plugin_manager = SpiderPluginManager()
+
     enable_authentication = config.getboolean('enable_authentication')
     secret_key = config.get('secret_key')
     app = make_app(scheduler_manager, node_manager, webhook_daemon,
@@ -714,9 +721,10 @@ def start_server(argv=None):
                    enable_node_registration=config.getboolean(
                        'enable_node_registration', False),
                    project_storage_dir=config.get('project_storage_dir'),
-                   default_project_storage_version=config.get(
+                   default_project_storage_version=config.getint(
                        'default_project_storage_version'),
-                   runner_factory=runner_factory)
+                   runner_factory=runner_factory,
+                   spider_plugin_manager=spider_plugin_manager)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
