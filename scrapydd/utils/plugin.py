@@ -1,3 +1,28 @@
+"""
+This module is design to be called by command-line or subprocesses
+to interact with SpiderPlugins, it is self-contained, so that
+it can be used alone to test plugin or play with scrapy spiders
+without scrapydd environment.
+
+Scrapydd call this module in virtualenv or docker environment to isolate
+plugins from main process environment.
+
+To test a plugin:
+1. Create a plugin settings json file (settings.json) manually or by
+  `python -m scrpaydd.utils.plugin generate -o settings.json \
+  plugin_name [other plugin_names]`
+
+2. Modify settings.json according to your testing case.
+3. Generate a settings module file (settings.py) for scrapy spider.
+  `python -m scrapydd.utils.plugin perform \
+  -b your_base_module_import_name \
+  -i settings.json \
+  -o settings.py
+4. Run your scrapydd spider by calling `scrapydd.utils.runner` by passing
+  the generated settings module.
+"""
+
+
 import pkg_resources
 import json
 import sys
@@ -98,9 +123,12 @@ def generate(plugin_names=None, output_file=None):
         print(output)
 
 
-def perform(base_module=None, output_file=None):
-    with open('test.json', 'r') as f:
-        settings = json.load(f)
+def perform(base_module=None, input_file=None, output_file=None):
+    if input_file:
+        with open(input_file, 'r') as f:
+            settings = json.load(f)
+    else:
+        settings = json.loads(input())
 
     if output_file:
         output_stream = open(output_file, 'w')
@@ -117,6 +145,12 @@ def perform(base_module=None, output_file=None):
         output_stream.write(plugin.execute(settings[plugin_name]))
 
 
+def list_():
+    for entry_point in pkg_resources.iter_entry_points(
+                                                'scrapydd.spliderplugin'):
+        print(entry_point.name)
+
+
 def main():
     argv = sys.argv
     cmd = _pop_command_name(argv)
@@ -126,7 +160,7 @@ def main():
         return desc(sys.argv[1])
     elif cmd == 'generate':
         parser = argparse.ArgumentParser()
-        parser.add_argument('--output', dest='output', required=False,
+        parser.add_argument('-o', '--output', dest='output', required=False,
                             default=None, help='output json file')
         parser.add_argument('plugin_name', nargs='*',
                             help='select plugin to populate settings, '
@@ -138,10 +172,15 @@ def main():
         parser = argparse.ArgumentParser()
         parser.add_argument('-b', '--base', dest='base', required=False,
                             default=None, help='base module to inherit.')
-        parser.add_argument('--output', dest='output', required=False,
-                            default=None, help='output module file')
+        parser.add_argument('-o', '--output', dest='output', required=False,
+                            default=None, help='output module py file.')
+        parser.add_argument('-i', '--input', dest='input', required=False,
+                            default=None, help='input settings json file.')
         args = parser.parse_args()
-        return perform(base_module=args.base, output_file=args.output)
+        return perform(base_module=args.base, input_file=args.intput,
+                       output_file=args.output)
+    elif cmd == 'list':
+        return list_()
     else:
         raise Exception('Not supported cmd %s' % cmd)
 
