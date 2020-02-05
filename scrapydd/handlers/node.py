@@ -181,8 +181,13 @@ class ExecuteNextHandler(NodeBaseHandler):
                 .filter_by(spider_id=spider.id,
                            setting_key='extra_requirements').first()
 
-            extra_requirements = extra_requirements_setting.value \
-                if extra_requirements_setting else ''
+
+            if extra_requirements_setting and extra_requirements_setting.value:
+                extra_requirements = [x for x
+                                      in extra_requirements_setting.value.split(',')
+                                      if x]
+            else:
+                extra_requirements = []
             task = {
                 'task_id': next_task.id,
                 'spider_id': next_task.spider_id,
