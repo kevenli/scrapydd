@@ -1,6 +1,5 @@
 language: python
 python:
-  - "2.7"
   - "3.6"
 services:
   - docker
@@ -16,8 +15,6 @@ install:
   - pip install -U codecov
 script: |
   nosetests tests --with-coverage --cover-package=scrapydd --cover-html && \
-  docker run -w /scrapydd_src -v /var/run/docker.sock:/var/run/docker.sock \
-                 scrapydd:develop.py2 nosetests tests --exe && \
   docker run -w /scrapydd_src -v /var/run/docker.sock:/var/run/docker.sock \
                    scrapydd:develop.py3 nosetests tests --exe
 after_success:
