@@ -715,7 +715,7 @@ def start_server(argv=None):
                    enable_node_registration=config.getboolean(
                        'enable_node_registration', False),
                    project_storage_dir=config.get('project_storage_dir'),
-                   default_project_storage_version=config.get(
+                   default_project_storage_version=config.getint(
                        'default_project_storage_version'),
                    runner_factory=runner_factory)
 
