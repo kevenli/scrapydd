@@ -57,6 +57,17 @@ class ProjectWorkspaceTest(AsyncTestCase):
         yield target.init()
         yield target.install_requirements()
 
+    @gen_test(timeout=200)
+    def test_install_requirements_exception(self):
+        target = ProjectWorkspace('test_project')
+        target.put_egg(open(test_project_file, 'rb'), '1.0')
+        yield target.init()
+        try:
+            yield target.install_requirements(['s'])
+            self.fail('Did not catch exception.')
+        except ProcessFailed as ex:
+            self.assertEqual(str, type(ex.std_output))
+
 
     @gen_test(timeout=200)
     def test_spider_list(self):
@@ -103,6 +114,17 @@ class VenvRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.items_file))
         self.assertIsNotNone(ret.crawl_logfile)
         self.assertTrue(os.path.exists(ret.crawl_logfile))
+
+    @gen_test(timeout=200)
+    def test_crawl_stderr_str(self):
+        eggf = open(test_project_file, 'rb')
+        spider_settings = SpiderSetting('fail_spider')
+        spider_settings.extra_requirements = ['s']
+        target = VenvRunner(eggf)
+        try:
+            yield target.crawl(spider_settings)
+        except ProcessFailed as ex:
+            self.assertEqual(str, type(ex.std_output))
 
     @gen_test(timeout=200)
     def test_crawl_overwrite_setting(self):

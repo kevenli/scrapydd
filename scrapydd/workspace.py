@@ -21,6 +21,8 @@ from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 
 logger = logging.getLogger(__name__)
 
+PROCESS_ENCODING = 'utf8'
+
 
 class ProjectWorkspace(object):
     pip = None
@@ -61,8 +63,10 @@ class ProjectWorkspace(object):
         logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
         try:
-            process = Popen([sys.executable, '-m', 'virtualenv', '--system-site-packages', self.venv_dir], stdout=PIPE,
-                            stderr=PIPE)
+            process = Popen([sys.executable, '-m', 'virtualenv',
+                             '--system-site-packages', self.venv_dir],
+                            stdout=PIPE,
+                            stderr=PIPE, encoding=PROCESS_ENCODING)
             self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
@@ -78,7 +82,9 @@ class ProjectWorkspace(object):
                 else:
                     std_output = process.stdout.read()
                     err_output = process.stderr.read()
-                    future.set_exception(ProcessFailed('Error when init workspace virtualenv ', std_output=std_output,
+
+                    future.set_exception(ProcessFailed('Error when init workspace virtualenv ',
+                                                       std_output=std_output,
                                                        err_output=err_output))
 
         wait_process(process, done)
@@ -86,7 +92,8 @@ class ProjectWorkspace(object):
 
     def find_project_requirements(self):
         try:
-            eggf = open(os.path.join(self.project_workspace_dir, 'spider.egg'), 'rb')
+            file_path = os.path.join(self.project_workspace_dir, 'spider.egg')
+            eggf = open(file_path, 'rb')
         except IOError:
             raise PackageNotFoundException()
         with ZipFile(eggf) as egg_zip_file:
@@ -112,7 +119,9 @@ class ProjectWorkspace(object):
         logger.debug('installing requirements: %s' % requirements)
         future = Future()
         try:
-            process = Popen([self.pip, 'install'] + requirements, stdout=PIPE, stderr=PIPE)
+            process = Popen([self.pip, 'install'] + requirements,
+                            stdout=PIPE, stderr=PIPE,
+                            encoding=PROCESS_ENCODING)
             self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
@@ -127,7 +136,8 @@ class ProjectWorkspace(object):
                 else:
                     std_out = process.stdout.read()
                     err_out = process.stderr.read()
-                    future.set_exception(ProcessFailed(std_output=std_out, err_output=err_out))
+                    future.set_exception(ProcessFailed(std_output=std_out,
+                                                       err_output=err_out))
 
         wait_process(process, done)
         return future
@@ -139,8 +149,10 @@ class ProjectWorkspace(object):
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = self.project_name
             env['SCRAPY_EGG'] = 'spider.egg'
-            process = Popen([self.python, '-m', 'scrapydd.utils.runner', 'list'], env=env, cwd=cwd, stdout=PIPE,
-                            stderr=PIPE)
+            process = Popen([self.python, '-m',
+                             'scrapydd.utils.runner', 'list'],
+                            env=env, cwd=cwd, stdout=PIPE,
+                            stderr=PIPE, encoding=PROCESS_ENCODING)
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
@@ -172,7 +184,7 @@ class ProjectWorkspace(object):
             env['SCRAPY_EGG'] = 'spider.egg'
             process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings_module', 'spider.egg'],
                             env=env, cwd=cwd, stdout=PIPE,
-                            stderr=PIPE)
+                            stderr=PIPE, encoding=PROCESS_ENCODING)
         except Exception as e:
             logger.error(e)
             future.set_exception(e)
@@ -216,7 +228,9 @@ class ProjectWorkspace(object):
         env['SCRAPY_FEED_URI'] = str(path_to_file_uri(items_file))
         env['SCRAPY_EGG'] = 'spider.egg'
 
-        p = Popen(pargs, env=env, stdout=f_output, cwd=self.project_workspace_dir, stderr=f_output)
+        p = Popen(pargs, env=env, stdout=f_output,
+                  cwd=self.project_workspace_dir,
+                  stderr=f_output, encoding='utf8')
         self.processes.append(p)
 
         def done(process):
