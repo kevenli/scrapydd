@@ -309,10 +309,7 @@ class Executor:
         task.spider_name = response_data['data']['task']['spider_name']
         if 'extra_requirements' in response_data['data']['task'] and \
                 response_data['data']['task']['extra_requirements']:
-            task.extra_requirements = [x for x in
-                                       response_data['data']['task'][
-                                           'extra_requirements'].split(';') if
-                                       x]
+            task.extra_requirements = response_data['data']['task']['extra_requirements']
         if 'spider_parameters' in response_data['data']['task']:
             task.spider_parameters = response_data['data']['task'][
                 'spider_parameters']
