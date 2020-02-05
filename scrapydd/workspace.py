@@ -341,6 +341,7 @@ class VenvRunner(object):
         Parameters:
             spider_settings (SpiderSetting): spider settings object.
         """
+        self._spider_settings = spider_settings
         yield self._prepare()
         crawl_log_path = path.join(self._work_dir, 'crawl.log')
         f_crawl_log = open(crawl_log_path, 'w')
