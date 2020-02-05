@@ -48,16 +48,16 @@ def main():
     settings = None
     egg_path = os.environ.get('SCRAPY_EGG')
 
-    settings_module = os.environ.get('SCRAPY_SETTINGS_MODULE')
-    if settings_module:
-        settings = Settings()
-        settings.setmodule(settings_module, priority='project')
-
     if egg_path:
         distribute = activate_egg(egg_path)
         ret = install_requirements(distribute)
         if ret > 0:
             sys.exit(ret)
+
+    settings_module = os.environ.get('SCRAPY_SETTINGS_MODULE')
+    if settings_module:
+        settings = Settings()
+        settings.setmodule(settings_module, priority='project')
 
     execute(settings=settings)
 
