@@ -31,26 +31,34 @@ import os
 import argparse
 
 
+def _pip_install(requires):
+    env = os.environ.copy()
+    # python -W ignore: ignore the python2 deprecate warning.
+    # pip --disable-pip-version-check: ignore pip version warning.
+    pargs = [sys.executable, '-W', 'ignore', '-m', 'pip',
+             '--disable-pip-version-check',
+             'install']
+    pargs += requires
+    stdout = subprocess.PIPE
+    p = subprocess.Popen(pargs, stdout=stdout, stderr=subprocess.PIPE, env=env,
+                         encoding='UTF8')
+    try:
+        ret = p.wait(timeout=60)
+        return ret
+    except subprocess.TimeoutExpired:
+        sys.stderr.write('pip install process timeout:\n')
+        return 1
+
+
+def _activate_distribution(dist):
+    pkg_resources.working_set.add(dist, replace=True)
+    dist.activate()
+
+
 def install_requirements(distribute, append_log=False):
     requires = [str(x) for x in distribute.requires()]
     if requires:
-        env = os.environ.copy()
-        # python -W ignore: ignore the python2 deprecate warning.
-        # pip --disable-pip-version-check: ignore pip version warning.
-        pargs = [sys.executable, '-W', 'ignore', '-m', 'pip',
-                 '--disable-pip-version-check',
-                 'install']
-        pargs += requires
-        stdout = subprocess.PIPE
-        if append_log:
-            stdout = open('pip.log', 'w')
-        p = subprocess.Popen(pargs, stdout=stdout, stderr=sys.stderr, env=env)
-        try:
-            ret = p.wait(timeout=60)
-            return ret
-        except subprocess.TimeoutExpired:
-            sys.stderr.write('pip install process timeout:\n')
-            return 1
+        _pip_install(requires)
     return 0
 
 
@@ -85,12 +93,13 @@ def desc(egg_path):
         return sys.exit(1)
 
     install_requirements(distribution)
-    distribution.activate()
+    _activate_distribution(distribution)
 
     execute_name = next(iter(execute_entry_point))
 
-    plugin_desc = execute_entry_point[execute_name].load()
-    output = plugin_desc().desc()
+    plugin_cls = execute_entry_point[execute_name].load()
+    plugin = plugin_cls()
+    output = plugin.desc()
     print(output)
 
 
@@ -123,7 +132,17 @@ def generate(plugin_names=None, output_file=None):
         print(output)
 
 
-def perform(base_module=None, input_file=None, output_file=None):
+def load_distribution(egg_path):
+    return next(pkg_resources.find_distributions(egg_path, True))
+
+
+def perform(base_module=None, input_file=None, output_file=None, eggs=None):
+    if eggs:
+        for egg in eggs:
+            egg_dist = load_distribution(egg)
+            install_requirements(egg_dist)
+            _activate_distribution(egg_dist)
+
     if input_file:
         with open(input_file, 'r') as f:
             settings = json.load(f)
@@ -137,13 +156,39 @@ def perform(base_module=None, input_file=None, output_file=None):
 
     if base_module:
         output_stream.write('from %s import *' % base_module)
-    for entry_point in pkg_resources.iter_entry_points(
-            'scrapydd.spliderplugin'):
+
+    for plugin_key, plugin_params in settings.items():
+        try:
+            entry_point = next(pkg_resources.iter_entry_points(
+                'scrapydd.spliderplugin', plugin_key))
+        except StopIteration:
+            raise Exception('Plugin %s not found.' % plugin_key)
+
         plugin_name = entry_point.name
         plugin_cls = entry_point.load()
         plugin = plugin_cls()
-        output_stream.write(plugin.execute(settings[plugin_name]))
+        ops = plugin.execute(plugin_params)
 
+        def format_value(v):
+            if isinstance(v, (int, float, bool)):
+                return v
+            else:
+                return '"%s"' % v
+
+        for op in ops:
+            if op['op'] == 'set_dict':
+                op['value'] = format_value(op['value'])
+                output_stream.write('''
+try: %(target)s
+except NameError: %(target)s = {}
+%(target)s['%(key)s'] = %(value)s
+''' % op)
+            elif op['op'] == 'set_var':
+                op['value'] = format_value(op['value'])
+                output_stream.write('''
+%(var)s = %(value)s
+''' % op)
+    output_stream.flush()
 
 def list_():
     for entry_point in pkg_resources.iter_entry_points(
@@ -155,6 +200,10 @@ def main():
     argv = sys.argv
     cmd = _pop_command_name(argv)
     if cmd == 'execute':
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-e', '--egg', dest='as_egg',
+                            action="store_true", required=False,
+                            default=None, help='output json file')
         return execute(sys.argv[1])
     elif cmd == 'desc':
         return desc(sys.argv[1])
@@ -173,12 +222,16 @@ def main():
         parser.add_argument('-b', '--base', dest='base', required=False,
                             default=None, help='base module to inherit.')
         parser.add_argument('-o', '--output', dest='output', required=False,
-                            default=None, help='output module py file.')
+                            default=None, help='output module py file. '
+                                               'default output to STDOUT')
         parser.add_argument('-i', '--input', dest='input', required=False,
-                            default=None, help='input settings json file.')
+                            default=None, help='input settings json file.'
+                                               ' default read from STDIN.')
+        parser.add_argument('-e', '--egg', dest='eggs', nargs='*',
+                            help='import eggs, can repeat multiple times.')
         args = parser.parse_args()
         return perform(base_module=args.base, input_file=args.input,
-                       output_file=args.output)
+                       output_file=args.output, eggs=args.eggs)
     elif cmd == 'list':
         return list_()
     else:
