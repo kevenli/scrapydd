@@ -6,7 +6,7 @@ setup(
     description='scrapy_splitvariants_plugin',
     packages=find_packages(exclude=['tests', 'tests.*']),
     entry_points={
-        'scrapy.plugin': [
+        'scrapydd.spliderplugin': [
             'splitvariants = scrapy_splitvariants_plugin.plugin:Plugin',
         ],
     },
