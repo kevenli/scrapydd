@@ -32,7 +32,8 @@ def install_requirements(distribute, append_log=False):
         stdout = subprocess.PIPE
         if append_log:
             stdout = open('pip.log', 'w')
-        p = subprocess.Popen(pargs, stdout=stdout, stderr=sys.stderr, env=env)
+        p = subprocess.Popen(pargs, stdout=stdout, stderr=subprocess.PIPE,
+                             env=env)
         try:
             ret = p.wait(timeout=60)
             return ret
@@ -42,7 +43,7 @@ def install_requirements(distribute, append_log=False):
     return 0
 
 
-def main():
+def main(argv=None):
     from scrapy.cmdline import execute
     from scrapy.settings import Settings
     settings = None
@@ -59,7 +60,7 @@ def main():
         settings = Settings()
         settings.setmodule(settings_module, priority='project')
 
-    execute(settings=settings)
+    execute(argv=argv, settings=settings)
 
 if __name__ == '__main__':
     main()
