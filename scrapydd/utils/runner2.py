@@ -15,7 +15,7 @@ import json
 from argparse import ArgumentParser
 from scrapydd.workspace import SpiderSetting
 from .runner import main as runner_main
-from .plugin import perform
+from .plugin import perform, _pip_installer
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,10 @@ def main():
 
     spider_setting = SpiderSetting.from_file(args.file)
     plugin_settings = {}
+    extra_requirements = spider_setting.extra_requirements
+    if extra_requirements:
+        for requirement in extra_requirements:
+            _pip_installer(requirement)
     with open('plugins.json', 'w') as f:
         json.dump(plugin_settings, f)
     perform(base_module=spider_setting.base_settings_module,
