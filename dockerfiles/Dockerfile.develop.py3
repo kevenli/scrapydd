@@ -8,6 +8,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 WORKDIR /scrapydd_src
 ADD scrapydd ./scrapydd
 ADD tests ./tests
+ADD samples ./samples
 COPY setup.py requirements.txt requirements_test.txt README.rst ./
 RUN pip install -r /scrapydd_src/requirements.txt
 RUN pip install -r /scrapydd_src/requirements_test.txt
