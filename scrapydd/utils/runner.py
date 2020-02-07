@@ -60,7 +60,8 @@ def main(argv=None):
         settings = Settings()
         settings.setmodule(settings_module, priority='project')
 
-        extra_settings_module = os.environ.pop('SCRAPY_EXTRA_SETTINGS_MODULE')
+        extra_settings_module = os.environ.pop('SCRAPY_EXTRA_SETTINGS_MODULE',
+                                               None)
         if extra_settings_module:
             settings.setmodule(extra_settings_module, priority='project')
 
