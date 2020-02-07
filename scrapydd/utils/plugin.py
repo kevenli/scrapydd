@@ -35,6 +35,8 @@ plugin_env = pkg_resources.Environment([os.path.abspath('./plugins')])
 
 def _pip_installer(requirement):
     print('installing requirement %s' % requirement)
+    if isinstance(requirement, str):
+        requirement = pkg_resources.Requirement(requirement)
     pargs = [sys.executable, '-m', 'pip', '--disable-pip-version-check',
              'install']
     env = os.environ.copy()
@@ -116,6 +118,7 @@ def _pop_command_name(argv):
 
 
 def generate(plugin_names=None, output_file=None):
+    load_plugins()
     output_dict = {}
     for entry_point in pkg_resources.iter_entry_points('scrapydd.spliderplugin'):
         plugin_name = entry_point.name
@@ -124,7 +127,7 @@ def generate(plugin_names=None, output_file=None):
         output_dict[entry_point.name] = {}
         plugin_cls = entry_point.load()
         plugin = plugin_cls()
-        plugin_desc = json.loads(plugin.desc())
+        plugin_desc = plugin.desc()
 
         for parameter_key, parameter in plugin_desc['parameters'].items():
             parameter_value = parameter.get('default_value')
@@ -144,20 +147,21 @@ def load_distribution(egg_path):
     return next(pkg_resources.find_distributions(egg_path, True))
 
 
-def perform(base_module=None, input_file=None, output_file=None, eggs=None):
+def load_plugins(eggs=None):
     dists, _ = pkg_resources.working_set.find_plugins(plugin_env,
                                                       installer=_pip_installer)
-                        #pkg_resources.Environment(),
-                        #full_env=)
+
     if eggs:
         for egg in eggs:
             egg_dist = load_distribution(egg)
             dists.append(egg_dist)
 
     for dist in dists:
-        # install_requirements(dist)
         _activate_distribution(dist)
 
+
+def perform(base_module=None, input_file=None, output_file=None, eggs=None):
+    load_plugins(eggs)
     if input_file:
         with open(input_file, 'r') as f:
             settings = json.load(f)
@@ -208,6 +212,7 @@ except NameError: %(target)s = {}
         output_stream.close()
 
 def list_():
+    load_plugins()
     for entry_point in pkg_resources.iter_entry_points(
                                                 'scrapydd.spliderplugin'):
         print(entry_point.name)
