@@ -503,31 +503,22 @@ class DockerRunner(object):
         see: https://docs.scrapy.org/en/latest/topics/api.html#scrapy.settings.BaseSettings.get
 
         """
-        with open(path.join(self._work_dir, 'spider.json'), 'w') as f_settings:
-            f_settings.write(spider_settings.to_json())
+        spider_json_buffer = BytesIO()
+        spider_json_buffer.write(spider_settings.to_json().encode('utf8'))
+        spider_json_buffer.seek(0)
         items_file_path = path.join(self._work_dir, 'items.jl')
         log_file_path = path.join(self._work_dir, 'crawl.log')
 
 
-        pargs = ["python", "-m", "scrapydd.utils.runner", 'crawl', spider_settings.spider_name,
-                 '-o', 'items.jl']
+        pargs = ["python", "-m", "scrapydd.utils.runner2"]
         env = {}
         env['SCRAPY_FEED_URI'] = 'items.jl'
         env['SCRAPY_EGG'] = 'spider.egg'
-        if spider_settings.base_settings_module:
-            env['SCRAPY_SETTINGS_MODULE'] = 'settings'
-
         container = self._client.containers.create(self.image, pargs,
-                                                   detach=True, working_dir='/spider_run',
+                                                   detach=True,
+                                                   working_dir='/spider_run',
                                                    environment=env)
-        if spider_settings.base_settings_module:
-            settings_module_file = BytesIO()
-            settings_module_file.write(b'from %s import *\n' % ensure_binary(spider_settings.base_settings_module))
-            for k, v in spider_settings.spider_parameters.items():
-                settings_module_file.write(ensure_binary("%s='%s'\n" % (k, v)))
-            settings_module_file.seek(0)
-            self._put_file(container, 'settings.py', settings_module_file)
-
+        self._put_file(container, 'spider.json', spider_json_buffer)
         self._put_egg(container)
         self._start_container(container)
         ret_code = self._wait_container(container)
@@ -646,6 +637,9 @@ class SpiderSetting(object):
         spider_name = dic['spider_name']
         project_name = dic.get('project_name')
         extra_requirements = dic.get('extra_requirements')
+        if isinstance(extra_requirements, str):
+            extra_requirements = [x for x in
+                                  extra_requirements.split(';') if x]
         spider_parameters = dic.get('spider_parameters')
         base_settings_module = dic.get('base_settings_module')
 
