@@ -38,7 +38,7 @@ def main():
         json.dump(plugin_settings, f)
     perform(base_module=spider_setting.base_settings_module,
             output_file='settings.py', input_file='plugins.json')
-    os.environ['SCRAPY_SETTINGS_MODULE'] = 'settings'
+    os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = 'settings'
     argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', 'items.jl']
     for param_key, param_value in spider_setting.spider_parameters.items():
         argv += ['-s', param_key, param_value]
