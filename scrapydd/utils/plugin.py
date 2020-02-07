@@ -30,36 +30,45 @@ import subprocess
 import os
 import argparse
 
+plugin_env = pkg_resources.Environment([os.path.abspath('./plugins')])
 
-def _pip_install(requires):
-    env = os.environ.copy()
-    # python -W ignore: ignore the python2 deprecate warning.
-    # pip --disable-pip-version-check: ignore pip version warning.
-    pargs = [sys.executable, '-W', 'ignore', '-m', 'pip',
-             '--disable-pip-version-check',
+
+def _pip_installer(requirement):
+    print('installing requirement %s' % requirement)
+    pargs = [sys.executable, '-m', 'pip', '--disable-pip-version-check',
              'install']
-    pargs += requires
-    stdout = subprocess.PIPE
-    p = subprocess.Popen(pargs, stdout=stdout, stderr=subprocess.PIPE, env=env,
+    env = os.environ.copy()
+    pargs.append(str(requirement))
+    p = subprocess.Popen(pargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         env=env,
                          encoding='UTF8')
     try:
         ret = p.wait(timeout=60)
-        return ret
+        output = p.stdout.read()
+        err_output = p.stderr.read()
+        new_env = pkg_resources.Environment()
+        new_env.scan()
+        dists = new_env[requirement.name]
+        if ret != 0:
+            sys.stderr.write('Pip install error\n')
+            sys.stderr.write(err_output)
+        #dist = pkg_resources.get_distribution(requirement)
+        if dists:
+            print('%s installed' % dists)
+            return dists[0]
+        else:
+            print('dist not find')
+            return None
+
     except subprocess.TimeoutExpired:
-        sys.stderr.write('pip install process timeout:\n')
-        return 1
+        sys.stderr.write('pip install process timeout.')
+        return None
 
 
 def _activate_distribution(dist):
+    pkg_resources.working_set.resolve(dist.requires(),
+                                      installer=_pip_installer)
     pkg_resources.working_set.add(dist, replace=True)
-    dist.activate()
-
-
-def install_requirements(distribute, append_log=False):
-    requires = [str(x) for x in distribute.requires()]
-    if requires:
-        _pip_install(requires)
-    return 0
 
 
 def execute(plugin_name):
@@ -92,7 +101,6 @@ def desc(egg_path):
         sys.stderr.write('Cannot find plugin execute entrypoint')
         return sys.exit(1)
 
-    install_requirements(distribution)
     _activate_distribution(distribution)
 
     execute_name = next(iter(execute_entry_point))
@@ -137,11 +145,18 @@ def load_distribution(egg_path):
 
 
 def perform(base_module=None, input_file=None, output_file=None, eggs=None):
+    dists, _ = pkg_resources.working_set.find_plugins(plugin_env,
+                                                      installer=_pip_installer)
+                        #pkg_resources.Environment(),
+                        #full_env=)
     if eggs:
         for egg in eggs:
             egg_dist = load_distribution(egg)
-            install_requirements(egg_dist)
-            _activate_distribution(egg_dist)
+            dists.append(egg_dist)
+
+    for dist in dists:
+        # install_requirements(dist)
+        _activate_distribution(dist)
 
     if input_file:
         with open(input_file, 'r') as f:
@@ -189,6 +204,8 @@ except NameError: %(target)s = {}
 %(var)s = %(value)s
 ''' % op)
     output_stream.flush()
+    if output_file:
+        output_stream.close()
 
 def list_():
     for entry_point in pkg_resources.iter_entry_points(

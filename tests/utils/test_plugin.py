@@ -53,6 +53,34 @@ class PluginTest(unittest.TestCase):
         print(perform_output)
         self.assertTrue('from %s import *' % base_module in perform_output)
 
+    def test_perform_plugins_folder(self):
+        base_module = 'tests.utils.none_settings'
+        input_file = 'input.json'
+        output_file = 'generatexxx.py'
+        plugin_dir = 'plugins'
+
+        if os.path.exists(input_file):
+            os.remove(input_file)
+        if os.path.exists(output_file):
+            os.remove(output_file)
+        with open(input_file, 'w') as f_input:
+            f_input.write(json.dumps({
+                'splitvariants': {
+                    'ENABLED': True
+                }
+            }))
+        if not os.path.exists(plugin_dir):
+            os.mkdir(plugin_dir)
+        target_package_path = os.path.join(plugin_dir,
+                                os.path.basename(TEST_PLUGIN_EGG_PATH))
+        shutil.copyfile(TEST_PLUGIN_EGG_PATH, target_package_path)
+
+        perform(base_module, input_file=input_file, output_file=output_file)
+
+        perform_output = open(output_file, 'r').read().splitlines()
+        print(perform_output)
+        self.assertTrue('from %s import *' % base_module in perform_output)
+
     @unittest.skip
     def test_list(self):
         plugin_list = list_()
@@ -69,7 +97,8 @@ def build_sample_plugin():
     plugin_src_dir = os.path.join(os.path.dirname(__file__),
                                   '../../samples/scrapy-splitvariants-plugin')
     with cd(plugin_src_dir):
-        shutil.rmtree('dist')
+        if os.path.exists('dist'):
+            shutil.rmtree('dist')
         d = Distribution(dict(
             version='1.0',
             name='scrapy_splitvariants_plugin',
