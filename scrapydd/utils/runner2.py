@@ -45,7 +45,10 @@ def main():
     os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = 'settings'
     argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', 'items.jl']
     for param_key, param_value in spider_setting.spider_parameters.items():
-        argv += ['-s', param_key, param_value]
+        argv += [
+            '-s',
+            '%s=%s' % (param_key, param_value)
+        ]
     runner_main(argv)
 
 
