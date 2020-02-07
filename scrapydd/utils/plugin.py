@@ -57,6 +57,7 @@ def _pip_installer(requirement):
         #dist = pkg_resources.get_distribution(requirement)
         if dists:
             print('%s installed' % dists)
+            sys.stdout.flush()
             return dists[0]
         else:
             print('dist not find')
