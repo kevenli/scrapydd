@@ -52,6 +52,17 @@ class AdminHomeHandler(AppBaseHandler):
             active_node_count = session.query(Node).filter_by(isalive=True).count()
             all_node_count = session.query(Node).count()
             self.render('admin/home.html',
-                        user_count = user_count,
+                        user_count=user_count,
                         active_node_count=active_node_count,
                         all_node_count=all_node_count)
+
+
+class AdminPluginsHandler(AppBaseHandler):
+    @authenticated
+    def get(self):
+        if not self.current_user.is_admin:
+            return self.set_status(403, "No permission")
+
+        spider_plugin_manager = self.settings.get('spider_plugin_manager')
+        plugins = spider_plugin_manager.get_all_plugins()
+        self.render('admin/spiderplugins.html', plugins=plugins)

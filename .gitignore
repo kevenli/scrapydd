@@ -3,7 +3,7 @@ dbs
 eggs
 .idea
 build
-dist
+/dist
 logs
 *.egg-info
 *.pyc
@@ -16,3 +16,4 @@ cover
 
 items
 data
+.venv

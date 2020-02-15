@@ -1,0 +1,27 @@
+{% extends '../base_sidebar.html' %}
+{% block sidebar %}
+  {% include 'admin_sidebar.html' %}
+{% end sidebar %}
+{% block content %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Plugin Name</th>
+        <th>Version</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plugin in plugins %}
+        <tr>
+          <td>{{plugin.name}}</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2">
+
+          </td>
+        </tr>
+      {% end %}
+    </tbody>
+  </table>
+{% end %}

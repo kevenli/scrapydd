@@ -129,3 +129,10 @@ class UploadProject(AppBaseHandler):
     @authenticated
     def get(self):
         self.render("uploadproject.html")
+
+
+class GetAllPluginsHandler(AppBaseHandler):
+    @authenticated
+    def get(self):
+        spider_plugin_manager = self.settings.get('spider_plugin_manager')
+        plugins = spider_plugin_manager.get_all_plugins()
