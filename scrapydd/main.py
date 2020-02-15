@@ -613,6 +613,11 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'^/admin/nodes$', admin.AdminNodesHandler),
         (r'^/admin/spiderplugins$', admin.AdminPluginsHandler),
 
+        # rest apis
+        (r'^/api/projects/(\w+)/spiders/(\w+)/jobs/(\w+)', rest.GetProjectJob),
+        (r'^/api/projects/(\w+)/spiders/(\w+)/jobs/(\w+)/items',
+            rest.GetProjectJobItems),
+
         # agent node ysing handlers
         (r'/executing/next_task', ExecuteNextHandler,
          {'scheduler_manager': scheduler_manager}),

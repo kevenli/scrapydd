@@ -16,7 +16,7 @@ from ..exceptions import SpiderNotFound, InvalidCronExpression
 from .base import RestBaseHandler
 from ..models import session_scope, Spider, SpiderExecutionQueue, Project
 from ..models import SpiderSettings, NodeKey
-from ..models import Trigger, SpiderParameter
+from ..models import Trigger, SpiderParameter, HistoricalJob
 from ..security import generate_digest
 from ..schedule import JobRunning
 from ..storage import ProjectStorage
@@ -299,3 +299,40 @@ class AddScheduleHandler(RestBaseHandler):
                 }
                 self.set_status(400)
                 return self.write(json.dumps(response_data))
+
+
+class GetProjectJob(RestBaseHandler):
+    @authenticated
+    def get(self, project_name, spider_name, job_id):
+        with session_scope() as session:
+            spider = self.get_spider(session, project_name, spider_name)
+            job = session.query(HistoricalJob)\
+                .filter(HistoricalJob.id == job_id,
+                        HistoricalJob.spider_id == spider.id).first()
+            if not job:
+                return self.set_status(404, 'Job not found.')
+            ret_json = {
+                'project_name': spider.project.name,
+                'spider_name': spider.name,
+                'job_id': job.id,
+                'start_time': job.start_time,
+                'complete_time': job.complete_time,
+                'status': job.status_obj.name,
+            }
+            return self.send_json(ret_json)
+
+
+class GetProjectJobItems(RestBaseHandler):
+    @authenticated
+    def get(self, project_name, spider_name, job_id):
+        with session_scope() as session:
+            spider = self.get_spider(session, project_name, spider_name)
+            job = session.query(HistoricalJob)\
+                .filter(HistoricalJob.id == job_id,
+                        HistoricalJob.spider_id == spider.id).first()
+            if not job:
+                return self.set_status(404, 'Job not found.')
+            project_storage = ProjectStorage(
+                self.settings.get('project_storage_dir'), job.spider.project)
+            self.set_header('Content-Type', 'application/json')
+            return self.write(project_storage.get_job_items(job).read())
