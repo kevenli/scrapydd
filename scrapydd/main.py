@@ -267,7 +267,8 @@ class LogsHandler(AppBaseHandler):
             project_storage = ProjectStorage(
                 self.settings.get('project_storage_dir'), job.spider.project)
             log = project_storage.get_job_log(job).read()
-            return self.render("log.html", log=log)
+            self.set_header('Content-Type', 'text')
+            self.write(log)
 
 
 class ItemsFileHandler(AppBaseHandler):
