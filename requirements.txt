@@ -1,5 +1,6 @@
 apscheduler
 attrs>=17.4.0
+chardet
 docker
 requests==2.20.0
 pysyncobj>=0.2.3

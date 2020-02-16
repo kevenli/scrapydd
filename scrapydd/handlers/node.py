@@ -10,6 +10,8 @@ import json
 import logging
 import hmac
 import tornado
+from io import BytesIO
+import shutil
 from tornado.web import authenticated
 from six import ensure_str, binary_type
 from .base import RestBaseHandler
@@ -270,7 +272,7 @@ class ExecuteCompleteHandler(NodeBaseHandler):
             session.close()
             return
         items_file = None
-        log_stream = None
+        log_stream = BytesIO()
         try:
             spider_log_folder = os.path.join('logs', job.project_name,
                                              job.spider_name)
@@ -279,13 +281,14 @@ class ExecuteCompleteHandler(NodeBaseHandler):
 
             log_part = self.ps.get_parts_by_name('log')[0]
             if log_part:
-                log_stream = open(log_part['tmpfile'].name, 'rb')
+                with open(log_part['tmpfile'].name, 'rb') as f:
+                    shutil.copyfileobj(f, log_stream)
 
         except Exception as ex:
             LOGGER.error('Error when writing task log file, %s', ex)
 
         items_parts = self.ps.get_parts_by_name('items')
-        items_stream = None
+        items_stream = BytesIO()
         if items_parts:
             try:
                 part = items_parts[0]
@@ -297,7 +300,8 @@ class ExecuteCompleteHandler(NodeBaseHandler):
                     os.makedirs(items_file_path)
                 items_file = os.path.join(items_file_path,
                                           '%s.jl' % job.id)
-                items_stream = open(tmpfile, 'rb')
+                with open(tmpfile, 'rb') as f:
+                    shutil.copyfileobj(f, items_stream)
             except Exception as ex:
                 LOGGER.error('Error when writing items file, %s', ex)
 
@@ -306,6 +310,7 @@ class ExecuteCompleteHandler(NodeBaseHandler):
         historical_job = self.scheduler_manager.job_finished(job,
                                                              log_stream,
                                                              items_stream)
+
 
         if items_file:
             self.webhook_daemon.on_spider_complete(historical_job,

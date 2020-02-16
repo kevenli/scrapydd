@@ -7,6 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 from tornado.ioloop import IOLoop, PeriodicCallback
 from sqlalchemy import distinct, desc, or_, and_
 from six import string_types, ensure_str
+import chardet
 from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
     SpiderSettings, Node
 from .exceptions import *
@@ -389,7 +390,10 @@ class SchedulerManager():
             error_log_pattern = re.compile("\'log_count/ERROR\': (\d+),")
             warning_log_pattern = re.compile("\'log_count/WARNING\': (\d+),")
             #with open(log_file, 'r') as f:
-            log_content = ensure_str(log_file.read())
+            log_file.seek(0)
+            log_raw = log_file.read()
+            log_encoding = chardet.detect(log_raw)['encoding']
+            log_content = ensure_str(log_raw, log_encoding)
             m = items_crawled_pattern.search(log_content)
             if m:
                 historical_job.items_count = int(m.group(1))
@@ -404,6 +408,7 @@ class SchedulerManager():
         #if items_file:
         #    historical_job.items_file = items_file
         log_file.seek(0)
+        items_file.seek(0)
         project_storage.put_job_data(job, log_file, items_file)
         session.delete(job)
         session.add(historical_job)
