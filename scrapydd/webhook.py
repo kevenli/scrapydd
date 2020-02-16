@@ -4,7 +4,8 @@ import urllib
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 import logging
 from tornado.concurrent import Future
-from .models import Session, WebhookJob, SpiderWebhook, session_scope, SpiderSettings
+from .models import Session, WebhookJob, SpiderWebhook, session_scope
+from .models import SpiderSettings, Spider
 import os, os.path, shutil
 import sys
 from .exceptions import *
@@ -269,11 +270,25 @@ class WebhookDaemon():
             os.remove(job.items_file)
         logger.info('webhook job %s failed', job.id)
 
+    def webhook_response(self, response):
+        logger.info('Webhook response, status: %s', response.code)
+
     def on_spider_complete(self, job, items_file):
         with session_scope() as session:
-            webhook_setting = session.query(SpiderSettings).filter_by(spider_id = job.spider_id, setting_key='webhook_payload').first()
-            if webhook_setting and webhook_setting.value:
-                webhook_payload_url = webhook_setting.value
-                task_items_file = os.path.join(self.queue_file_dir, os.path.basename(items_file))
-                shutil.copy(items_file, task_items_file)
-                self.storage.add_job(job.id, webhook_payload_url, task_items_file, job.spider_id)
+            spider = session.query(Spider).get(job.spider_id)
+            webhook_setting = session.query(SpiderSettings)\
+                .filter_by(spider_id=job.spider_id,
+                           setting_key='webhook_payload').first()
+            if not webhook_setting or not webhook_setting.value:
+                return
+            payload_dict = {
+                'type': 'job',
+                'event': 'complete',
+                'project_name': spider.project.name,
+                'spider_name': spider.name,
+                'job_id': job.id
+            }
+            client = AsyncHTTPClient()
+            client.fetch(webhook_setting.value, method='POST',
+                         body=json.dumps(payload_dict),
+                         callback=self.webhook_response)
