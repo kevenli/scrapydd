@@ -119,8 +119,12 @@ class ProjectWorkspace(object):
         logger.debug('installing requirements: %s' % requirements)
         future = Future()
         try:
+            env = os.environ.copy()
+            stdout_stream = tempfile.NamedTemporaryFile()
+            stderr_stream = tempfile.NamedTemporaryFile()
             process = Popen([self.pip, 'install'] + requirements,
-                            stdout=PIPE, stderr=PIPE,
+                            stdout=stdout_stream, stderr=stderr_stream,
+                            env=env,
                             encoding=PROCESS_ENCODING)
             self.processes.append(process)
         except Exception as e:
@@ -134,6 +138,8 @@ class ProjectWorkspace(object):
                 if retcode == 0:
                     future.set_result(self)
                 else:
+                    stdout_stream.seek(0)
+                    stderr_stream.seek(0)
                     std_out = process.stdout.read()
                     err_out = process.stderr.read()
                     future.set_exception(ProcessFailed(std_output=std_out,
