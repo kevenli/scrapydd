@@ -490,7 +490,6 @@ class TaskExecutor:
             result = self.complete_with_error(error_log)
         except Exception as ex:
             LOGGER.error('Error when executing task %s: %s', self.task.id, ex)
-            LOGGER.error(ex)
             error_log = str(ex)
             result = self.complete_with_error(error_log)
         raise gen.Return(result)
