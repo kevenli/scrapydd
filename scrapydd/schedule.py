@@ -465,7 +465,8 @@ class SchedulerManager():
         KILL_TIMEOUT = 120
         with session_scope() as session:
             timeout_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
-            for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status == 1):
+            for job in session.query(SpiderExecutionQueue)\
+                    .filter(SpiderExecutionQueue.status == JOB_STATUS_RUNNING):
                 spider = session.query(Spider).filter_by(id=job.spider_id).first()
                 job_timeout_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
                                                                               setting_key='timeout').first()
@@ -482,14 +483,11 @@ class SchedulerManager():
                 elif (job.update_time - job.start_time).seconds > job_timeout:
                     # let agent kill the job and continue submit a log.
                     job.status = JOB_STATUS_STOPPING
+                    job.update_time = datetime.datetime.now()
                     session.add(job)
-            for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status.in_([1,5])):
-                spider = session.query(Spider).filter_by(id=job.spider_id).first()
-                job_timeout_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
-                                                                              setting_key='timeout').first()
-                job_timeout = int(job_timeout_setting.value) if job_timeout_setting else 3600
-                if (job.update_time - job.start_time).seconds > job_timeout + KILL_TIMEOUT:
-
+            for job in session.query(SpiderExecutionQueue)\
+                    .filter(SpiderExecutionQueue.status.in_([JOB_STATUS_STOPPING])):
+                if (datetime.datetime.now() - job.start_time).seconds > KILL_TIMEOUT:
                     # job is running too long, should be killed
                     historical_job = HistoricalJob()
                     historical_job.id = job.id
