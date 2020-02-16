@@ -106,7 +106,7 @@ class ProjectWorkspace(object):
     @gen.coroutine
     def install_requirements(self, extra_requirements=None):
         requirements = self.find_project_requirements()
-        requirements += ['scrapydd']
+        requirements += ['scrapydd', 'scrapy']
         if extra_requirements:
             requirements += extra_requirements
         logger.info('start install requirements: %s.' % (requirements,))
@@ -140,8 +140,8 @@ class ProjectWorkspace(object):
                 else:
                     stdout_stream.seek(0)
                     stderr_stream.seek(0)
-                    std_out = process.stdout.read()
-                    err_out = process.stderr.read()
+                    std_out = stdout_stream.read().decode(PROCESS_ENCODING)
+                    err_out = stderr_stream.read().decode(PROCESS_ENCODING)
                     future.set_exception(ProcessFailed(std_output=std_out,
                                                        err_output=err_out))
 
