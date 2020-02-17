@@ -64,9 +64,7 @@ class ProjectWorkspace(object):
         logger.info('start creating virtualenv.')
         try:
             process = Popen([sys.executable, '-m', 'virtualenv',
-                             '--system-site-packages', self.venv_dir],
-                            stdout=PIPE,
-                            stderr=PIPE, encoding=PROCESS_ENCODING)
+                             '--system-site-packages', self.venv_dir])
             self.processes.append(process)
         except Exception as e:
             future.set_exception(e)
@@ -83,9 +81,8 @@ class ProjectWorkspace(object):
                     std_output = process.stdout.read()
                     err_output = process.stderr.read()
 
-                    future.set_exception(ProcessFailed('Error when init workspace virtualenv ',
-                                                       std_output=std_output,
-                                                       err_output=err_output))
+                    future.set_exception(
+                        ProcessFailed('Error when init workspace virtualenv '))
 
         wait_process(process, done)
         return future
