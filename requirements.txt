@@ -1,5 +1,4 @@
 apscheduler
-attrs>=17.4.0
 chardet
 docker
 requests==2.20.0
