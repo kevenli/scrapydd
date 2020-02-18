@@ -78,9 +78,6 @@ class ProjectWorkspace(object):
                     logger.info('Create virtualenv done.')
                     future.set_result(self)
                 else:
-                    std_output = process.stdout.read()
-                    err_output = process.stderr.read()
-
                     future.set_exception(
                         ProcessFailed('Error when init workspace virtualenv '))
 
