@@ -1,4 +1,5 @@
 apscheduler
+Automat==0.8.0
 chardet
 docker
 requests==2.20.0
