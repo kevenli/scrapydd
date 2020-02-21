@@ -1,4 +1,15 @@
-V0.7.0:
+v0.7.1:
+
+* Fix `scrapy package` command error.
+* ProjectWorkspace subprocess cross-platform compatibility, including PIPE length limitation and encoding.
+* Server-side Job killing timeout.
+* Fix: upload stream file not closed issue.
+* Webhook use new post mechanism.
+* Add GetJob and GetJobItems rest apis.
+* Dockerfile add only necessary files.
+* Add new Runner2, support plugin system.
+
+v0.7.0:
 
 * add storage_version of Project entity
 * add default_project_storage_version configuration, version with "2" support data stored by project.
