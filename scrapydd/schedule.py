@@ -6,12 +6,12 @@ from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
 from tornado.ioloop import IOLoop, PeriodicCallback
-from sqlalchemy import distinct, desc, or_, and_
+from sqlalchemy import distinct, desc, or_, and_, func
 from six import string_types, ensure_str
 import chardet
 from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
     SpiderSettings, Node
-from .exceptions import *
+from .exceptions import NodeNotFound, InvalidCronExpression, JobRunning
 from .config import Config
 from .mail import MailSender
 from .storage import ProjectStorage
@@ -161,7 +161,6 @@ class SchedulerManager():
         except JobRunning:
             logger.info('Job for spider %s.%s already reach the concurrency limit' % (project.name, spider.name))
 
-
     def add_schedule(self, project, spider, cron):
         with session_scope()as session:
             triggers = session.query(Trigger).filter(Trigger.spider_id==spider.id)
@@ -183,19 +182,11 @@ class SchedulerManager():
 
     def add_task(self, project_name, spider_name, settings=None):
         with session_scope() as session:
-            project = session.query(Project).filter(Project.name==project_name).first()
-            spider = session.query(Spider).filter(Spider.name==spider_name, Spider.project_id==project.id).first()
-
-            executing = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.spider_id==spider.id, SpiderExecutionQueue.status.in_([0,1])))
-            concurrency_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='concurrency').first()
-            concurrency = int(concurrency_setting.value) if concurrency_setting else 1
-            executing_slots = [executing_job.slot for executing_job in executing]
-            free_slots = [x for x in range(1, concurrency + 1) if x not in executing_slots]
-            if not free_slots:
-                logger.warning('spider %s-%s is configured as %d concurency, and %d in queue, skipping' % (
-                    project.name, spider.name, concurrency, len(executing_slots)))
-                raise JobRunning(executing[0].id)
-
+            project = session.query(Project)\
+                .filter(Project.name == project_name).first()
+            spider = session.query(Spider)\
+                .filter(Spider.name == spider_name,
+                        Spider.project_id == project.id).first()
             executing = SpiderExecutionQueue()
             spider_tag_vo = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='tag').first()
             spider_tag = spider_tag_vo.value if spider_tag_vo else None
@@ -207,7 +198,6 @@ class SchedulerManager():
             executing.fire_time = datetime.datetime.now()
             executing.update_time = datetime.datetime.now()
             executing.tag = spider_tag
-            executing.slot = free_slots[0]
             if settings:
                 executing.settings = json.dumps(settings)
             session.add(executing)
@@ -279,8 +269,19 @@ class SchedulerManager():
         return agent_tags
 
     def get_next_task(self, node_id):
+        """
+        Get next task for node_id, if exists, update
+        the job status, track it with node_id.
+        :param node_id:
+            node_id
+        :return:
+            the running job
+        """
         with session_scope() as session:
             node = session.query(Node).filter(Node.id == node_id).first()
+            if not node:
+                raise NodeNotFound()
+
             node_tags = node.tags
             next_task = self._get_next_task(session, node_tags)
             if not next_task:
@@ -288,55 +289,77 @@ class SchedulerManager():
             next_task.start_time = datetime.datetime.now()
             next_task.update_time = datetime.datetime.now()
             next_task.node_id = node_id
-            next_task.status = 1
+            next_task.status = JOB_STATUS_RUNNING
             session.add(next_task)
             session.commit()
             session.refresh(next_task)
             return next_task
-        return None
-
-    def get_next_task_of_tags(self, tags, node_id):
-        with session_scope() as session:
-            next_task = self._get_next_task(session, tags)
-            if not next_task:
-                return None
-            next_task.start_time = datetime.datetime.now()
-            next_task.update_time = datetime.datetime.now()
-            next_task.node_id = node_id
-            next_task.status = 1
-            session.add(next_task)
-            session.commit()
-            session.refresh(next_task)
-            return next_task
-        return None
 
     def _get_next_task(self, session, agent_tags):
-        agent_tags = self._regular_agent_tags(agent_tags)
-        tag_settings = session.query(SpiderSettings).filter(SpiderSettings.setting_key == 'tag').subquery()
-        query = session.query(SpiderExecutionQueue)\
-            .join(SpiderExecutionQueue.spider)\
-            .join(tag_settings, Spider.settings, isouter=True).filter(SpiderExecutionQueue.status == 0)
+        # result = session.query(func.)
+        #     obj, func.avg(obj.value).label("value_avg")
+        # ).group_by(
+        #     func.strftime('%s', obj.date)
+        # ).all()
+        result = session.execute("""
+        select * from spider_execution_queue
+join (select min(fire_time) as fire_time, spider_id
+    from spider_execution_queue
+where status=0
+    group by spider_id
+    ) as a
+   on spider_execution_queue.fire_time = a.fire_time
+    and spider_execution_queue.spider_id = a.spider_id
+order by fire_time
+""")
+        for job in session.query(SpiderExecutionQueue).instances(result):
+            spider_max_concurrency = 1
+            spider_concurrency = session.query(
+                func.count(SpiderExecutionQueue.id)
+            )\
+            .filter(SpiderExecutionQueue.status == JOB_STATUS_RUNNING) \
+            .scalar() or 0
+            if spider_concurrency >= spider_max_concurrency:
+                continue
 
-        if agent_tags:
-            tags_condition = tag_settings.c.value.in_(agent_tags)
-        else:
-            tags_condition = tag_settings.c.value.is_(None)
-
-
-        query = query.filter(tags_condition)
-        query = query.order_by(SpiderExecutionQueue.fire_time)
-        next_task = query.first()
-        if next_task:
-            return next_task
-
+            spider_tags = self.get_spider_tags(job.spider, session)
+            if self._match_tags(spider_tags, agent_tags):
+                return job
         return None
+
+    def _match_tags(self, spider_tags, node_tags):
+        # both empty
+        if not spider_tags and not node_tags:
+            return True
+
+        # one empty and one not
+        if not spider_tags or not node_tags:
+            return False
+
+        for spider_tag in spider_tags:
+            if spider_tag not in node_tags:
+                return False
+        return True
+
+    def get_spider_tags(self, spider, session):
+        tags_setting = session.query(SpiderSettings) \
+            .filter(SpiderSettings.setting_key == 'tag',
+                    SpiderSettings.spider_id == spider.id).first()
+        if not tags_setting:
+            return []
+
+        if not tags_setting.value:
+            return []
+
+        return [x for x in tags_setting.value.split(',') if x]
 
     def has_task(self, node_id):
         with session_scope() as session:
             node = session.query(Node).filter(Node.id == node_id).first()
             if node is None:
-                return False
-            node_tags = node.tags
+                raise NodeNotFound()
+
+            node_tags = self._regular_agent_tags(node.tags)
             next_task = self._get_next_task(session, node_tags)
         return next_task is not None
 
@@ -407,12 +430,14 @@ class SchedulerManager():
             m = warning_log_pattern.search(log_content)
             if m and historical_job.status == JOB_STATUS_SUCCESS:
                 historical_job.status = JOB_STATUS_WARNING
-
+            log_file.seek(0)
         #if items_file:
         #    historical_job.items_file = items_file
-        log_file.seek(0)
-        items_file.seek(0)
-        project_storage.put_job_data(job, log_file, items_file)
+
+        if items_file:
+            items_file.seek(0)
+            project_storage.put_job_data(job, log_file, items_file)
+
         session.delete(job)
         session.add(historical_job)
 
