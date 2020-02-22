@@ -203,6 +203,14 @@ class ExecuteNextHandler(NodeBaseHandler):
             }
             if project.package:
                 task['base_settings_module'] = project.package.settings_module
+            LOGGER.debug('job_settings: %s', task)
+            LOGGER.debug('next_task.settings: %s', next_task.settings)
+            job_specific_settings = json.loads(next_task.settings) \
+                if next_task.settings else {}
+            if 'spider_parameters' in job_specific_settings:
+                task['spider_parameters'] \
+                    .update(**job_specific_settings['spider_parameters'])
+            LOGGER.debug('job_settings: %s', task)
             response_data['data'] = {'task': task}
             return self.write(json.dumps(response_data))
 
