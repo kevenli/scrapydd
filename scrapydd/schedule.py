@@ -1,6 +1,7 @@
 import uuid
 import logging
 import datetime
+import json
 from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
@@ -180,7 +181,7 @@ class SchedulerManager():
                 session.commit()
                 self.add_job(trigger.id, cron)
 
-    def add_task(self, project_name, spider_name):
+    def add_task(self, project_name, spider_name, settings=None):
         with session_scope() as session:
             project = session.query(Project).filter(Project.name==project_name).first()
             spider = session.query(Spider).filter(Spider.name==spider_name, Spider.project_id==project.id).first()
@@ -207,6 +208,8 @@ class SchedulerManager():
             executing.update_time = datetime.datetime.now()
             executing.tag = spider_tag
             executing.slot = free_slots[0]
+            if settings:
+                executing.settings = json.dumps(settings)
             session.add(executing)
             session.commit()
             session.refresh(executing)
