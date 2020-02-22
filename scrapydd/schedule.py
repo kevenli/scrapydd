@@ -1,23 +1,26 @@
+"""
+Schedule job status and periodical jobs.
+"""
 import uuid
 import logging
 import datetime
 import json
 from apscheduler.schedulers.tornado import TornadoScheduler
-from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
 from tornado.ioloop import IOLoop, PeriodicCallback
-from sqlalchemy import distinct, desc, or_, and_, func
+from sqlalchemy import distinct, desc, func
 from six import string_types, ensure_str
 import chardet
-from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue, HistoricalJob, session_scope, \
-    SpiderSettings, Node
+from .models import Session, Trigger, Spider, Project, SpiderExecutionQueue
+from .models import HistoricalJob, session_scope, SpiderSettings, Node
 from .exceptions import NodeNotFound, InvalidCronExpression, JobRunning
 from .config import Config
 from .mail import MailSender
 from .storage import ProjectStorage
 
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 JOB_STATUS_PENDING = 0
@@ -38,6 +41,10 @@ class InvalidJobStatus(Exception):
 
 
 def generate_job_id():
+    """
+    Generate unique job id.
+    :return:
+    """
     jobid = uuid.uuid4().hex
     return jobid
 
@@ -68,7 +75,8 @@ class SchedulerManager():
         session = Session()
 
         # move completed jobs into history
-        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status.in_((2, 3))):
+        for job in session.query(SpiderExecutionQueue)\
+                .filter(SpiderExecutionQueue.status.in_((2, 3))):
             historical_job = HistoricalJob()
             historical_job.id = job.id
             historical_job.spider_id = job.spider_id
@@ -88,7 +96,8 @@ class SchedulerManager():
             try:
                 self.add_job(trigger.id, trigger.cron_pattern)
             except InvalidCronExpression:
-                logger.warning('Trigger %d,%s cannot be added ' % (trigger.id, trigger.cron_pattern))
+                LOGGER.warning('Trigger %d,%s cannot be added ',
+                               (trigger.id, trigger.cron_pattern))
         session.close()
 
         self.scheduler.start()
@@ -113,25 +122,26 @@ class SchedulerManager():
             raise InvalidCronExpression()
 
     def add_job(self, trigger_id, cron):
-        logger.debug('adding trigger %s %s' % (trigger_id, cron))
+        LOGGER.debug('adding trigger %s %s' % (trigger_id, cron))
         crontrigger = self.build_cron_trigger(cron)
 
-
-        job = self.scheduler.add_job(func=self.trigger_fired, trigger=crontrigger, kwargs={'trigger_id': trigger_id},
-                               id=str(trigger_id), replace_existing=True)
+        job = self.scheduler.add_job(func=self.trigger_fired,
+                                     trigger=crontrigger,
+                                     kwargs={'trigger_id': trigger_id},
+                                     id=str(trigger_id),
+                                     replace_existing=True)
         if self.sync_obj:
             self.ioloop.call_later(0, self.sync_obj.add_schedule_job, trigger_id)
-            #self.sync_obj.add_schedule_job(trigger_id)
 
     def on_cluster_remove_scheduling_job(self, job_id):
-        logger.debug('on_cluster_remove_scheduling_job')
+        LOGGER.debug('on_cluster_remove_scheduling_job')
         if self.scheduler.get_job(job_id):
             self.scheduler.remove_job(job_id)
 
     def on_cluster_add_scheduling_job(self, trigger_id):
-        logger.debug('on_cluster_add_scheduling_job')
+        LOGGER.debug('on_cluster_add_scheduling_job')
         with session_scope() as session:
-            trigger = session.query(Trigger).filter_by(id = trigger_id).first()
+            trigger = session.query(Trigger).get(trigger_id)
             if trigger is None:
                 return
             crontrigger = self.build_cron_trigger(trigger.cron_pattern)
@@ -143,27 +153,29 @@ class SchedulerManager():
         with session_scope() as session:
             trigger = session.query(Trigger).filter_by(id=trigger_id).first()
             if not trigger:
-                logger.error('Trigger %s not found.' % trigger_id)
+                LOGGER.error('Trigger %s not found.' % trigger_id)
                 return
 
             spider = session.query(Spider).filter_by(id=trigger.spider_id).first()
             if not spider:
-                logger.error('Spider %s not found' % spider.name)
+                LOGGER.error('Spider %s not found' % spider.name)
                 return
 
             project = session.query(Project).filter_by(id=spider.project_id).first()
             if not project:
-                logger.error('Project %s not found' % project.name)
+                LOGGER.error('Project %s not found' % project.name)
                 return
 
         try:
             self.add_task(project.name, spider.name)
         except JobRunning:
-            logger.info('Job for spider %s.%s already reach the concurrency limit' % (project.name, spider.name))
+            LOGGER.info('Job for spider %s.%s already reach the '
+                        'concurrency limit' % (project.name, spider.name))
 
     def add_schedule(self, project, spider, cron):
         with session_scope()as session:
-            triggers = session.query(Trigger).filter(Trigger.spider_id==spider.id)
+            triggers = session.query(Trigger)\
+                .filter(Trigger.spider_id == spider.id)
             found = False
             for trigger in triggers:
                 if trigger.cron_pattern == cron:
@@ -188,7 +200,8 @@ class SchedulerManager():
                 .filter(Spider.name == spider_name,
                         Spider.project_id == project.id).first()
             executing = SpiderExecutionQueue()
-            spider_tag_vo = session.query(SpiderSettings).filter_by(spider_id=spider.id, setting_key='tag').first()
+            spider_tag_vo = session.query(SpiderSettings)\
+                .filter_by(spider_id=spider.id, setting_key='tag').first()
             spider_tag = spider_tag_vo.value if spider_tag_vo else None
             jobid = generate_job_id()
             executing.id = jobid
@@ -232,7 +245,9 @@ class SchedulerManager():
 
     def on_node_expired(self, node_id):
         session = Session()
-        for job in session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.node_id==node_id, SpiderExecutionQueue.status == 1):
+        for job in session.query(SpiderExecutionQueue)\
+                .filter(SpiderExecutionQueue.node_id == node_id,
+                        SpiderExecutionQueue.status == 1):
             job.status = 0
             job.update_time = datetime.datetime.now()
             job.start_time = None
@@ -244,9 +259,13 @@ class SchedulerManager():
 
     def jobs(self):
         session = Session()
-        pending = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==0))
-        running = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status==1))
-        finished = list(session.query(HistoricalJob).order_by(desc(HistoricalJob.complete_time)).slice(0, 100))
+        pending = list(session.query(SpiderExecutionQueue)
+                       .filter_by(status=JOB_STATUS_PENDING))
+        running = list(session.query(SpiderExecutionQueue)
+                       .filter_by(status=JOB_STATUS_RUNNING))
+        finished = list(session.query(HistoricalJob)
+                        .order_by(desc(HistoricalJob.complete_time))
+                        .slice(0, 100))
         session.close()
         return pending, running, finished
 
@@ -396,14 +415,15 @@ order by fire_time
 
     def job_finished(self, job, log_file=None, items_file=None):
         session = Session()
-        if job.status not in (2,3):
-            raise Exception('Invliad status.')
+        if job.status not in (JOB_STATUS_SUCCESS, JOB_STATUS_FAIL):
+            raise Exception('Invalid status.')
         job_status = job.status
         job = session.query(SpiderExecutionQueue).filter_by(id=job.id).first()
         job.status = job_status
         job.update_time = datetime.datetime.now()
 
-        project_storage = ProjectStorage(self.project_storage_dir, job.spider.project)
+        project_storage = ProjectStorage(self.project_storage_dir,
+                                         job.spider.project)
 
         historical_job = HistoricalJob()
         historical_job.id = job.id
@@ -417,10 +437,9 @@ order by fire_time
         if log_file:
             #historical_job.log_file = log_file
             import re
-            items_crawled_pattern = re.compile("\'item_scraped_count\': (\d+),")
-            error_log_pattern = re.compile("\'log_count/ERROR\': (\d+),")
-            warning_log_pattern = re.compile("\'log_count/WARNING\': (\d+),")
-            #with open(log_file, 'r') as f:
+            items_crawled_pattern = re.compile(r"\'item_scraped_count\': (\d+),")
+            error_log_pattern = re.compile(r"\'log_count/ERROR\': (\d+),")
+            warning_log_pattern = re.compile(r"\'log_count/WARNING\': (\d+),")
             log_file.seek(0)
             log_raw = log_file.read()
             log_encoding = chardet.detect(log_raw)['encoding']
@@ -461,7 +480,7 @@ order by fire_time
         return datetime.datetime.now()
 
     def try_send_job_failed_mail(self, job):
-        logger.debug('try_send_job_failed_mail')
+        LOGGER.debug('try_send_job_failed_mail')
         job_fail_send_mail = self.config.getboolean('job_fail_send_mail')
         if job_fail_send_mail:
             try:
@@ -474,7 +493,7 @@ order by fire_time
                 mail_sender.send(to_addresses=to_address, subject=subject, content=content)
 
             except Exception as e:
-                logger.error('Error when sending job_fail mail %s' % e)
+                LOGGER.error('Error when sending job_fail mail %s' % e)
 
     def clear_finished_jobs(self):
         job_history_limit_each_spider = 100
@@ -483,11 +502,11 @@ order by fire_time
         for row in spiders:
             spider_id = row[0]
             with session_scope() as session:
-                over_limitation_jobs = list(session.query(HistoricalJob)
-                    .filter(HistoricalJob.spider_id==spider_id)
-                    .order_by(desc(HistoricalJob.complete_time))
-                    .slice(job_history_limit_each_spider, 1000)
-                    .all())
+                over_limitation_jobs = session.query(HistoricalJob)\
+                    .filter_by(spider_id=spider_id)\
+                    .order_by(desc(HistoricalJob.complete_time))\
+                    .slice(job_history_limit_each_spider, 1000)\
+                    .all()
             for over_limitation_job in over_limitation_jobs:
                 self._remove_histical_job(over_limitation_job)
 
@@ -500,16 +519,18 @@ order by fire_time
 
                 # check job time_out expire start
                 # the next status is STOPPING then ERROR
-                spider = session.query(Spider).filter_by(id=job.spider_id).first()
-                job_timeout_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
-                                                                              setting_key='timeout').first()
-                job_timeout = int(job_timeout_setting.value) if job_timeout_setting else 3600
+                spider = session.query(Spider).get(job.spider_id)
+                job_timeout_setting = session.query(SpiderSettings)\
+                    .filter_by(spider_id=spider.id,
+                               setting_key='timeout').first()
+                job_timeout = int(job_timeout_setting.value) \
+                    if job_timeout_setting else 3600
                 if now > job.start_time + \
                     datetime.timedelta(seconds=job_timeout):
                     job.status = JOB_STATUS_STOPPING
                     job.update_time = self._now()
                     session.add(job)
-                    logger.info('Job %s is running timeout, stopping.', job.id)
+                    LOGGER.info('Job %s is running timeout, stopping.', job.id)
                     session.commit()
                     continue
 
@@ -523,7 +544,7 @@ order by fire_time
                     job.update_time = self._now()
                     session.add(job)
                     session.commit()
-                    logger.info('Job %s is update timeout, reset.', job.id)
+                    LOGGER.info('Job %s is update timeout, reset.', job.id)
                     continue
 
             for job in session.query(SpiderExecutionQueue)\
@@ -541,7 +562,7 @@ order by fire_time
                     historical_job.status = 3
                     session.delete(job)
                     session.add(historical_job)
-                    logger.info('Job %s is timeout, killed.' % job.id)
+                    LOGGER.info('Job %s is timeout, killed.' % job.id)
             session.commit()
 
     def _remove_histical_job(self, job):
@@ -561,14 +582,18 @@ order by fire_time
 
     def remove_schedule(self, project_name, spider_name, trigger_id):
         with session_scope() as session:
-            project = session.query(Project).filter(Project.name == project_name).first()
-            spider = session.query(Spider).filter(Spider.project_id == project.id, Spider.name == spider_name).first()
-            trigger = session.query(Trigger).filter(Trigger.spider_id==spider.id, Trigger.id == trigger_id).first()
+            project = session.query(Project)\
+                .filter(Project.name == project_name).first()
+            spider = session.query(Spider)\
+                .filter(Spider.project_id == project.id,
+                        Spider.name == spider_name).first()
+            trigger = session.query(Trigger)\
+                .filter_by(spider_id=spider.id, id=trigger_id).first()
 
             session.delete(trigger)
             if self.scheduler.get_job(str(trigger_id)):
                 self.scheduler.remove_job(str(trigger.id))
 
         if self.sync_obj:
-            logger.info('remove_schedule')
+            LOGGER.info('remove_schedule')
             self.sync_obj.remove_schedule_job(trigger.id)
