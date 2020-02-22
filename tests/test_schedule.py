@@ -16,6 +16,7 @@ from scrapydd.poster.encode import multipart_encode
 from scrapydd.main import make_app
 from scrapydd.schedule import SchedulerManager, JOB_STATUS_PENDING
 from scrapydd.schedule import JOB_STATUS_RUNNING, JOB_STATUS_SUCCESS
+from scrapydd.schedule import JOB_STATUS_CANCEL
 from tests.base import AppTest
 
 
@@ -167,6 +168,11 @@ class SchedulerManagerTest(unittest.TestCase):
         self.assertIsNotNone(new_job)
         self.assertIsNotNone(new_job.spider_id)
 
+        pending_jobs, running_jobs, finished_job = target.jobs()
+        self.assertEqual([x.id for x in pending_jobs], [new_job.id])
+        self.assertEqual([x.id for x in running_jobs], [])
+        self.assertEqual([x.id for x in finished_job], [])
+
     def test_add_task_settings(self):
         project_name = 'test_project'
         spider_name = 'fail_spider'
@@ -259,6 +265,154 @@ class SchedulerManagerTest(unittest.TestCase):
             self.fail('Exception not caught')
         except NodeNotFound:
             pass
+
+    def test_finish_job_success(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        target = SchedulerManager()
+        new_job = target.add_task(project_name, spider_name)
+        new_job2 = target.add_task(project_name, spider_name)
+
+        next_job = target.get_next_task(node_id)
+
+        next_job.status = JOB_STATUS_SUCCESS
+        target.job_finished(next_job)
+        with session_scope() as session:
+            queue_job = session.query(SpiderExecutionQueue)\
+                .get(next_job.id)
+            self.assertIsNone(queue_job)
+            history_job = session.query(HistoricalJob).get(next_job.id)
+            self.assertIsNotNone(history_job)
+
+        next_job2 = target.get_next_task(node_id)
+        self.assertIsNotNone(next_job2)
+        self.assertEqual(next_job2.id, new_job2.id)
+
+    def test_finish_job_success(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        target = SchedulerManager()
+        new_job = target.add_task(project_name, spider_name)
+        new_job2 = target.add_task(project_name, spider_name)
+
+        next_job = target.get_next_task(node_id)
+
+        next_job.status = JOB_STATUS_SUCCESS
+        target.job_finished(next_job)
+        with session_scope() as session:
+            queue_job = session.query(SpiderExecutionQueue)\
+                .get(next_job.id)
+            self.assertIsNone(queue_job)
+            history_job = session.query(HistoricalJob).get(next_job.id)
+            self.assertIsNotNone(history_job)
+            self.assertEqual(history_job.status, JOB_STATUS_SUCCESS)
+
+        next_job2 = target.get_next_task(node_id)
+        self.assertIsNotNone(next_job2)
+        self.assertEqual(next_job2.id, new_job2.id)
+
+    def test_cancel_job_pending(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        target = SchedulerManager()
+        new_job = target.add_task(project_name, spider_name)
+
+        target.cancel_task(new_job.id)
+        with session_scope() as session:
+            queue_job = session.query(SpiderExecutionQueue)\
+                .get(new_job.id)
+            self.assertIsNone(queue_job)
+            history_job = session.query(HistoricalJob).get(new_job.id)
+            self.assertIsNotNone(history_job)
+            self.assertEqual(history_job.status, JOB_STATUS_CANCEL)
+
+    def test_cancel_job_running(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        target = SchedulerManager()
+        new_job = target.add_task(project_name, spider_name)
+        next_job = target.get_next_task(node_id)
+        self.assertEqual(next_job.status, JOB_STATUS_RUNNING)
+        target.cancel_task(next_job.id)
+        with session_scope() as session:
+            queue_job = session.query(SpiderExecutionQueue)\
+                .get(next_job.id)
+            self.assertIsNone(queue_job)
+            history_job = session.query(HistoricalJob).get(next_job.id)
+            self.assertIsNotNone(history_job)
+            self.assertEqual(history_job.status, JOB_STATUS_CANCEL)
+
+    def test_jobs_running(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            node2 = Node()
+            session.add(node)
+            session.add(node2)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+            node_id_2 = node2.id
+
+        target = SchedulerManager()
+        running_ids = []
+        to_kill = list(target.jobs_running(node_id, running_ids))
+        self.assertEqual(to_kill, [])
+
+        target.add_task(project_name, spider_name)
+        next_job = target.get_next_task(node_id)
+        running_ids = [next_job.id]
+
+        update_time = datetime.datetime.now()
+        target._now = lambda: update_time
+        to_kill = list(target.jobs_running(node_id, running_ids))
+        with session_scope() as session:
+            running_job = session.query(SpiderExecutionQueue)\
+                .get(next_job.id)
+        self.assertEqual(running_job.update_time, update_time)
+        self.assertEqual(to_kill, [])
+
+        # test other node_id
+        to_kill = list(target.jobs_running(node_id_2, running_ids))
+        self.assertEqual(to_kill, [next_job.id])
+
+        target.cancel_task(next_job.id)
+        to_kill = list(target.jobs_running(node_id, running_ids))
+        self.assertEqual(to_kill, [next_job.id])
 
 
 class ScheduleTagTest(AppTest):

@@ -210,7 +210,8 @@ class SchedulerManager():
             job = session.query(SpiderExecutionQueue).get(job_id)
             if not job:
                 raise JobNotFound()
-            if job.status not in (2, 3):
+            if job.status not in (JOB_STATUS_PENDING,
+                                  JOB_STATUS_RUNNING):
                 raise InvalidJobStatus('Invliad status.')
             job.status = JOB_STATUS_CANCEL
             job.update_time = datetime.datetime.now()
@@ -383,7 +384,7 @@ order by fire_time
                         job.status != 1:
                         yield job.id
                     else:
-                        job.update_time = datetime.datetime.now()
+                        job.update_time = self._now()
                         session.add(job)
                 else:
                     yield job_id
@@ -451,6 +452,9 @@ order by fire_time
 
         session.close()
         return historical_job
+
+    def _now(self):
+        return datetime.datetime.now()
 
     def try_send_job_failed_mail(self, job):
         logger.debug('try_send_job_failed_mail')
