@@ -14,6 +14,7 @@ import signal
 import json
 # pylint: disable=deprecated-module
 from optparse import OptionParser
+import chardet
 import tornado.ioloop
 import tornado.web
 import tornado.template
@@ -267,7 +268,7 @@ class LogsHandler(AppBaseHandler):
             project_storage = ProjectStorage(
                 self.settings.get('project_storage_dir'), job.spider.project)
             log = project_storage.get_job_log(job).read()
-            self.set_header('Content-Type', 'text')
+            self.set_header('Content-Type', 'text/plain')
             self.write(log)
 
 
