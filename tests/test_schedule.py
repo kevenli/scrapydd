@@ -1,17 +1,26 @@
-import unittest
-from scrapydd.schedule import SchedulerManager
-import logging
-from scrapydd.models import Session, HistoricalJob, init_database
-from tornado.testing import AsyncHTTPTestCase
 import os
+import unittest
+import logging
+import datetime
+import json
+from tornado.testing import AsyncHTTPTestCase
+from six.moves.urllib.parse import urlencode
+from scrapydd.models import Session, session_scope, init_database
+from scrapydd.models import Project, Spider, HistoricalJob, Node
+from scrapydd.models import SpiderExecutionQueue, SpiderSettings
 from scrapydd.config import Config
+from scrapydd.exceptions import NodeNotFound
 from scrapydd.nodes import NodeManager
 from scrapydd.storage import ProjectStorage
 from scrapydd.poster.encode import multipart_encode
 from scrapydd.main import make_app
-from scrapydd.schedule import *
-from .base import AppTest
-from six.moves.urllib.parse import urlencode
+from scrapydd.schedule import SchedulerManager, JOB_STATUS_PENDING
+from scrapydd.schedule import JOB_STATUS_RUNNING, JOB_STATUS_SUCCESS
+from tests.base import AppTest
+
+
+LOGGER = logging.getLogger(__name__)
+
 
 class ScheduleTest(AsyncHTTPTestCase):
     @classmethod
@@ -120,9 +129,10 @@ class ScheduleTest(AsyncHTTPTestCase):
 
 class SchedulerManagerTest(unittest.TestCase):
     def setUp(self):
+        LOGGER.debug('Clear test database.')
         if os._exists('test.db'):
             os.remove('test.db')
-        config = Config(values = {'database_url': 'sqlite:///test.db'})
+        config = Config(values={'database_url': 'sqlite:///test.db'})
         init_database(config)
 
     @unittest.skip
@@ -145,6 +155,110 @@ class SchedulerManagerTest(unittest.TestCase):
         for job in session.query(HistoricalJob).filter(HistoricalJob.spider_id==spider_id):
             self.assertTrue(job.id in jobids)
         session.close()
+
+    def test_add_task(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        target = SchedulerManager()
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+
+        new_job = target.add_task(project_name, spider_name)
+        self.assertIsNotNone(new_job)
+        self.assertIsNotNone(new_job.spider_id)
+
+    def test_add_task_settings(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        origin_settings = {'a': 1, 'b': 'x'}
+        target = SchedulerManager()
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+
+        new_job = target.add_task(project_name, spider_name,
+                                  origin_settings)
+        self.assertIsNotNone(new_job)
+        self.assertIsNotNone(new_job.spider_id)
+
+        with session_scope() as session:
+            loaded_job = session.query(SpiderExecutionQueue)\
+                .get(new_job.id)
+
+        self.assertIsNotNone(loaded_job.settings)
+        loaded_settings_dict = json.loads(loaded_job.settings)
+        self.assertEqual(origin_settings, loaded_settings_dict)
+
+
+    def test_add_task_twice(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        target = SchedulerManager()
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+
+        new_job = target.add_task(project_name, spider_name)
+        new_job2 = target.add_task(project_name, spider_name)
+        self.assertIsNotNone(new_job)
+        self.assertIsNotNone(new_job.spider_id)
+
+    def test_get_next_task(self):
+        node_id = 1
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        target = SchedulerManager()
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        new_job = target.add_task(project_name, spider_name)
+        next_job = target.get_next_task(node_id)
+        next_job2 = target.get_next_task(node_id)
+        self.assertEqual(new_job.id, next_job.id)
+        self.assertEqual(next_job.node_id, node_id)
+        self.assertEqual(next_job.status, JOB_STATUS_RUNNING)
+        self.assertIsNone(next_job2)
+
+    def test_get_next_task_concurrent(self):
+        node_id = 1
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        target = SchedulerManager()
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        new_job = target.add_task(project_name, spider_name)
+        new_job2 = target.add_task(project_name, spider_name)
+        # can get one job
+        next_job = target.get_next_task(node_id)
+        self.assertEqual(new_job.id, next_job.id)
+
+        # 1 concurrency now, cannot get the second
+        next_job2 = target.get_next_task(node_id)
+        self.assertIsNone(next_job2)
+
+        # finish one, then can get the second.
+        new_job.status = JOB_STATUS_SUCCESS
+        target.job_finished(new_job)
+        next_job2 = target.get_next_task(node_id)
+        self.assertIsNotNone(next_job2)
+
+    def test_get_next_task_no_node(self):
+        node_id = 0
+        target = SchedulerManager()
+        try:
+            next_job = target.get_next_task(node_id)
+            self.fail('Exception not caught')
+        except NodeNotFound:
+            pass
 
 
 class ScheduleTagTest(AppTest):
@@ -387,53 +501,3 @@ class ScheduleAddTaskTest(ScheduleTest):
         self.assertEqual(actual.update_time, actual2.update_time)
         self.assertEqual(actual.pid, actual2.pid)
         self.assertEqual(actual.tag, actual2.tag)
-
-    def test_add_task_task_already_running(self):
-        target = SchedulerManager()
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-        concurrency = 1
-        with session_scope() as session:
-            #clear jobs
-            session.query(SpiderExecutionQueue).delete()
-
-        self._set_spider_setting(project_name, spider_name, 'concurrency', concurrency)
-
-        actual = target.add_task(project_name, spider_name)
-        self.assertIsNotNone(actual)
-
-        try:
-            actual2 = target.add_task(project_name, spider_name)
-            self.fail('Exception not caught')
-        except JobRunning:
-            pass
-
-    def test_add_task_concurrency(self):
-        target = SchedulerManager()
-        project_name = 'test_project'
-        spider_name = 'success_spider'
-        concurrency = 3
-        with session_scope() as session:
-            #clear jobs
-            session.query(SpiderExecutionQueue).delete()
-
-        self._set_spider_setting(project_name, spider_name, 'concurrency', concurrency)
-
-        for i in range(concurrency):
-            target.add_task(project_name, spider_name)
-
-        try:
-            target.add_task(project_name, spider_name)
-            self.fail('Exception not caught')
-        except JobRunning:
-            pass
-
-        with session_scope() as session:
-            existing_jobs = list(session.query(SpiderExecutionQueue))
-
-            for i in range(concurrency):
-                # slot begins from 1
-                self.assertEqual(existing_jobs[i].slot, i+1)
-
-        self.assertEqual(len(existing_jobs), 3)
-
