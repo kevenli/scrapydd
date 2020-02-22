@@ -124,6 +124,7 @@ class SpiderExecutionQueue(Base):
     update_time = Column(DateTime)
     pid = Column(Integer)
     tag = Column(String(length=50))
+    settings = Column(Text, nullable=True)
 
 
 class Node(Base):
@@ -273,9 +274,7 @@ def init_database(config=None):
     upgrade(database_url, db_repository)
 
 
-# pylint: disable=global-statement
 def _make_session():
-    global _Session
     return _Session()
 
 
