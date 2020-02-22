@@ -16,7 +16,7 @@ from scrapydd.poster.encode import multipart_encode
 from scrapydd.main import make_app
 from scrapydd.schedule import SchedulerManager, JOB_STATUS_PENDING
 from scrapydd.schedule import JOB_STATUS_RUNNING, JOB_STATUS_SUCCESS
-from scrapydd.schedule import JOB_STATUS_CANCEL
+from scrapydd.schedule import JOB_STATUS_CANCEL, JOB_STATUS_STOPPING
 from tests.base import AppTest
 
 
@@ -163,6 +163,7 @@ class SchedulerManagerTest(unittest.TestCase):
         target = SchedulerManager()
         with session_scope() as session:
             session.query(SpiderExecutionQueue).delete()
+            session.query(HistoricalJob).delete()
 
         new_job = target.add_task(project_name, spider_name)
         self.assertIsNotNone(new_job)
@@ -385,6 +386,7 @@ class SchedulerManagerTest(unittest.TestCase):
             session.add(node2)
             session.flush()
             session.refresh(node)
+            session.refresh(node2)
             node_id = node.id
             node_id_2 = node2.id
 
@@ -411,8 +413,120 @@ class SchedulerManagerTest(unittest.TestCase):
         self.assertEqual(to_kill, [next_job.id])
 
         target.cancel_task(next_job.id)
-        to_kill = list(target.jobs_running(node_id, running_ids))
+        to_kill = list(target.jobs_running(node_id, [next_job.id]))
         self.assertEqual(to_kill, [next_job.id])
+
+    def test_on_node_expire(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        target = SchedulerManager()
+        target.add_task(project_name, spider_name)
+        next_job = target.get_next_task(node_id)
+        target.on_node_expired(node_id)
+        with session_scope() as session:
+            running_job = session.query(SpiderExecutionQueue)\
+                .get(next_job.id)
+
+        self.assertEqual(running_job.status, JOB_STATUS_PENDING)
+        self.assertEqual(running_job.node_id, None)
+
+    def test_reset_timeout_job_start_time_expire(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        start_time = datetime.datetime.now()
+        still_running_time = start_time + datetime.timedelta(seconds=3599)
+        expire_time = start_time + datetime.timedelta(seconds=3601)
+
+        target = SchedulerManager()
+        target.add_task(project_name, spider_name)
+        target._now = lambda: start_time
+        next_job = target.get_next_task(node_id)
+        with session_scope() as session:
+            running_job = session.query(SpiderExecutionQueue) \
+                .get(next_job.id)
+        self.assertEqual(running_job.start_time, start_time)
+        self.assertEqual(running_job.update_time, start_time)
+        self.assertEqual(running_job.status, JOB_STATUS_RUNNING)
+        self.assertEqual(running_job.node_id, node_id)
+
+        target._now = lambda: still_running_time
+        # update the update_time, to avoid update_time expire first.
+        list(target.jobs_running(node_id, [running_job.id]))
+        target.reset_timeout_job()
+        with session_scope() as session:
+            running_job = session.query(SpiderExecutionQueue) \
+                .get(next_job.id)
+        self.assertEqual(running_job.start_time, start_time)
+        self.assertEqual(running_job.update_time, still_running_time)
+        self.assertEqual(running_job.status, JOB_STATUS_RUNNING)
+        self.assertEqual(running_job.node_id, node_id)
+
+        target._now = lambda: expire_time
+        target.reset_timeout_job()
+        with session_scope() as session:
+            expired_job = session.query(SpiderExecutionQueue) \
+                .get(next_job.id)
+        self.assertEqual(expired_job.status, JOB_STATUS_STOPPING)
+
+    def test_reset_timeout_job_update_timeout(self):
+        project_name = 'test_project'
+        spider_name = 'fail_spider'
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            node = Node()
+            session.add(node)
+            session.flush()
+            session.refresh(node)
+            node_id = node.id
+
+        start_time = datetime.datetime.now()
+        still_running_time = start_time + datetime.timedelta(seconds=59)
+        expire_time = start_time + datetime.timedelta(seconds=61)
+
+        target = SchedulerManager()
+        target.add_task(project_name, spider_name)
+        target._now = lambda: start_time
+        next_job = target.get_next_task(node_id)
+        with session_scope() as session:
+            running_job = session.query(SpiderExecutionQueue) \
+                .get(next_job.id)
+        self.assertEqual(running_job.start_time, start_time)
+        self.assertEqual(running_job.update_time, start_time)
+        self.assertEqual(running_job.status, JOB_STATUS_RUNNING)
+        self.assertEqual(running_job.node_id, node_id)
+
+        target._now = lambda: still_running_time
+        # update the update_time, to avoid update_time expire first.
+        target.reset_timeout_job()
+        with session_scope() as session:
+            running_job = session.query(SpiderExecutionQueue) \
+                .get(next_job.id)
+        self.assertEqual(running_job.start_time, start_time)
+        self.assertEqual(running_job.status, JOB_STATUS_RUNNING)
+        self.assertEqual(running_job.node_id, node_id)
+
+        target._now = lambda: expire_time
+        target.reset_timeout_job()
+        with session_scope() as session:
+            expired_job = session.query(SpiderExecutionQueue) \
+                .get(next_job.id)
+        self.assertEqual(expired_job.status, JOB_STATUS_PENDING)
 
 
 class ScheduleTagTest(AppTest):

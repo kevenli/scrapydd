@@ -287,8 +287,9 @@ class SchedulerManager():
             next_task = self._get_next_task(session, node_tags)
             if not next_task:
                 return None
-            next_task.start_time = datetime.datetime.now()
-            next_task.update_time = datetime.datetime.now()
+            now = self._now()
+            next_task.start_time = now
+            next_task.update_time = now
             next_task.node_id = node_id
             next_task.status = JOB_STATUS_RUNNING
             session.add(next_task)
@@ -367,11 +368,13 @@ order by fire_time
 
     def jobs_running(self, node_id, job_ids):
         '''
-
+        Update running jobs for node.
+        If any job status is wrong, let node kill it
         :param node_id:
         :param job_ids:
         :return:(job_id) to kill
         '''
+        jobs_to_kill = []
         with session_scope() as session:
             for job_id in job_ids:
                 job = session.query(SpiderExecutionQueue).filter(
@@ -382,13 +385,14 @@ order by fire_time
                         job.node_id = node_id
                     if job.node_id != node_id or \
                         job.status != 1:
-                        yield job.id
+                        jobs_to_kill.append(job.id)
                     else:
                         job.update_time = self._now()
                         session.add(job)
                 else:
-                    yield job_id
+                    jobs_to_kill.append(job_id)
             session.commit()
+        return jobs_to_kill
 
     def job_finished(self, job, log_file=None, items_file=None):
         session = Session()
@@ -487,36 +491,41 @@ order by fire_time
             for over_limitation_job in over_limitation_jobs:
                 self._remove_histical_job(over_limitation_job)
 
-    def _clear_running_jobs(self):
-        with session_scope() as session:
-            jobs = list(session.query(SpiderExecutionQueue).filter(SpiderExecutionQueue.status.in_([0,1])))
-        for job in jobs:
-            self._remove_histical_job(job)
-
     def reset_timeout_job(self):
         KILL_TIMEOUT = 120
+        now = self._now()
         with session_scope() as session:
-            timeout_time = datetime.datetime.now() - datetime.timedelta(minutes=1)
             for job in session.query(SpiderExecutionQueue)\
                     .filter(SpiderExecutionQueue.status == JOB_STATUS_RUNNING):
+
+                # check job time_out expire start
+                # the next status is STOPPING then ERROR
                 spider = session.query(Spider).filter_by(id=job.spider_id).first()
                 job_timeout_setting = session.query(SpiderSettings).filter_by(spider_id=spider.id,
                                                                               setting_key='timeout').first()
                 job_timeout = int(job_timeout_setting.value) if job_timeout_setting else 3600
-                logger.debug((job.update_time - job.start_time).seconds)
-                if job.update_time < timeout_time:
-                    # job is not refresh as expected, node might be died, reset the status to PENDING
-                    job.status = 0
+                if now > job.start_time + \
+                    datetime.timedelta(seconds=job_timeout):
+                    job.status = JOB_STATUS_STOPPING
+                    job.update_time = self._now()
+                    session.add(job)
+                    logger.info('Job %s is running timeout, stopping.', job.id)
+                    session.commit()
+                    continue
+
+                # expire in not updated in a update_timeout.
+                # may be node error, restart it
+                # the status is PENDING
+                if now > job.update_time + datetime.timedelta(minutes=1):
+                    job.status = JOB_STATUS_PENDING
                     job.pid = None
                     job.node_id = None
-                    job.update_time = datetime.datetime.now()
+                    job.update_time = self._now()
                     session.add(job)
-                    logger.info('Job %s is timeout, reseting.' % job.id)
-                elif (job.update_time - job.start_time).seconds > job_timeout:
-                    # let agent kill the job and continue submit a log.
-                    job.status = JOB_STATUS_STOPPING
-                    job.update_time = datetime.datetime.now()
-                    session.add(job)
+                    session.commit()
+                    logger.info('Job %s is update timeout, reset.', job.id)
+                    continue
+
             for job in session.query(SpiderExecutionQueue)\
                     .filter(SpiderExecutionQueue.status.in_([JOB_STATUS_STOPPING])):
                 if (datetime.datetime.now() - job.start_time).seconds > KILL_TIMEOUT:
