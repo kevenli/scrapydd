@@ -134,7 +134,7 @@ class ScheduleHandler(RestBaseHandler):
     def post(self):
         project = self.get_body_argument('project')
         spider = self.get_body_argument('spider')
-        settings = self.get_body_argument('settings')
+        settings = self.get_body_argument('settings', None)
 
         settings_dict = json.loads(settings) if settings else None
         try:
