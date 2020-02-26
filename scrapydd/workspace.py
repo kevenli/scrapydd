@@ -624,6 +624,9 @@ class SpiderSetting(object):
     def __init__(self, spider_name, extra_requirements=None, spider_parameters=None, project_name=None,
                  base_settings_module=None):
         self.spider_name = spider_name
+        if extra_requirements and isinstance(extra_requirements, str):
+            extra_requirements = [x for x in
+                                  extra_requirements.split(';') if x]
         self.extra_requirements = extra_requirements or []
         self.spider_parameters = spider_parameters or {}
         self.project_name = project_name
@@ -652,9 +655,6 @@ class SpiderSetting(object):
         spider_name = dic['spider_name']
         project_name = dic.get('project_name')
         extra_requirements = dic.get('extra_requirements')
-        if isinstance(extra_requirements, str):
-            extra_requirements = [x for x in
-                                  extra_requirements.split(';') if x]
         spider_parameters = dic.get('spider_parameters')
         base_settings_module = dic.get('base_settings_module')
 

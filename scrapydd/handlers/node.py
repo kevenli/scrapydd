@@ -187,7 +187,7 @@ class ExecuteNextHandler(NodeBaseHandler):
 
             if extra_requirements_setting and extra_requirements_setting.value:
                 extra_requirements = [x for x
-                                      in extra_requirements_setting.value.split(',')
+                                      in extra_requirements_setting.value.split(';')
                                       if x]
             else:
                 extra_requirements = []
