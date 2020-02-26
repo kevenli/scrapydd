@@ -106,21 +106,6 @@ class RunSpiderHandlerTest(AppTest):
         res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
         self.assertEqual(404, res.code)
 
-    def test_post_already_running(self):
-        project_name = 'test_project'
-        spider_name = 'error_spider'
-        self.init_project(project_name)
-        url = '/projects/%s/spiders/%s/run' % (project_name, spider_name)
-        headers = {'Cookie': "_xsrf=dummy"}
-        post_data = {'_xsrf': 'dummy'}
-        # Run a job first
-        res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
-        self.assertEqual(200, res.code)
-
-        # The next fire it, it raise an JobRunning
-        res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))
-        self.assertEqual(400, res.code)
-
 
 class ProjectSettingsHandlerTest(AppTest):
     def test_get(self):
