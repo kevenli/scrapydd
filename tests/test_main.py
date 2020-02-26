@@ -156,18 +156,6 @@ class ScheduleHandlerTest(AppTest):
         response = self.fetch('/schedule.json', method='POST', body=postdata)
         self.assertEqual(200, response.code)
 
-    def test_post_job_already_running(self):
-        project = 'test_project'
-        spider = 'success_spider'
-        postdata = urlencode({
-            'project': project,
-            'spider': spider
-        })
-        self.fetch('/schedule.json', method='POST', body=postdata)
-        response = self.fetch('/schedule.json', method='POST', body=postdata)
-        self.assertEqual(400, response.code)
-        self.assertIn(b'job is running', response.body)
-
 
 class AddScheduleHandlerTest(AppTest):
     def test_add_scheduler(self):
