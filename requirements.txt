@@ -13,3 +13,4 @@ sqlalchemy-migrate
 tornado>=4.4.2,<5.0
 virtualenv
 w3lib
+pyaml
