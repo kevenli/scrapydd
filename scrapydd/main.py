@@ -619,6 +619,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'^/api/projects/(\w+)/spiders/(\w+)/jobs/(\w+)', rest.GetProjectJob),
         (r'^/api/projects/(\w+)/spiders/(\w+)/jobs/(\w+)/items',
             rest.GetProjectJobItems),
+        (r'^/api/jobs/(\w+)', rest.GetJobHandler),
+        (r'^/api/jobs/(\w+)/items', rest.GetJobItemsHandler),
 
         # agent node ysing handlers
         (r'/executing/next_task', ExecuteNextHandler,
