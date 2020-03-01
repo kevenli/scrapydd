@@ -43,7 +43,9 @@ def main():
     perform(base_module=spider_setting.base_settings_module,
             output_file='settings.py', input_file='plugins.json')
     os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = 'settings'
-    argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', 'items.jl']
+    print(spider_setting.output_file)
+    output_file = spider_setting.output_file or 'items.jl'
+    argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', output_file]
     for param_key, param_value in spider_setting.spider_parameters.items():
         argv += [
             '-s',
