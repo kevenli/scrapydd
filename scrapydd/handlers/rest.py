@@ -281,3 +281,31 @@ class GetProjectJobItems(RestBaseHandler):
                 self.settings.get('project_storage_dir'), job.spider.project)
             self.set_header('Content-Type', 'application/json')
             return self.write(project_storage.get_job_items(job).read())
+
+
+class GetJobHandler(RestBaseHandler):
+    @authenticated
+    def get(self, job_id):
+        with session_scope() as session:
+            job = session.query(SpiderExecutionQueue).get(job_id)
+            if not job:
+                job = session.query(HistoricalJob).get(job_id)
+            ret_dict = {
+                'job_id': job.id,
+                'status': job.status_obj.name
+            }
+            return self.send_json(ret_dict)
+
+
+class GetJobItemsHandler(RestBaseHandler):
+    @authenticated
+    def get(self, job_id):
+        with session_scope() as session:
+            job = session.query(HistoricalJob).get(job_id)
+            if not job:
+                return self.set_status(404, 'Job not found.')
+            project_storage = ProjectStorage(
+                self.settings.get('project_storage_dir'),
+                job.spider.project)
+            self.set_header('Content-Type', 'application/json')
+            return self.write(project_storage.get_job_items(job).read())
