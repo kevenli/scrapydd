@@ -12,6 +12,7 @@
 import os
 import logging
 import json
+import yaml
 from argparse import ArgumentParser
 from scrapydd.workspace import SpiderSetting
 from .runner import main as runner_main
@@ -31,8 +32,17 @@ def main():
                         default='spider.json', help='The spider settings json '
                                                     'file')
     args = parser.parse_args()
+    file_ext = os.path.splitext(args.file)[1]
+    if file_ext.lower() in ('.yaml', '.yml'):
+        with open(args.file, 'r') as f:
+            dic = yaml.load(f, yaml.Loader)
+    elif file_ext.lower() == '.json':
+        with open(args.file, 'r') as f:
+            dic = json.load(f)
+    else:
+        raise Exception(f'Not supported file type : {args.file}')
 
-    spider_setting = SpiderSetting.from_file(args.file)
+    spider_setting = SpiderSetting.from_dict(dic)
     plugin_settings = {}
     extra_requirements = spider_setting.extra_requirements
     if extra_requirements:
@@ -43,7 +53,6 @@ def main():
     perform(base_module=spider_setting.base_settings_module,
             output_file='settings.py', input_file='plugins.json')
     os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = 'settings'
-    print(spider_setting.output_file)
     output_file = spider_setting.output_file or 'items.jl'
     argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', output_file]
     for param_key, param_value in spider_setting.spider_parameters.items():
