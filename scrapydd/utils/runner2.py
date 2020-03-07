@@ -13,7 +13,11 @@ import os
 import logging
 import json
 import yaml
+import string
+import random
 import tempfile
+import sys
+import shutil
 from argparse import ArgumentParser
 from scrapydd.workspace import SpiderSetting
 from .runner import main as runner_main
@@ -21,6 +25,12 @@ from .plugin import perform, _pip_installer
 
 
 logger = logging.getLogger(__name__)
+
+
+def randomString(stringLength=10):
+    """Generate a random string of fixed length """
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(stringLength))
 
 
 def main():
@@ -49,18 +59,30 @@ def main():
     if extra_requirements:
         for requirement in extra_requirements:
             _pip_installer(requirement)
-    perform(base_module=spider_setting.base_settings_module,
-            output_file='settings.py', input_file=plugin_settings)
-    os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = 'settings'
-    output_file = spider_setting.output_file or 'items.jl'
-    argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', output_file]
-    for param_key, param_value in spider_setting.spider_parameters.items():
-        argv += [
-            '-s',
-            '%s=%s' % (param_key, param_value)
-        ]
-    runner_main(argv)
+    try:
+        settings_module = 'settings_' + randomString(6)
+        settings_package = tempfile.mkdtemp()
 
+        settings_stream = open(os.path.join(settings_package,
+                                            settings_module+'.py'), 'w')
+        perform(base_module=spider_setting.base_settings_module,
+                output_file=settings_stream, input_file=plugin_settings)
+        settings_stream.close()
+        sys.path.append(settings_package)
+        os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = settings_module
+        output_file = spider_setting.output_file or 'items.jl'
+        argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', output_file]
+        for param_key, param_value in spider_setting.spider_parameters.items():
+            argv += [
+                '-s',
+                '%s=%s' % (param_key, param_value)
+            ]
+        runner_main(argv)
+    except SystemExit:
+        pass
+    finally:
+        if os.path.exists(settings_package):
+            shutil.rmtree(settings_package)
 
 def print_usage():
     print("usage:")
