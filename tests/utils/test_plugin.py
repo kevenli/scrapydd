@@ -27,6 +27,7 @@ class PluginTest(unittest.TestCase):
         if TEST_PLUGIN_EGG_PATH in sys.path:
             sys.path.remove(TEST_PLUGIN_EGG_PATH)
 
+    @unittest.skip
     def test_desc(self):
         egg_path = TEST_PLUGIN_EGG_PATH
         desc(egg_path)

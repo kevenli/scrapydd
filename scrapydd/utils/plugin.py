@@ -90,25 +90,28 @@ def execute(plugin_name):
     print(output)
 
 
-def desc(egg_path):
-    try:
-        distribution = list(pkg_resources.find_distributions(egg_path))[0]
-    except StopIteration:
-        raise ValueError("Unknown or corrupt egg")
-    except IndexError:
-        raise ValueError("Unknown or corrupt egg")
+def desc(plugin_name, egg_path=None):
+    if egg_path:
+        try:
+            distribution = list(pkg_resources.find_distributions(egg_path))[0]
+            _activate_distribution(distribution)
+        except StopIteration:
+            raise ValueError("Unknown or corrupt egg")
+        except IndexError:
+            raise ValueError("Unknown or corrupt egg")
 
-    execute_entry_point = distribution.get_entry_map('scrapydd.spliderplugin')
+    #execute_entry_point = distribution.get_entry_map('scrapydd.spliderplugin')
+    entrypoint = None
+    for entrypoint in pkg_resources\
+            .iter_entry_points('scrapydd.spliderplugin'):
+        if entrypoint.name == plugin_name:
+            break
 
-    if not execute_entry_point:
+    if not entrypoint:
         sys.stderr.write('Cannot find plugin execute entrypoint')
         return sys.exit(1)
 
-    _activate_distribution(distribution)
-
-    execute_name = next(iter(execute_entry_point))
-
-    plugin_cls = execute_entry_point[execute_name].load()
+    plugin_cls = entrypoint.load()
     plugin = plugin_cls()
     output = plugin.desc()
     print(output)
@@ -229,7 +232,13 @@ def main():
                             default=None, help='output json file')
         return execute(sys.argv[1])
     elif cmd == 'desc':
-        return desc(sys.argv[1])
+        parser = argparse.ArgumentParser(description='Describe a plugin.')
+        parser.add_argument('-e', '--egg', dest='egg',
+                            required=False,
+                            default=None, help='import plugin egg package.')
+        parser.add_argument('plugin_name')
+        args = parser.parse_args()
+        return desc(args.plugin_name, args.egg)
     elif cmd == 'generate':
         parser = argparse.ArgumentParser()
         parser.add_argument('-o', '--output', dest='output', required=False,
