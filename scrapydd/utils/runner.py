@@ -2,6 +2,10 @@ import sys
 import os
 import pkg_resources
 import subprocess
+import logging
+from scrapy.utils.project import get_project_settings
+
+LOGGER = logging.getLogger(__name__)
 
 
 def activate_egg(eggpath):
@@ -54,16 +58,21 @@ def main(argv=None):
         ret = install_requirements(distribute)
         if ret > 0:
             sys.exit(ret)
+        settings_module = os.environ.get('SCRAPY_SETTINGS_MODULE')
+        if settings_module:
+            settings = Settings()
+            settings.setmodule(settings_module, priority='project')
+    else:
+        settings = get_project_settings()
 
-    settings_module = os.environ.get('SCRAPY_SETTINGS_MODULE')
-    if settings_module:
-        settings = Settings()
-        settings.setmodule(settings_module, priority='project')
 
-        extra_settings_module = os.environ.pop('SCRAPY_EXTRA_SETTINGS_MODULE',
-                                               None)
-        if extra_settings_module:
-            settings.setmodule(extra_settings_module, priority='project')
+
+    extra_settings_module = os.environ.pop('SCRAPY_EXTRA_SETTINGS_MODULE',
+                                           None)
+    if extra_settings_module:
+        LOGGER.info('using SCRAPY_EXTRA_SETTINGS_MODULE: %s',
+                    extra_settings_module)
+        settings.setmodule(extra_settings_module, priority='project')
 
     execute(argv=argv, settings=settings)
 
