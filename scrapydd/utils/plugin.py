@@ -167,13 +167,22 @@ def load_plugins(eggs=None):
 def perform(base_module=None, input_file=None, output_file=None, eggs=None):
     load_plugins(eggs)
     if input_file:
-        with open(input_file, 'r') as f:
-            settings = json.load(f)
+        if isinstance(input_file, str):
+            with open(input_file, 'r') as f:
+                settings = json.load(f)
+        elif isinstance(input_file, dict):
+            settings = input_file
+        else:
+            raise Exception('input_file should be dict obj or input file name')
     else:
         settings = json.loads(input())
 
-    if output_file:
-        output_stream = open(output_file, 'w')
+
+    if output_file is not None:
+        if isinstance(output_file, str):
+            output_stream = open(output_file, 'w')
+        elif hasattr(output_file, 'write'):
+            output_stream = output_file
     else:
         output_stream = sys.stdout
 

@@ -13,6 +13,7 @@ import os
 import logging
 import json
 import yaml
+import tempfile
 from argparse import ArgumentParser
 from scrapydd.workspace import SpiderSetting
 from .runner import main as runner_main
@@ -43,15 +44,13 @@ def main():
         raise Exception(f'Not supported file type : {args.file}')
 
     spider_setting = SpiderSetting.from_dict(dic)
-    plugin_settings = {}
+    plugin_settings = spider_setting.plugin_settings
     extra_requirements = spider_setting.extra_requirements
     if extra_requirements:
         for requirement in extra_requirements:
             _pip_installer(requirement)
-    with open('plugins.json', 'w') as f:
-        json.dump(plugin_settings, f)
     perform(base_module=spider_setting.base_settings_module,
-            output_file='settings.py', input_file='plugins.json')
+            output_file='settings.py', input_file=plugin_settings)
     os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = 'settings'
     output_file = spider_setting.output_file or 'items.jl'
     argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', output_file]
