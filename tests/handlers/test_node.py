@@ -324,3 +324,23 @@ class RegisterNodeHandlerSecureTest(NodeSecureTest):
 
             updated_node_key = session.query(NodeKey).get(node_key.id)
             self.assertEqual(updated_node_key.used_node_id, new_node_id)
+
+    def test_post_get_real_ip(self):
+        node_key = self.node_manager.create_node_key()
+        headers = {'Authorization': '%s %s %s' % ('HMAC',
+                                                  node_key.key,
+                                                  generate_digest(node_key.secret_key, 'POST', '/nodes/register', '',
+                                                                  ''))}
+        headers['x-real-ip'] = '1.2.3.4'
+        response = self.fetch('/nodes/register', method="POST", body="",
+                              headers=headers)
+        self.assertEqual(200, response.code)
+        new_node_id = json.loads(response.body)['id']
+        self.assertTrue(new_node_id > 0)
+        with session_scope() as session:
+            node = session.query(Node).get(new_node_id)
+            self.assertEqual(node.node_key_id, node_key.id)
+            self.assertEqual(node.client_ip, '1.2.3.4')
+
+            updated_node_key = session.query(NodeKey).get(node_key.id)
+            self.assertEqual(updated_node_key.used_node_id, new_node_id)
