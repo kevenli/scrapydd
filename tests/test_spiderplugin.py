@@ -1,7 +1,6 @@
 import os
-
+from unittest import skip
 from tornado.testing import AsyncTestCase, gen_test
-
 from scrapydd.spiderplugin import SpiderPluginManager
 from scrapydd.config import Config
 from scrapydd.models import init_database, SpiderPluginParameterDatatype
@@ -22,6 +21,7 @@ class SpiderPluginManagerTest(AsyncTestCase):
         init_database(config)
 
     @gen_test(timeout=120)
+    @skip
     def test_add_sys_plugin(self):
         target = SpiderPluginManager()
         plugin_name = 'test_plugin'
@@ -37,6 +37,7 @@ class SpiderPluginManagerTest(AsyncTestCase):
         self.assertEqual(True, enabled_parameter['required'])
 
     @gen_test(timeout=120)
+    @skip
     def test_plugin_execute(self):
         target = SpiderPluginManager()
         plugin_name = 'test_plugin'
