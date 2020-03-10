@@ -91,7 +91,8 @@ class RegisterNodeHandler(NodeBaseHandler):
         with session_scope() as session:
             tags = self.get_argument('tags', '').strip()
             tags = None if tags == '' else tags
-            remote_ip = self.request.remote_ip
+            remote_ip = self.request.headers.get('X-Real-IP',
+                                                 self.request.remote_ip)
             node_manager = self.settings.get('node_manager')
             node = node_manager.create_node(remote_ip, tags=tags,
                                             key_id=node_key.id)
