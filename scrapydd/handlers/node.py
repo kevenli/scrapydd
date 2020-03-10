@@ -130,6 +130,7 @@ class NodesHandler(NodeBaseHandler):
             with session_scope() as session:
                 node.tags = tags
                 node.isalive = True
+                node.client_ip = remote_ip
                 node.last_heartbeat = datetime.datetime.now()
                 session.add(node)
                 session.commit()

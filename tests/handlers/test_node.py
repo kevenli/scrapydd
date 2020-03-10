@@ -105,6 +105,25 @@ class NodesHandlerTest(AppTest):
         self.assertEqual(None, new_node.tags)
 
 
+    def test_register_realip(self):
+        with session_scope() as session:
+            session.query(Node).delete()
+
+        headers = {'X-Real-IP': '1.2.3.4'}
+        response = self.fetch('/nodes',
+                              method="POST", headers=headers, body="")
+
+        with session_scope() as session:
+            new_node = session.query(Node).first()
+
+        self.assertEqual(200, response.code)
+        self.assertEqual('1.2.3.4', new_node.client_ip)
+        self.assertEqual(datetime.date.today(), new_node.create_time.date())
+        self.assertEqual(datetime.date.today(), new_node.last_heartbeat.date())
+        self.assertEqual(True, new_node.isalive)
+        self.assertEqual(None, new_node.tags)
+
+
 class GetNextJobTest(NodeTest):
     def test_next_job(self):
         node_id = self.register_node()
@@ -267,6 +286,25 @@ class NodesHandlerSecureTest(NodeSecureTest):
     def test_post_without_auth(self):
         response = self.fetch('/nodes', method="POST", body="")
         self.assertEqual(403, response.code)
+
+    def test_post_real_ip(self):
+        self.node_key = self.node_manager.create_node_key()
+        res = self.fetch_secure('/nodes/register', method='POST', body='')
+        self.assertEqual(200, res.code)
+        node_id = json.loads(res.body)['id']
+
+
+        headers = {'Authorization': '%s %s %s' % ('HMAC',
+                                                  self.node_key.key,
+                                                  generate_digest(self.node_key.secret_key, 'POST', '/nodes', '', ''))}
+        headers['X-Real-IP'] = '1.2.3.4'
+        response = self.fetch('/nodes', method="POST", body="", headers=headers)
+        self.assertEqual(200, response.code)
+        new_node_id = json.loads(response.body)['id']
+        self.assertTrue(new_node_id > 0)
+        with session_scope() as session:
+            active_node = session.query(Node).get(new_node_id)
+            self.assertEqual(active_node.client_ip, '1.2.3.4')
 
 
 class RegisterNodeHandlerSecureTest(NodeSecureTest):
