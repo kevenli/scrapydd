@@ -65,8 +65,9 @@ def main():
 
         settings_stream = open(os.path.join(settings_package,
                                             settings_module+'.py'), 'w')
-        perform(base_module=spider_setting.base_settings_module,
-                output_file=settings_stream, input_file=plugin_settings)
+        if plugin_settings:
+            perform(base_module=spider_setting.base_settings_module,
+                    output_file=settings_stream, input_file=plugin_settings)
         settings_stream.close()
         sys.path.append(settings_package)
         os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = settings_module
