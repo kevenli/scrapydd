@@ -34,7 +34,7 @@ class ProjectWorkspaceTest(AsyncTestCase):
     def test_init_kill(self):
         target = ProjectWorkspace('test_project')
 
-        IOLoop.current().call_later(1, target.kill_process)
+        IOLoop.current().call_later(0.001, target.kill_process)
 
         try:
             yield target.init()
