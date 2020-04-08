@@ -5,7 +5,7 @@ docker
 requests==2.20.0
 pysyncobj>=0.2.3
 subprocess32
-scrapy
+scrapy<2.0
 service-identity
 six>=1.12
 sqlalchemy
