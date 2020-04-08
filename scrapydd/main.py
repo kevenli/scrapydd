@@ -675,7 +675,7 @@ def start_server(argv=None):
 
     init_database()
     upgrade_project_storage()
-    upgrade_project_package()
+    # upgrade_project_package()
     bind_address = config.get('bind_address')
     bind_port = config.getint('bind_port')
     try:
