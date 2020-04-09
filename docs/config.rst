@@ -41,7 +41,7 @@ Default: ``false``.
 enable_authentication
 ~~~~~~~~~~~~~~~~~~~~~
 Whether enable authentication, once this option is on, user need to login to make operation.
-Default: ``false``
+Default: ``true``
 
 https_port
 ~~~~~~~~~~~
