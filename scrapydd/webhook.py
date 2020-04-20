@@ -289,6 +289,8 @@ class WebhookDaemon():
                 'job_id': job.id
             }
             client = AsyncHTTPClient()
+            headers = {'content-type': 'application/json'}
             client.fetch(webhook_setting.value, method='POST',
+                         headers=headers,
                          body=json.dumps(payload_dict),
                          callback=self.webhook_response)
