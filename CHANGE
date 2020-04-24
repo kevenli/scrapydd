@@ -1,3 +1,18 @@
+v0.7.2:
+
+* add queue_job.settings field, each job can have its own settings now.
+* fix: check whether project.package exists first when deleting.
+* spider concurrency limit now apply on running not job creating.
+* modify job's log page's Content-Type header to 'text/plain', so it can be displayed better in browser.
+* fix "job extra_requirements" not split well may cause job fail.
+* add get job info and get job items rest api.
+* add an optional "output_file" argument to runner2.
+* runner2 support job config of YAML format now.
+* "plugin desc" command now need a "plugin_name" parameter to display specific plugin desc.
+* runner2 can load plugin settings and perform plugins according by plugin settings.
+* update node's real-ip when registering and activating.
+* "plugin" command no not support input from STDIN now.
+
 v0.7.1:
 
 * Fix `scrapy package` command error.
