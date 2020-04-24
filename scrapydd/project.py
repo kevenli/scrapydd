@@ -21,7 +21,7 @@ class ProjectManager:
         self.scheduler_manager = scheduler_manager
 
     @coroutine
-    def upload_project(self, user_id, project_name, version, eggf):
+    def upload_project(self, user, project_name, version, eggf):
         runner = self.runner_factory.build(eggf)
         try:
             spiders = yield runner.list()
@@ -37,6 +37,7 @@ class ProjectManager:
                 project = Project()
                 project.name = project_name
                 project.storage_version = self.default_project_storage_version
+                project.owner_id = user.id
             project.version = version
             session.add(project)
             package = project.package
