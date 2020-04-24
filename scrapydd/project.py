@@ -37,7 +37,8 @@ class ProjectManager:
                 project = Project()
                 project.name = project_name
                 project.storage_version = self.default_project_storage_version
-                project.owner_id = user.id
+                if user:
+                    project.owner_id = user.id
             project.version = version
             session.add(project)
             package = project.package
