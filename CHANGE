@@ -12,6 +12,8 @@ v0.7.2:
 * runner2 can load plugin settings and perform plugins according by plugin settings.
 * update node's real-ip when registering and activating.
 * "plugin" command no not support input from STDIN now.
+* settings: "enable_authentication" defaults to TRUE
+* requirements use scrapydd < 2.0
 
 v0.7.1:
 
