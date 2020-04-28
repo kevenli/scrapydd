@@ -142,7 +142,11 @@ class SpiderListHandler(AppBaseHandler):
     @authenticated
     def get(self):
         session = Session()
-        spiders = session.query(Spider)
+        projects = self.project_manager.get_projects(session, self.current_user)
+        spiders = []
+        for project in projects:
+            for spider in project.spiders:
+                spiders.append(spider)
         self.render("spiderlist.html", spiders=spiders)
         session.close()
 
