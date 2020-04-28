@@ -13,6 +13,7 @@ from scrapydd.models import session_scope, User, Project, Spider
 from scrapydd.security import CookieAuthenticationProvider, HmacAuthorize
 from scrapydd.security import BasicAuthentication
 from scrapydd.exceptions import ProjectNotFound, SpiderNotFound
+from scrapydd.project import ProjectManager
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +60,10 @@ class AppBaseHandler(tornado.web.RequestHandler):
         if not spider:
             raise SpiderNotFound()
         return spider
+
+    @property
+    def project_manager(self) -> ProjectManager:
+        return self.application.settings.get('project_manager')
 
 
 class RestJsonEncoder(json.JSONEncoder):

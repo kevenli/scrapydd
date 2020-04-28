@@ -61,12 +61,11 @@ class ProjectList(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
     def get(self):
-        session = Session()
-        projects = session.query(Project)
+        with session_scope() as session:
+            projects = self.project_manager.get_projects(session, self.current_user)
 
-        response_data = {'projects': {'id': item.id for item in projects}}
-        self.write(response_data)
-        session.close()
+            response_data = {'projects': [{'id': item.id} for item in projects]}
+            self.write(response_data)
 
 
 class SpiderInstanceHandler2(AppBaseHandler):

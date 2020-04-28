@@ -1,8 +1,9 @@
 import logging
+from typing import List
 from tornado.gen import coroutine, Return
 from scrapydd.workspace import RunnerFactory
 from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trigger, SpiderExecutionQueue, \
-    SpiderParameter
+    SpiderParameter, Session, User
 from scrapydd.storage import ProjectStorage
 
 
@@ -87,4 +88,14 @@ class ProjectManager:
             project_storage.delete_egg()
             session.delete(project.package)
             session.delete(project)
+
+    def get_projects(self, session: Session, user: User) -> List[Project]:
+        """
+        Get projects by owner.
+        :param session: pass a session from caller.
+        :param user:    the owner
+        :return: list of Project
+        """
+        projects = session.query(Project).filter_by(owner=user)
+        return projects
 

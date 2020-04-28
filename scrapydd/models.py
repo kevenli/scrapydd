@@ -60,6 +60,7 @@ class Project(Base):
     version = Column(String(length=50))
     storage_version = Column(Integer, nullable=False)
     owner_id = Column(Integer, ForeignKey('user.id'))
+    owner = relationship('User')
 
 
 class ProjectPackage(Base):
