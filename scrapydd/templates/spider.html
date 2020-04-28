@@ -98,7 +98,7 @@
     </table>
   </div>
   <div class="tab-pane fade" id="settings" role="tabpanel" aria-labelledby="profile-tab">
-    <a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/settings">Settings</a>
+    <a href="{{ spider_url(spider) }}/settings">Settings</a>
     <table>
       {% for setting in settings %}
       <tr>

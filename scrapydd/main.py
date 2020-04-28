@@ -352,12 +352,11 @@ class SpiderSettingsHandler(AppBaseHandler):
     }
 
     @authenticated
-    def get(self, project, spider):
+    def get(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter_by(name=project).first()
-            spider = session.query(Spider) \
-                .filter_by(project_id=project.id, name=spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
+            project = spider.project
             job_settings = {
                 setting.setting_key: setting.value for setting in
                 session.query(SpiderSettings).filter_by(spider_id=spider.id)}
@@ -382,12 +381,11 @@ class SpiderSettingsHandler(AppBaseHandler):
             return self.render('spidersettings.html', **context)
 
     @authenticated
-    def post(self, project, spider):
+    def post(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter_by(name=project).first()
-            spider = session.query(Spider) \
-                .filter_by(project_id=project.id, name=spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
+            project = spider.project
 
             setting_concurrency_value = self.get_body_argument('concurrency',
                                                                '1')
@@ -487,8 +485,7 @@ class SpiderSettingsHandler(AppBaseHandler):
                 spider_parameter.value = spider_parameter_value
                 session.add(spider_parameter)
 
-            self.redirect('/projects/%s/spiders/%s' % (project.name,
-                                                       spider.name))
+            self.redirect(webui.spider_url(self, spider))
 
 
 class CACertHandler(RestBaseHandler):
