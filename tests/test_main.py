@@ -234,6 +234,6 @@ class SpiderEggHandlerTest(AppTest):
 
         self.assertIsNotNone(spider)
         self.assertIsNotNone(project)
-        response = self.fetch('/projects/%s/spiders/%s/egg' % ('test_project',
-                                                               'log_spider'))
+        response = self.fetch('/projects/%s/spiders/%s/egg' % (project.id,
+                                                               spider.id))
         self.assertEqual(200, response.code)
