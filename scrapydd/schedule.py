@@ -443,18 +443,22 @@ order by fire_time
             log_file.seek(0)
             log_raw = log_file.read()
             log_encoding = chardet.detect(log_raw)['encoding']
-            log_content = ensure_str(log_raw, log_encoding)
-            m = items_crawled_pattern.search(log_content)
-            if m:
-                historical_job.items_count = int(m.group(1))
+            try:
+                log_content = ensure_str(log_raw, log_encoding)
+                m = items_crawled_pattern.search(log_content)
+                if m:
+                    historical_job.items_count = int(m.group(1))
 
-            m = error_log_pattern.search(log_content)
-            if m and historical_job.status == JOB_STATUS_SUCCESS:
-                historical_job.status = JOB_STATUS_FAIL
-            m = warning_log_pattern.search(log_content)
-            if m and historical_job.status == JOB_STATUS_SUCCESS:
-                historical_job.status = JOB_STATUS_WARNING
-            log_file.seek(0)
+                m = error_log_pattern.search(log_content)
+                if m and historical_job.status == JOB_STATUS_SUCCESS:
+                    historical_job.status = JOB_STATUS_FAIL
+                m = warning_log_pattern.search(log_content)
+                if m and historical_job.status == JOB_STATUS_SUCCESS:
+                    historical_job.status = JOB_STATUS_WARNING
+                log_file.seek(0)
+            except UnicodeDecodeError:
+                LOGGER.warning('Cannot read unicode in log file.')
+                log_file.seek(0)
         #if items_file:
         #    historical_job.items_file = items_file
 

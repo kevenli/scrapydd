@@ -204,15 +204,10 @@ class DeleteSpiderTriggersHandler(AppBaseHandler):
 class DeleteSpiderJobHandler(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
-    def post(self, project_name, spider_name, job_id):
+    def post(self, project_id, spider_id, job_id):
         with session_scope() as session:
-            try:
-                spider = self.get_spider(session, project_name, spider_name)
-            except ProjectNotFound:
-                return self.set_status(404, 'project not found.')
-            except SpiderNotFound:
-                return self.set_status(404, 'spider not found.')
-
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
             job = session.query(HistoricalJob) \
                 .filter_by(spider_id=spider.id, id=job_id).first()
             if not job:

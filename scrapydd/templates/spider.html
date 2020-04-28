@@ -3,6 +3,8 @@
 {% include sidebars/sidebar_project.html %}
 {% end %}
 {% block content %}
+<input type="hidden" name="projectId" value="{{ spider.project.id }}" id="projectId">
+<input type="hidden" name="spiderId" value="{{ spider.id }}" id="spiderId" >
 <div class="d-sm-flex align-items-center justify-content-between mb-3 row">
   <div class="col-sm-2"><h1 class="h3 mb-0 text-gray-800">Spider {{spider.name}}</h1></div>
   <div class="col-auto">
