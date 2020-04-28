@@ -17,7 +17,8 @@ class MainHandler(AppBaseHandler):
     @authenticated
     def get(self):
         with session_scope() as session:
-            projects = list(session.query(Project).order_by(Project.name))
+            #projects = list(session.query(Project).order_by(Project.name))
+            projects = self.project_manager.get_projects(session, self.current_user)
             self.render('index.html', projects=projects)
 
 

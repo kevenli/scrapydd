@@ -5,6 +5,7 @@ from scrapydd.workspace import RunnerFactory
 from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trigger, SpiderExecutionQueue, \
     SpiderParameter, Session, User
 from scrapydd.storage import ProjectStorage
+from scrapydd.exceptions import ProjectNotFound, SpiderNotFound
 
 
 logger = logging.getLogger(__name__)
@@ -98,4 +99,15 @@ class ProjectManager:
         """
         projects = session.query(Project).filter_by(owner=user)
         return projects
+
+    def get_spider(self, session: Session, user: User, project_id, spider_id) -> Spider:
+        project = session.query(Project).filter_by(owner=user, id=project_id).first()
+        if not project:
+            raise ProjectNotFound()
+
+        spider = session.query(Spider).filter_by(project_id=project.id, id=spider_id).first()
+        if not spider:
+            return SpiderNotFound()
+
+        return spider
 

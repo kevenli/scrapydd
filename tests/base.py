@@ -67,6 +67,11 @@ class AppTest(AsyncHTTPTestCase):
         AppTest.init_project()
 
     @classmethod
+    def get_user(self):
+        with session_scope() as session:
+            return session.query(User).get(1)
+
+    @classmethod
     def init_project(self):
         project_name = 'test_project'
         version = '1.0'
@@ -79,7 +84,7 @@ class AppTest(AsyncHTTPTestCase):
         ioloop = IOLoop.current()
         with open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb') as egg_file:
             def fun():
-                AppTest.project_manager.upload_project(None, project_name, version, egg_file)
+                AppTest.project_manager.upload_project(self.get_user(), project_name, version, egg_file)
             ioloop.run_sync(fun)
 
     runner_factory = TestRunnerFactoryStub()

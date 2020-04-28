@@ -71,13 +71,11 @@ class ProjectList(AppBaseHandler):
 class SpiderInstanceHandler2(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
-    def get(self, project, spider):
+    def get(self, project_id, spider_id):
         session = Session()
-        project = session.query(Project) \
-            .filter(Project.name == project).first()
-        spider = session.query(Spider) \
-            .filter(Spider.project_id == project.id,
-                    Spider.name == spider).first()
+        spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
+        project = spider.project
+
         jobs = session.query(HistoricalJob) \
             .filter(HistoricalJob.spider_id == spider.id) \
             .order_by(desc(HistoricalJob.start_time)) \

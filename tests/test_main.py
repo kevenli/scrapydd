@@ -211,8 +211,8 @@ class SpiderInstanceHandler2Test(AppTest):
 
         self.assertIsNotNone(spider)
         self.assertIsNotNone(project)
-        response = self.fetch('/projects/%s/spiders/%s' % (project.name,
-                                                           spider.name))
+        response = self.fetch('/projects/%s/spiders/%s' % (project.id,
+                                                           spider.id))
         self.assertEqual(200, response.code)
 
 
