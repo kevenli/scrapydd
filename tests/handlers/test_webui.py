@@ -19,7 +19,7 @@ class TestDeleteProjectHandler(AppTest):
 
             headers = {'Cookie': "_xsrf=dummy"}
             post_data = {'_xsrf': 'dummy'}
-            res = self.fetch('/projects/%s/delete' % project_name, method="POST", headers=headers,
+            res = self.fetch('/projects/%s/delete' % project.id, method="POST", headers=headers,
                              body=urlencode(post_data))
             self.assertEqual(200, res.code)
 
@@ -53,7 +53,7 @@ class TestDeleteProjectHandler(AppTest):
 
 
             post_data = {'_xsrf': 'dummy'}
-            res = self.fetch('/projects/%s/delete' % project_name,
+            res = self.fetch('/projects/%s/delete' % project.id,
                              method="POST",
                              headers=headers,
                              body=urlencode(post_data))

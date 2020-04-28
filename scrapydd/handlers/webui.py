@@ -56,11 +56,9 @@ class RunSpiderHandler(AppBaseHandler):
 
 class DeleteProjectHandler(AppBaseHandler):
     @authenticated
-    def post(self, project_name):
+    def post(self, project_id):
         with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
-            if not project:
-                return self.set_status(404, 'Project not found.')
+            project = self.project_manager.get_project(session, self.current_user, project_id)
 
         project_manager = self.settings.get('project_manager')
         project_manager.delete_project(self.current_user, project_id=project.id)

@@ -7,6 +7,7 @@
 
   <input id="btnDelete" class="btn btn-danger" value="Delete" />
   <input type="hidden" id="projectName" name="projectName" value="{{project.name}}" />
+  <input type="hidden" id="projectId" name="projectId" value="{{project.id}}" />
 
   <script>
     function getCookie(name) {
@@ -16,10 +17,10 @@
 
     $(function(){
         $("#btnDelete").click(function(){
-          var project = $('#projectName').val();
+          var projectId = $('#projectId').val();
           xsrf = getCookie("_xsrf");
           $.ajax({
-              url: '/projects/' + project + '/delete',
+              url: '/projects/' + projectId + '/delete',
               method: "POST",
               headers: {'X-XSRFToken': xsrf},
               success: function(){

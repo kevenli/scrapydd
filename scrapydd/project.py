@@ -111,3 +111,9 @@ class ProjectManager:
 
         return spider
 
+    def get_project(self, session: Session, user: User, project_id) -> Project:
+        project = session.query(Project).filter_by(owner=user, id=project_id).first()
+        if not project:
+            raise ProjectNotFound()
+        return project
+
