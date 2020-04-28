@@ -182,9 +182,7 @@ class DeleteProjectHandler(RestBaseHandler):
                 session.commit()
                 for trigger in triggers:
                     self.scheduler_manager\
-                        .remove_schedule(project_name,
-                                         spider.name,
-                                         trigger_id=trigger.id)
+                        .remove_schedule(spider, trigger_id=trigger.id)
 
                 for job in spider.historical_jobs:
                     project_storage.delete_job_data(job)

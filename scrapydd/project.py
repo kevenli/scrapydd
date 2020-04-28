@@ -80,7 +80,7 @@ class ProjectManager:
                 session.query(SpiderParameter).filter_by(spider_id=spider.id).delete()
                 session.commit()
                 for trigger in triggers:
-                    self.scheduler_manager.remove_schedule(project.name, spider.name, trigger_id=trigger.id)
+                    self.scheduler_manager.remove_schedule(spider, trigger_id=trigger.id)
                 session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
                 for historical_job in spider.historical_jobs:
                     project_storage.delete_job_data(historical_job)
