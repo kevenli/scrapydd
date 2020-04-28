@@ -66,9 +66,10 @@ class DeleteProjectHandler(AppBaseHandler):
 
 class ProjectSettingsHandler(AppBaseHandler):
     @authenticated
-    def get(self, project_name):
+    def get(self, project_id):
         with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
+            project = self.project_manager.get_project(session, self.current_user,
+                                                       project_id)
 
             return self.render('projects/settings.html', project=project)
 

@@ -66,7 +66,7 @@ class RunSpiderHandlerTest(AppTest):
             project = session.query(Project).filter_by(name=project_name).first()
             if project:
                 self.project_manager.delete_project('', project.id)
-        AppTest.init_project()
+        self.project = AppTest.init_project()
 
     def test_post_insecure(self):
         project_name = 'test_project'
@@ -112,7 +112,7 @@ class ProjectSettingsHandlerTest(AppTest):
     def test_get(self):
         project_name = 'test_project'
         self.init_project()
-        url = '/projects/%s/settings' % (project_name, )
+        url = '/projects/%s/settings' % (self.project.id, )
         res = self.fetch(url, method='GET')
         self.assertEqual(200, res.code)
 

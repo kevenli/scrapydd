@@ -84,8 +84,8 @@ class AppTest(AsyncHTTPTestCase):
         ioloop = IOLoop.current()
         with open(os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg'), 'rb') as egg_file:
             def fun():
-                AppTest.project_manager.upload_project(self.get_user(), project_name, version, egg_file)
-            ioloop.run_sync(fun)
+                return AppTest.project_manager.upload_project(self.get_user(), project_name, version, egg_file)
+            self.project = ioloop.run_sync(fun)
 
     runner_factory = TestRunnerFactoryStub()
     project_storage_dir = './test_data'
