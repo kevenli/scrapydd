@@ -15,7 +15,8 @@
         </a>
         <ul>
           {% for project_spider in project.spiders %}
-            <li><a href="/projects/{{project.id}}/spiders/{{project_spider.id}}">{{project_spider.name}}</a></li>
+            <li><a href="{{ spider_url(project_spider) }}">{{project_spider.name}}</a></li>
+
           {% end %}
         </ul>
       </li>

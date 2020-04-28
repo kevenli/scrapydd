@@ -580,13 +580,8 @@ order by fire_time
             session.delete(job)
             session.commit()
 
-    def remove_schedule(self, project_name, spider_name, trigger_id):
+    def remove_schedule(self, spider, trigger_id):
         with session_scope() as session:
-            project = session.query(Project)\
-                .filter(Project.name == project_name).first()
-            spider = session.query(Spider)\
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider_name).first()
             trigger = session.query(Trigger)\
                 .filter_by(spider_id=spider.id, id=trigger_id).first()
 

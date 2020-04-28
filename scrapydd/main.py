@@ -162,30 +162,22 @@ class SpiderTriggersHandler(AppBaseHandler):
         self.scheduler_manager = scheduler_manager
 
     @authenticated
-    def get(self, project, spider):
+    def get(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project).first()
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
             context = {'spider': spider, 'errormsg': None}
             self.render("spidercreatetrigger.html", **context)
 
     @authenticated
-    def post(self, project, spider):
+    def post(self, project_id, spider_id):
         cron = self.get_argument('cron')
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project).first()
-
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
+            project = spider.project
             try:
                 self.scheduler_manager.add_schedule(project, spider, cron)
                 return self.redirect('/projects/%s/spiders/%s' % (
-                    project.name, spider.name))
+                    project.id, spider.id))
             except InvalidCronExpression:
                 context = {'spider': spider,
                            'errormsg': 'Invalid cron expression.'}
@@ -201,10 +193,12 @@ class DeleteSpiderTriggersHandler(AppBaseHandler):
         self.scheduler_manager = scheduler_manager
 
     @authenticated
-    def post(self, project_name, spider_name, trigger_id):
-        self.scheduler_manager \
-            .remove_schedule(project_name, spider_name, trigger_id)
-        self.redirect('/projects/%s/spiders/%s' % (project_name, spider_name))
+    def post(self, project_id, spider_id, trigger_id):
+        with session_scope() as session:
+            spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
+            self.scheduler_manager \
+                .remove_schedule(spider, trigger_id)
+            self.redirect('/projects/%s/spiders/%s' % (spider.project.id, spider.id))
 
 
 class DeleteSpiderJobHandler(AppBaseHandler):
@@ -569,6 +563,9 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
 
     settings['authentication_providers'] = authentication_providers
     settings['node_manager'] = node_manager
+    settings['ui_methods'] = {
+        'spider_url': webui.spider_url
+    }
 
     return tornado.web.Application([
         (r"/", webui.MainHandler),

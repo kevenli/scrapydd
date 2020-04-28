@@ -41,10 +41,11 @@ class TestDeleteProjectHandler(AppTest):
             project = session.query(Project)\
                 .filter_by(name=project_name)\
                 .first()
+            spider = list(filter(lambda x: x.name==spider_name, project.spiders))[0]
 
             post_data = {'_xsrf': 'dummy', 'cron': '0 0 0 0 0'}
-            res = self.fetch('/projects/%s/spiders/%s/triggers' % (project_name,
-                                                             spider_name),
+            res = self.fetch('/projects/%s/spiders/%s/triggers' % (project.id,
+                                                             spider.id),
                              method='POST',
                              headers=headers,
                              body=urlencode(post_data))

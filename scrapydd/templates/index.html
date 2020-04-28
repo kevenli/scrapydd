@@ -26,7 +26,7 @@
 
                     {% for spider in project.spiders[0:1]%}
                     <td>
-                        <a href="/projects/{{project.id}}/spiders/{{spider.id}}">{{spider.name}}</a>
+                        <a href="{{ spider_url(spider) }}">{{spider.name}}</a>
                      </td>
                     <td>
                         {% if spider.historical_jobs %}
@@ -57,7 +57,7 @@
                     {% for spider in project.spiders[1:] %}
                         <tr>
                             <td>
-                        <a href="/projects/{{project.id}}/spiders/{{spider.id}}">{{spider.name}}</a>
+                        <a href="{{ spider_url(spider) }}">{{spider.name}}</a>
                             </td>
                             <td>
                                 {% if spider.historical_jobs %}

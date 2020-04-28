@@ -137,3 +137,7 @@ class GetAllPluginsHandler(AppBaseHandler):
     def get(self):
         spider_plugin_manager = self.settings.get('spider_plugin_manager')
         plugins = spider_plugin_manager.get_all_plugins()
+
+
+def spider_url(handler, spider, *args):
+    return '/projects/%s/spiders/%s' % (spider.project.id, spider.id)
