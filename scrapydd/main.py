@@ -287,13 +287,10 @@ class ItemsFileHandler(AppBaseHandler):
 class SpiderWebhookHandler(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
-    def get(self, project_name, spider_name):
+    def get(self, project_id, spider_id):
         session = Session()
-        project = session.query(Project) \
-            .filter(Project.name == project_name).first()
-        spider = session.query(Spider) \
-            .filter(Spider.project_id == project.id,
-                    Spider.name == spider_name).first()
+        spider = self.project_manager.get_spider(session, self.current_user,
+                                                 project_id, spider_id)
         webhook_setting = session.query(SpiderSettings) \
             .filter_by(spider_id=spider.id,
                        setting_key='webhook_payload').first()
@@ -301,14 +298,11 @@ class SpiderWebhookHandler(AppBaseHandler):
             self.write(webhook_setting.value)
 
     @authenticated
-    def post(self, project_name, spider_name):
+    def post(self, project_id, spider_id):
         payload_url = self.get_argument('payload_url')
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project_name).first()
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider_name).first()
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
             webhook_setting = session.query(SpiderSettings) \
                 .filter_by(spider_id=spider.id,
                            setting_key='webhook_payload').first()
@@ -323,17 +317,14 @@ class SpiderWebhookHandler(AppBaseHandler):
             session.commit()
 
     @authenticated
-    def put(self, project_name, spider_name):
-        self.post(project_name, spider_name)
+    def put(self, project_id, spider_id):
+        self.post(project_id, spider_id)
 
     @authenticated
-    def delete(self, project_name, spider_name):
+    def delete(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project_name).first()
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider_name).first()
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
             session.query(SpiderSettings) \
                 .filter_by(spider_id=spider.id,
                            setting_key='webhook_payload').delete()
