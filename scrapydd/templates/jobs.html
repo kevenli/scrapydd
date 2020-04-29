@@ -46,7 +46,7 @@
                 <td>{{job.id}}</td>
                 <td></td>
                 <td>{{job.complete_time-job.start_time}}</td>
-                <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
+                <td><a href="/logs/{{job.spider.project.id}}/{{job.spider.id}}/{{job.id}}.log">Log</a></td>
             </tr>
         {% end %}
     </table>

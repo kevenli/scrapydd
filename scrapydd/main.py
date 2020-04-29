@@ -229,13 +229,14 @@ class JobsHandler(AppBaseHandler):
 
     @authenticated
     def get(self):
-        pending, running, finished = self.scheduler_manager.jobs()
-        context = {
-            'pending': pending,
-            'running': running,
-            'finished': finished,
-        }
-        self.render("jobs.html", **context)
+        with session_scope() as session:
+            pending, running, finished = self.scheduler_manager.jobs(session)
+            context = {
+                'pending': pending,
+                'running': running,
+                'finished': finished,
+            }
+            self.render("jobs.html", **context)
 
 
 class SpiderWebhookHandler(AppBaseHandler):

@@ -257,8 +257,7 @@ class SchedulerManager():
         session.commit()
         session.close()
 
-    def jobs(self):
-        session = Session()
+    def jobs(self, session):
         pending = list(session.query(SpiderExecutionQueue)
                        .filter_by(status=JOB_STATUS_PENDING))
         running = list(session.query(SpiderExecutionQueue)
@@ -266,7 +265,6 @@ class SchedulerManager():
         finished = list(session.query(HistoricalJob)
                         .order_by(desc(HistoricalJob.complete_time))
                         .slice(0, 100))
-        session.close()
         return pending, running, finished
 
     def job_start(self, jobid, pid):
