@@ -79,8 +79,10 @@ class RunSpiderHandlerTest(AppTest):
         project_name = 'test_project'
         spider_name = 'error_spider'
         self.init_project(project_name)
-
-        url = '/projects/%s/spiders/%s/run' % (project_name, spider_name)
+        with session_scope() as session:
+            project = session.query(Project).get(self.project.id)
+            spider = list(filter(lambda x: x.name == spider_name, project.spiders))[0]
+        url = '/projects/%s/spiders/%s/run' % (self.project.id, spider.id)
         headers = {'Cookie': "_xsrf=dummy"}
         post_data = {'_xsrf': 'dummy'}
         res = self.fetch(url, method='POST', headers=headers, body=urlencode(post_data))

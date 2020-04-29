@@ -30,14 +30,13 @@ $(function(){
     });
 
     $("#btnRun").click(function(){
-        var project = $('#projectName').val();
-        var spider = $('#spiderName').val();
+        var project_id = $('#projectId').val();
+        var spider_id = $('#spiderId').val();
         xsrf = getCookie("_xsrf");
         $.ajax({
-            url: '/projects/' + project + '/spiders/' + spider + '/run',
+            url: '/projects/' + project_id + '/spiders/' + spider_id + '/run',
             method: "POST",
             headers: {'X-XSRFToken': xsrf},
-            data: {'project': project, 'spider': spider},
             success: function(){
                 alert('Spider started.');
             },
