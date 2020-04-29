@@ -117,3 +117,8 @@ class ProjectManager:
             raise ProjectNotFound()
         return project
 
+    def get_project_by_name(self, session: Session, user: User, project_name) -> Project:
+        project = session.query(Project).filter_by(owner=user, name=project_name).first()
+        if not project:
+            raise ProjectNotFound()
+        return project
