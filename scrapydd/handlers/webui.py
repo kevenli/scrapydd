@@ -156,9 +156,10 @@ class ItemsFileHandler(AppBaseHandler):
 class LogsHandler(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
-    def get(self, project_name, spider_name, job_id):
+    def get(self, project_id, spider_id, job_id):
         with session_scope() as session:
-            spider = self.get_spider(session, project_name, spider_name)
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
             job = session.query(HistoricalJob).filter_by(
                 spider_id=spider.id,
                 id=job_id).first()
