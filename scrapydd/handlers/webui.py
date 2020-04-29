@@ -153,5 +153,21 @@ class ItemsFileHandler(AppBaseHandler):
             return self.write(project_storage.get_job_items(job).read())
 
 
+class LogsHandler(AppBaseHandler):
+    # pylint: disable=arguments-differ
+    @authenticated
+    def get(self, project_name, spider_name, job_id):
+        with session_scope() as session:
+            spider = self.get_spider(session, project_name, spider_name)
+            job = session.query(HistoricalJob).filter_by(
+                spider_id=spider.id,
+                id=job_id).first()
+            project_storage = ProjectStorage(
+                self.settings.get('project_storage_dir'), job.spider.project)
+            log = project_storage.get_job_log(job).read()
+            self.set_header('Content-Type', 'text/plain')
+            self.write(log)
+
+
 def spider_url(handler, spider, *args):
     return '/projects/%s/spiders/%s' % (spider.project.id, spider.id)
