@@ -1,8 +1,10 @@
 from os import path
+from io import BytesIO
 from six.moves.urllib.parse import urlencode
 from scrapydd.storage import ProjectStorage
 from scrapydd.models import session_scope, Project, Spider
 from scrapydd.poster.encode import multipart_encode
+from scrapydd.schedule import JOB_STATUS_SUCCESS
 from ..base import AppTest
 
 
@@ -144,3 +146,26 @@ class UploadProjectTest(AppTest):
             project = session.query(Project).filter_by(name=project_name).first()
             self.assertIsNotNone(project)
             self.assertEqual(project.name, project_name)
+
+
+class ItemsFileHandlerTest(AppTest):
+    def test_get(self):
+        project = self.init_project()
+        with session_scope() as session:
+            project = session.query(Project).get(self.project.id)
+            spider = list(filter(lambda x: x.name == 'error_spider', project.spiders))[0]
+        project_id = None
+        spider_id = None
+        job_id = None
+
+        job = self.scheduler_manager.add_task(project.name, spider.name)
+        items_content = b'{"id":"123"}'
+        items_file = BytesIO(items_content)
+        self.scheduler_manager.jobs_running(1, [job.id])
+
+        job.status = JOB_STATUS_SUCCESS
+        self.scheduler_manager.job_finished(job, items_file=items_file)
+
+        response = self.fetch('/items/%s/%s/%s.jl' % (project.id, spider.id, job.id))
+        self.assertEqual(200, response.code)
+

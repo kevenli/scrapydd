@@ -259,26 +259,6 @@ class LogsHandler(AppBaseHandler):
             self.write(log)
 
 
-class ItemsFileHandler(AppBaseHandler):
-    # pylint: disable=arguments-differ
-    @authenticated
-    def get(self, project_name, spider_name, job_id):
-        with session_scope() as session:
-            try:
-                spider = self.get_spider(session, project_name, spider_name)
-            except ProjectNotFound:
-                return self.set_status(404, 'project not found.')
-            except SpiderNotFound:
-                return self.set_status(404, 'spider not found.')
-            job = session.query(HistoricalJob).filter_by(
-                spider_id=spider.id,
-                id=job_id).first()
-            project_storage = ProjectStorage(
-                self.settings.get('project_storage_dir'), job.spider.project)
-            self.set_header('Content-Type', 'application/json')
-            return self.write(project_storage.get_job_items(job).read())
-
-
 class SpiderWebhookHandler(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
@@ -617,7 +597,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
          {'scheduler_manager': scheduler_manager}),
         (r'/jobs/(\w+)/egg', JobEggHandler),
         (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
-        (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
+        (r'/items/(\w+)/(\w+)/(\w+).jl', webui.ItemsFileHandler),
         (r'/ca.crt', CACertHandler),
         (r'/static/(.*)', tornado.web.StaticFileHandler,
          {'path': os.path.join(os.path.dirname(__file__), 'static')}),

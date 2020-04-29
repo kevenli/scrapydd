@@ -6,6 +6,7 @@ from tornado import gen
 from .base import AppBaseHandler
 from scrapydd.schedule import JobRunning
 from scrapydd.models import Project, Spider, session_scope, SpiderExecutionQueue, Trigger, SpiderParameter
+from scrapydd.models import HistoricalJob
 from scrapydd.storage import ProjectStorage
 from scrapydd.workspace import ProcessFailed, InvalidProjectEgg
 
@@ -132,6 +133,24 @@ class GetAllPluginsHandler(AppBaseHandler):
     def get(self):
         spider_plugin_manager = self.settings.get('spider_plugin_manager')
         plugins = spider_plugin_manager.get_all_plugins()
+
+
+class ItemsFileHandler(AppBaseHandler):
+    # pylint: disable=arguments-differ
+    @authenticated
+    def get(self, project_id, spider_id, job_id):
+        with session_scope() as session:
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
+            job = session.query(HistoricalJob).filter_by(
+                spider_id=spider.id,
+                id=job_id).first()
+            if not job:
+                return self.set_status(404, 'object not found.')
+            project_storage = ProjectStorage(
+                self.settings.get('project_storage_dir'), job.spider.project)
+            self.set_header('Content-Type', 'application/json')
+            return self.write(project_storage.get_job_items(job).read())
 
 
 def spider_url(handler, spider, *args):

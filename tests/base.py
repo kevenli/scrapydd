@@ -92,6 +92,7 @@ class AppTest(AsyncHTTPTestCase):
 
     runner_factory = TestRunnerFactoryStub()
     project_storage_dir = './test_data'
+    os.environ['SCRAPYDD_PROJECT_STORAGE_DIR'] = './test_data'
     default_project_storage_version = 2
     project_manager = ProjectManager(runner_factory, project_storage_dir, default_project_storage_version)
     scheduler_manager = None
@@ -99,7 +100,7 @@ class AppTest(AsyncHTTPTestCase):
     def get_app(self):
         config = Config()
         if self.scheduler_manager is None:
-            self.scheduler_manager = SchedulerManager(Config())
+            self.scheduler_manager = SchedulerManager(config)
         self.scheduler_manager.init()
         node_manager = NodeManager(self.scheduler_manager)
         node_manager.init()
