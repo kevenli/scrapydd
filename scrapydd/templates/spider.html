@@ -117,7 +117,7 @@
       <tr>
         <td>{{trigger.cron_pattern}}</td>
         <td>
-          <form action="{{ spider_url(project_spider) }}/triggers/{{trigger.id}}/delete"
+          <form action="{{ spider_url(spider) }}/triggers/{{trigger.id}}/delete"
                 method="post">
             {% module xsrf_form_html() %}
             <button value="X">X</button>
@@ -126,7 +126,7 @@
       </tr>
       {% end %}
     </table>
-    <div><a href="{{ spider_url(project_spider) }}/triggers">Create Trigger</a>
+    <div><a href="{{ spider_url(spider) }}/triggers">Create Trigger</a>
     </div>
   <div class="tab-pane fade" id="webhook" role="tabpanel">
     {%if webhook_jobs%}
