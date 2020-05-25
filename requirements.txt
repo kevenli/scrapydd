@@ -5,12 +5,12 @@ docker
 requests==2.20.0
 pysyncobj>=0.2.3
 subprocess32
-scrapy<2.0
+scrapy
 service-identity
 six>=1.12
 sqlalchemy
 sqlalchemy-migrate
-tornado>=4.4.2,<5.0
+tornado>=6.0,<7.0
 virtualenv
 w3lib
 pyaml

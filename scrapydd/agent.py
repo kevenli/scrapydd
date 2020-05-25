@@ -92,6 +92,10 @@ def run(argv=None):
 default: scrapydd-agent.pid')
     opts, args = parser.parse_args(argv)
 
+    import asyncio
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     pidfile = opts.pidfile or 'scrapydd-agent.pid'
 
     if opts.register:

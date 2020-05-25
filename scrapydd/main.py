@@ -697,6 +697,10 @@ def start_server(argv=None):
 def run(argv=None):
     if argv is None:
         argv = sys.argv
+
+    import asyncio
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     parser = OptionParser(prog='scrapydd server')
     parser.add_option('--daemon', action='store_true',
                       help='run scrapydd server in daemon mode')
