@@ -1,0 +1,21 @@
+{% extends "../base_sidebar.html" %}
+{% block sidebar %}
+{% include '../sidebars/sidebar_project.html' %}
+{% end %}
+{% block content %}
+  <h1>Project: {{project.name}}</h1>
+  <form method="post" enctype="multipart/form-data">
+      {% module xsrf_form_html() %}
+      <div>
+          <label>version</label>
+          <input id="version" name="version" />
+      </div>
+      <div>
+          <label>egg</label>
+          <input id="egg" name="egg" type="file" />
+      </div>
+      <div>
+          <input type="submit" />
+      </div>
+  </form>
+{% end %}

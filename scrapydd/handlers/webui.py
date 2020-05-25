@@ -71,6 +71,29 @@ class ProjectSettingsHandler(AppBaseHandler):
             return self.render('projects/settings.html', project=project)
 
 
+class ProjectPackageHandler(AppBaseHandler):
+    @authenticated
+    def get(self, project_id):
+        with session_scope() as session:
+            project = self.project_manager.get_project(session, self.current_user,
+                                                       project_id)
+
+            return self.render('projects/package.html', project=project)
+
+    @authenticated
+    @gen.coroutine
+    def post(self, project_id):
+        with session_scope() as session:
+            project = self.project_manager.get_project(session, self.current_user,
+                                                       project_id)
+            version = self.get_body_argument('version')
+            eggfile = self.request.files['egg'][0]
+            eggf = BytesIO(eggfile['body'])
+            project_manager = self.settings.get('project_manager')
+            project = yield project_manager.upload_project_package(session, project, eggf, version)
+            return self.render('projects/package.html', project=project)
+
+
 class UploadProject(AppBaseHandler):
     except_project_settings = ['NEWSPIDER_MODULE',
                                'SPIDER_MODULES',
