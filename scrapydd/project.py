@@ -5,7 +5,7 @@ from scrapydd.workspace import RunnerFactory
 from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trigger, SpiderExecutionQueue, \
     SpiderParameter, Session, User
 from scrapydd.storage import ProjectStorage
-from scrapydd.exceptions import ProjectNotFound, SpiderNotFound
+from scrapydd.exceptions import ProjectNotFound, SpiderNotFound, ProjectAlreadyExists
 
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,51 @@ class ProjectManager:
             session.commit()
         raise Return(project)
 
+    def create_project(self, session, user, project_name):
+        existing_project = session.query(Project)\
+            .filter_by(owner=user, name=project_name).first()
+        if existing_project:
+            raise ProjectAlreadyExists()
+
+        project = Project()
+        project.owner = user
+        project.name = project_name
+        session.add(project)
+        session.commit()
+        session.refresh(project)
+        return project
+
+
+    async def upload_project_package(self, session, project, f_egg, version):
+        """
+        Upload a new package for an existing project.
+        :param session: Session
+        :param project: Project
+        :param f_egg: file-like obj of project egg binary
+        :param version: package version
+        :return: the project
+        """
+        runner = self.runner_factory.build(f_egg)
+        try:
+            spiders = await runner.list()
+            logger.debug('spiders: %s' % spiders)
+            project_settings_module = await runner.settings_module()
+        finally:
+            runner.clear()
+
+        package = project.package
+        if not package:
+            package = ProjectPackage()
+            package.project = project
+        package.type = 'scrapy'
+        package.settings_module = project_settings_module
+        package.spider_list = ','.join(spiders)
+        session.add(package)
+        session.flush()
+        session.refresh(project)
+        return project
+
+
     def delete_project(self, user_id, project_id):
         with session_scope() as session:
             project = session.query(Project).get(project_id)
@@ -87,7 +132,8 @@ class ProjectManager:
                     session.delete(historical_job)
                 session.delete(spider)
             project_storage.delete_egg()
-            session.delete(project.package)
+            if project.package:
+                session.delete(project.package)
             session.delete(project)
 
     def get_projects(self, session: Session, user: User) -> List[Project]:

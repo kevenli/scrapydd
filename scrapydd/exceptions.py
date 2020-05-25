@@ -18,6 +18,10 @@ class NodeExpired(Exception):
     pass
 
 
+class ProjectAlreadyExists(Exception):
+    pass
+
+
 class NodeNotFound(HTTPError):
     def __init__(self):
         super(NodeNotFound, self).__init__(404, 'Node not found.')

@@ -594,7 +594,7 @@ class RunnerFactory(object):
     def __init__(self, config):
         self._runner_type = config.get('runner_type', 'venv')
         self._docker_image = config.get('runner_docker_image', 'kevenli/scrapydd')
-        self._debug = config.getboolean('debug')
+        self._debug = config.getboolean('debug', 'false')
 
     def build(self, eggf):
         runner_type = self._runner_type
