@@ -82,7 +82,11 @@
       <tr>
         <td class="job_id">{{job.id}}</td>
         <td>{{job.start_time}}</td>
-        <td>{{job.complete_time-job.start_time}}</td>
+        <td>
+          {% if job.complete_time and job.start_time %}
+          {{job.complete_time-job.start_time}}
+          {% end %}
+        </td>
         <td><a href="/logs/{{job.spider.project.id}}/{{job.spider.id}}/{{job.id}}.log">Log</a></td>
         <td>
           {% if job.items_count %}
