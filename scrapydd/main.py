@@ -545,6 +545,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'/projects/(\w+)/delete$', webui.DeleteProjectHandler),
         (r'/projects/(\w+)/settings$', webui.ProjectSettingsHandler),
         (r'/projects/(\w+)/package$', webui.ProjectPackageHandler),
+        (r'/new/project$', webui.NewProject),
 
         (r'/profile$', profile.ProfileHomeHandler),
         (r'/profile/keys$', profile.ProfileKeysHandler),

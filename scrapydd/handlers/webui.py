@@ -193,5 +193,19 @@ class LogsHandler(AppBaseHandler):
             self.write(log)
 
 
+class NewProject(AppBaseHandler):
+    @authenticated
+    def get(self):
+        self.render('projects/new.html')
+
+    @authenticated
+    def post(self):
+        project_name = self.get_body_argument('project_name')
+        project_manager = self.settings.get('project_manager')
+        with session_scope() as session:
+            new_project = project_manager.create_project(session, self.current_user, project_name)
+            return self.redirect(f'/projects/{new_project.id}/package')
+
+
 def spider_url(handler, spider, *args):
     return '/projects/%s/spiders/%s' % (spider.project.id, spider.id)
