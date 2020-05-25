@@ -207,5 +207,15 @@ class NewProject(AppBaseHandler):
             return self.redirect(f'/projects/{new_project.id}/package')
 
 
+class ProjectInfoHandler(AppBaseHandler):
+    @authenticated
+    def get(self, project_id):
+        with session_scope() as session:
+            project_manager = self.settings.get('project_manager')
+            project = project_manager.get_project(session, self.current_user,
+                                                  project_id)
+            return self.render('projects/info.html', project=project)
+
+
 def spider_url(handler, spider, *args):
     return '/projects/%s/spiders/%s' % (spider.project.id, spider.id)

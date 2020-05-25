@@ -21,7 +21,9 @@
         </tr>
         {% for project in projects %}
             <tr>
-                <td rowspan="{{len(project.spiders) or 1}}"><strong>{{project.name}}</strong></td>
+                <td rowspan="{{len(project.spiders) or 1}}">
+                  <a href="/projects/{{ project.id }}"><strong>{{project.name}}</strong></a>
+                </td>
                 {% if project.spiders %}
 
                     {% for spider in project.spiders[0:1]%}
