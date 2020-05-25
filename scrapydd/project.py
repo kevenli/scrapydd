@@ -78,6 +78,7 @@ class ProjectManager:
         project = Project()
         project.owner = user
         project.name = project_name
+        project.storage_version = self.default_project_storage_version
         session.add(project)
         session.commit()
         session.refresh(project)
@@ -108,6 +109,9 @@ class ProjectManager:
         package.type = 'scrapy'
         package.settings_module = project_settings_module
         package.spider_list = ','.join(spiders)
+        project_storage = ProjectStorage(self.project_storage_dir, project)
+        f_egg.seek(0)
+        project_storage.put_egg(f_egg, version)
         session.add(package)
         session.flush()
 
