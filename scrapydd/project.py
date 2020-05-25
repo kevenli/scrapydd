@@ -84,7 +84,7 @@ class ProjectManager:
         return project
 
 
-    async def upload_project_package(self, session, project, f_egg, version):
+    async def upload_project_package(self, session, project, f_egg, version, auto_populate_spiders=False):
         """
         Upload a new package for an existing project.
         :param session: Session
@@ -110,6 +110,15 @@ class ProjectManager:
         package.spider_list = ','.join(spiders)
         session.add(package)
         session.flush()
+
+        if auto_populate_spiders:
+            for spider_name in spiders:
+                existing_spider = session.query(Spider).filter_by(project=project, name=spider_name).first()
+                if not existing_spider:
+                    new_spider = Spider(project=project, name=spider_name)
+                    session.add(new_spider)
+            session.commit()
+
         session.refresh(project)
         return project
 

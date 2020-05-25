@@ -90,7 +90,7 @@ class ProjectPackageHandler(AppBaseHandler):
             eggfile = self.request.files['egg'][0]
             eggf = BytesIO(eggfile['body'])
             project_manager = self.settings.get('project_manager')
-            project = yield project_manager.upload_project_package(session, project, eggf, version)
+            project = yield project_manager.upload_project_package(session, project, eggf, version, True)
             return self.render('projects/package.html', project=project)
 
 
