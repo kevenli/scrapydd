@@ -154,7 +154,8 @@ class AddVersionHandlerTestProcessFail(AppTest):
 
 class DeleteProjectHandlerTest(AppTest):
     def test_post(self):
-        project_name = 'test_project'
+        # TODO: create a project and then delete it.
+        project_name = 'DeleteProjectHandlerTest'
         postdata = {'project': project_name}
         response = self.fetch('/delproject.json', method='POST',
                               body=urlencode(postdata))

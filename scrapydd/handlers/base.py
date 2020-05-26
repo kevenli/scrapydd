@@ -9,7 +9,7 @@ import uuid
 import decimal
 import tornado.web
 import tornado.template
-from scrapydd.models import session_scope, User, Project, Spider
+from scrapydd.models import session_scope, User, Project, Spider, Session
 from scrapydd.security import CookieAuthenticationProvider, HmacAuthorize
 from scrapydd.security import BasicAuthentication
 from scrapydd.exceptions import ProjectNotFound, SpiderNotFound
@@ -22,10 +22,17 @@ BASE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
 
 class AppBaseHandler(tornado.web.RequestHandler):
     authentication_providers = [CookieAuthenticationProvider()]
+    _session = None
 
     def get_default_user(self):
-        with session_scope() as session:
-            return session.query(User).get(1)
+        return self.session.query(User).get(1)
+
+    @property
+    def session(self):
+        if self._session is None:
+            self._session = Session()
+
+        return self._session
 
     def get_current_user(self):
         if not self.settings.get('enable_authentication', False):
@@ -39,8 +46,8 @@ class AppBaseHandler(tornado.web.RequestHandler):
 
         if not username:
             return None
-        with session_scope() as session:
-            return session.query(User).filter_by(username=username).first()
+
+        return self.session.query(User).filter_by(username=username).first()
 
     def data_received(self, chunk):
         pass
@@ -64,6 +71,12 @@ class AppBaseHandler(tornado.web.RequestHandler):
     @property
     def project_manager(self) -> ProjectManager:
         return self.application.settings.get('project_manager')
+
+    def on_finish(self):
+        if self._session:
+            self._session.commit()
+            self._session.close()
+            self._session = None
 
 
 class RestJsonEncoder(json.JSONEncoder):
