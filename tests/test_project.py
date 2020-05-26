@@ -82,7 +82,7 @@ class ProjectUploadPackageTest(AsyncTestCase, ProjectManagerTest):
         user = self.user
         project_name = 'test_upload_project'
         projects = target.get_projects(session, user)
-        version = 1
+        version = '1'
         try:
             existing_project = next(filter(lambda x: x.name == project_name, projects))
             target.delete_project(user.id, existing_project.id)
