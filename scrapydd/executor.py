@@ -517,7 +517,8 @@ class TaskExecutor:
                 self._runner = None
 
     def kill(self):
-        self._f_output.write("Received a kill command, stopping spider.")
+        if not self._f_output.closed:
+            self._f_output.write("Received a kill command, stopping spider.")
         self._runner.kill()
 
 
