@@ -272,6 +272,13 @@ class WebhookDaemon():
     def webhook_response(self, response):
         logger.info('Webhook response, status: %s', response.code)
 
+    def webhook_callback(self, future):
+        try:
+            response = future.result()
+            self.webhook_response(response)
+        except Exception as ex:
+            logger.error(ex)
+
     def on_spider_complete(self, job, items_file):
         with session_scope() as session:
             spider = session.query(Spider).get(job.spider_id)
@@ -292,4 +299,4 @@ class WebhookDaemon():
             future = client.fetch(webhook_setting.value, method='POST',
                                   headers=headers,
                                   body=json.dumps(payload_dict))
-            future.add_done_callback(self.webhook_response)
+            future.add_done_callback(self.webhook_callback)
