@@ -202,9 +202,8 @@ class NewProject(AppBaseHandler):
     def post(self):
         project_name = self.get_body_argument('project_name')
         project_manager = self.settings.get('project_manager')
-        with session_scope() as session:
-            new_project = project_manager.create_project(session, self.current_user, project_name)
-            return self.redirect(f'/projects/{new_project.id}/package')
+        new_project = project_manager.create_project(self.session, self.current_user, project_name)
+        return self.redirect(f'/projects/{new_project.id}/package')
 
 
 class ProjectInfoHandler(AppBaseHandler):
