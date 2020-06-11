@@ -1,0 +1,20 @@
+{% extends '../base_sidebar.html' %}
+{% block sidebar %}
+  {% include 'admin_sidebar.html' %}
+{% end sidebar %}
+{% block content %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>User</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+        <tr>
+          <td>{{user.username}}</td>
+        </tr>
+      {% end %}
+    </tbody>
+  </table>
+{% end %}
