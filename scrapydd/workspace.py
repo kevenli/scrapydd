@@ -581,7 +581,7 @@ class DockerRunner(object):
             return
         if self._container:
             self._container.remove()
-        del self._container
+            del self._container
         if os.path.exists(self._work_dir):
             shutil.rmtree(self._work_dir)
 
