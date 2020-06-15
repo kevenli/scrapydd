@@ -6,6 +6,7 @@ from tornado import gen
 from .base import AppBaseHandler
 from scrapydd.schedule import JobRunning
 from scrapydd.models import Project, Spider, session_scope, SpiderExecutionQueue, Trigger, SpiderParameter
+from scrapydd.models import HistoricalJob
 from scrapydd.storage import ProjectStorage
 from scrapydd.workspace import ProcessFailed, InvalidProjectEgg
 
@@ -17,7 +18,8 @@ class MainHandler(AppBaseHandler):
     @authenticated
     def get(self):
         with session_scope() as session:
-            projects = list(session.query(Project).order_by(Project.name))
+            #projects = list(session.query(Project).order_by(Project.name))
+            projects = self.project_manager.get_projects(session, self.current_user)
             self.render('index.html', projects=projects)
 
 
@@ -27,17 +29,13 @@ class RunSpiderHandler(AppBaseHandler):
         self.scheduler_manager = scheduler_manager
 
     @authenticated
-    def post(self, project_name, spider_name):
+    def post(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
-            if not project:
-                return self.set_status(404, 'project not found.')
-
-            spider = session.query(Spider).filter_by(name=spider_name, project_id = project.id).first()
-            if not spider:
-                return self.set_status(404, 'spider not found.')
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
             try:
-                job = self.scheduler_manager.add_task(project_name, spider_name)
+                job = self.scheduler_manager.add_task(spider.project.name,
+                                                      spider.name)
                 jobid = job.id
                 response_data = {
                     'status': 'ok',
@@ -55,11 +53,9 @@ class RunSpiderHandler(AppBaseHandler):
 
 class DeleteProjectHandler(AppBaseHandler):
     @authenticated
-    def post(self, project_name):
+    def post(self, project_id):
         with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
-            if not project:
-                return self.set_status(404, 'Project not found.')
+            project = self.project_manager.get_project(session, self.current_user, project_id)
 
         project_manager = self.settings.get('project_manager')
         project_manager.delete_project(self.current_user, project_id=project.id)
@@ -67,11 +63,35 @@ class DeleteProjectHandler(AppBaseHandler):
 
 class ProjectSettingsHandler(AppBaseHandler):
     @authenticated
-    def get(self, project_name):
+    def get(self, project_id):
         with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
+            project = self.project_manager.get_project(session, self.current_user,
+                                                       project_id)
 
             return self.render('projects/settings.html', project=project)
+
+
+class ProjectPackageHandler(AppBaseHandler):
+    @authenticated
+    def get(self, project_id):
+        with session_scope() as session:
+            project = self.project_manager.get_project(session, self.current_user,
+                                                       project_id)
+
+            return self.render('projects/package.html', project=project)
+
+    @authenticated
+    @gen.coroutine
+    def post(self, project_id):
+        with session_scope() as session:
+            project = self.project_manager.get_project(session, self.current_user,
+                                                       project_id)
+            version = self.get_body_argument('version')
+            eggfile = self.request.files['egg'][0]
+            eggf = BytesIO(eggfile['body'])
+            project_manager = self.settings.get('project_manager')
+            project = yield project_manager.upload_project_package(session, project, eggf, version, True)
+            return self.render('projects/package.html', project=project)
 
 
 class UploadProject(AppBaseHandler):
@@ -136,3 +156,65 @@ class GetAllPluginsHandler(AppBaseHandler):
     def get(self):
         spider_plugin_manager = self.settings.get('spider_plugin_manager')
         plugins = spider_plugin_manager.get_all_plugins()
+
+
+class ItemsFileHandler(AppBaseHandler):
+    # pylint: disable=arguments-differ
+    @authenticated
+    def get(self, project_id, spider_id, job_id):
+        with session_scope() as session:
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
+            job = session.query(HistoricalJob).filter_by(
+                spider_id=spider.id,
+                id=job_id).first()
+            if not job:
+                return self.set_status(404, 'object not found.')
+            project_storage = ProjectStorage(
+                self.settings.get('project_storage_dir'), job.spider.project)
+            self.set_header('Content-Type', 'application/json')
+            return self.write(project_storage.get_job_items(job).read())
+
+
+class LogsHandler(AppBaseHandler):
+    # pylint: disable=arguments-differ
+    @authenticated
+    def get(self, project_id, spider_id, job_id):
+        with session_scope() as session:
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
+            job = session.query(HistoricalJob).filter_by(
+                spider_id=spider.id,
+                id=job_id).first()
+            project_storage = ProjectStorage(
+                self.settings.get('project_storage_dir'), job.spider.project)
+            log = project_storage.get_job_log(job).read()
+            self.set_header('Content-Type', 'text/plain')
+            self.write(log)
+
+
+class NewProject(AppBaseHandler):
+    @authenticated
+    def get(self):
+        self.render('projects/new.html')
+
+    @authenticated
+    def post(self):
+        project_name = self.get_body_argument('project_name')
+        project_manager = self.settings.get('project_manager')
+        new_project = project_manager.create_project(self.session, self.current_user, project_name)
+        return self.redirect(f'/projects/{new_project.id}/package')
+
+
+class ProjectInfoHandler(AppBaseHandler):
+    @authenticated
+    def get(self, project_id):
+        with session_scope() as session:
+            project_manager = self.settings.get('project_manager')
+            project = project_manager.get_project(session, self.current_user,
+                                                  project_id)
+            return self.render('projects/info.html', project=project)
+
+
+def spider_url(handler, spider, *args):
+    return '/projects/%s/spiders/%s' % (spider.project.id, spider.id)

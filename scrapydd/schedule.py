@@ -257,8 +257,7 @@ class SchedulerManager():
         session.commit()
         session.close()
 
-    def jobs(self):
-        session = Session()
+    def jobs(self, session):
         pending = list(session.query(SpiderExecutionQueue)
                        .filter_by(status=JOB_STATUS_PENDING))
         running = list(session.query(SpiderExecutionQueue)
@@ -266,7 +265,6 @@ class SchedulerManager():
         finished = list(session.query(HistoricalJob)
                         .order_by(desc(HistoricalJob.complete_time))
                         .slice(0, 100))
-        session.close()
         return pending, running, finished
 
     def job_start(self, jobid, pid):
@@ -443,18 +441,22 @@ order by fire_time
             log_file.seek(0)
             log_raw = log_file.read()
             log_encoding = chardet.detect(log_raw)['encoding']
-            log_content = ensure_str(log_raw, log_encoding)
-            m = items_crawled_pattern.search(log_content)
-            if m:
-                historical_job.items_count = int(m.group(1))
+            try:
+                log_content = ensure_str(log_raw, log_encoding)
+                m = items_crawled_pattern.search(log_content)
+                if m:
+                    historical_job.items_count = int(m.group(1))
 
-            m = error_log_pattern.search(log_content)
-            if m and historical_job.status == JOB_STATUS_SUCCESS:
-                historical_job.status = JOB_STATUS_FAIL
-            m = warning_log_pattern.search(log_content)
-            if m and historical_job.status == JOB_STATUS_SUCCESS:
-                historical_job.status = JOB_STATUS_WARNING
-            log_file.seek(0)
+                m = error_log_pattern.search(log_content)
+                if m and historical_job.status == JOB_STATUS_SUCCESS:
+                    historical_job.status = JOB_STATUS_FAIL
+                m = warning_log_pattern.search(log_content)
+                if m and historical_job.status == JOB_STATUS_SUCCESS:
+                    historical_job.status = JOB_STATUS_WARNING
+                log_file.seek(0)
+            except UnicodeDecodeError:
+                LOGGER.warning('Cannot read unicode in log file.')
+                log_file.seek(0)
         #if items_file:
         #    historical_job.items_file = items_file
 
@@ -580,13 +582,8 @@ order by fire_time
             session.delete(job)
             session.commit()
 
-    def remove_schedule(self, project_name, spider_name, trigger_id):
+    def remove_schedule(self, spider, trigger_id):
         with session_scope() as session:
-            project = session.query(Project)\
-                .filter(Project.name == project_name).first()
-            spider = session.query(Spider)\
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider_name).first()
             trigger = session.query(Trigger)\
                 .filter_by(spider_id=spider.id, id=trigger_id).first()
 

@@ -66,3 +66,14 @@ class AdminPluginsHandler(AppBaseHandler):
         spider_plugin_manager = self.settings.get('spider_plugin_manager')
         plugins = spider_plugin_manager.get_all_plugins()
         self.render('admin/spiderplugins.html', plugins=plugins)
+
+
+class AdminUsersHandler(AppBaseHandler):
+    @authenticated
+    def get(self):
+        if not self.current_user.is_admin:
+            return self.set_status(403, "No permission")
+
+        session = self.session
+        users = session.query(User).all()
+        self.render('admin/users.html', users=users)

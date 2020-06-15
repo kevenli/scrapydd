@@ -59,6 +59,8 @@ class Project(Base):
     name = Column(String(length=50))
     version = Column(String(length=50))
     storage_version = Column(Integer, nullable=False)
+    owner_id = Column(Integer, ForeignKey('user.id'))
+    owner = relationship('User')
 
 
 class ProjectPackage(Base):

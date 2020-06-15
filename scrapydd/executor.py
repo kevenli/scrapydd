@@ -46,13 +46,12 @@ class NodeAsyncHTTPClient:
         self.node_id = None
         if io_loop is None:
             io_loop = IOLoop.current()
-        self.inner_client = AsyncHTTPClient(io_loop=io_loop,
-                                            force_instance=force_instance,
+        self.inner_client = AsyncHTTPClient(force_instance=force_instance,
                                             **kwargs)
 
-    def fetch(self, request, callback=None, raise_error=True, **kwargs):
+    def fetch(self, request):
         if not isinstance(request, HTTPRequest):
-            request = HTTPRequest(url=request, **kwargs)
+            request = HTTPRequest(url=request)
         if self.key and self.secret_key:
             parsed_url = urlparse(request.url)
             path = parsed_url.path
@@ -66,8 +65,7 @@ class NodeAsyncHTTPClient:
         if self.node_id:
             request.headers['X-Dd-Nodeid'] = str(self.node_id)
 
-        return self.inner_client.fetch(request, callback=callback,
-                                       raise_error=raise_error, **kwargs)
+        return self.inner_client.fetch(request)
 
     @coroutine
     def node_online(self, tags):
@@ -389,7 +387,7 @@ class Executor:
         request = HTTPRequest(url, method='POST', headers=headers,
                               body_producer=body_producer)
         client = self.httpclient
-        future = client.fetch(request, raise_error=False)
+        future = client.fetch(request)
         self.ioloop.add_future(future, self.complete_task_done(task_executor,
                                                                log_file,
                                                                items_file))
@@ -519,7 +517,8 @@ class TaskExecutor:
                 self._runner = None
 
     def kill(self):
-        self._f_output.write("Received a kill command, stopping spider.")
+        if not self._f_output.closed:
+            self._f_output.write("Received a kill command, stopping spider.")
         self._runner.kill()
 
 

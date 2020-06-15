@@ -61,24 +61,21 @@ class ProjectList(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
     def get(self):
-        session = Session()
-        projects = session.query(Project)
+        with session_scope() as session:
+            projects = self.project_manager.get_projects(session, self.current_user)
 
-        response_data = {'projects': {'id': item.id for item in projects}}
-        self.write(response_data)
-        session.close()
+            response_data = {'projects': [{'id': item.id} for item in projects]}
+            self.write(response_data)
 
 
 class SpiderInstanceHandler2(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
-    def get(self, project, spider):
+    def get(self, project_id, spider_id):
         session = Session()
-        project = session.query(Project) \
-            .filter(Project.name == project).first()
-        spider = session.query(Spider) \
-            .filter(Spider.project_id == project.id,
-                    Spider.name == spider).first()
+        spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
+        project = spider.project
+
         jobs = session.query(HistoricalJob) \
             .filter(HistoricalJob.spider_id == spider.id) \
             .order_by(desc(HistoricalJob.start_time)) \
@@ -128,13 +125,10 @@ class SpiderEggHandler(AppBaseHandler):
 class ProjectSpiderEggHandler(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
-    def get(self, project, spider):
+    def get(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project).first()
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
+            project = spider.project
             project_storage = ProjectStorage(
                 self.settings.get('project_storage_dir'),
                 project)
@@ -148,7 +142,11 @@ class SpiderListHandler(AppBaseHandler):
     @authenticated
     def get(self):
         session = Session()
-        spiders = session.query(Spider)
+        projects = self.project_manager.get_projects(session, self.current_user)
+        spiders = []
+        for project in projects:
+            for spider in project.spiders:
+                spiders.append(spider)
         self.render("spiderlist.html", spiders=spiders)
         session.close()
 
@@ -164,30 +162,22 @@ class SpiderTriggersHandler(AppBaseHandler):
         self.scheduler_manager = scheduler_manager
 
     @authenticated
-    def get(self, project, spider):
+    def get(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project).first()
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
             context = {'spider': spider, 'errormsg': None}
             self.render("spidercreatetrigger.html", **context)
 
     @authenticated
-    def post(self, project, spider):
+    def post(self, project_id, spider_id):
         cron = self.get_argument('cron')
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project).first()
-
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
+            project = spider.project
             try:
                 self.scheduler_manager.add_schedule(project, spider, cron)
                 return self.redirect('/projects/%s/spiders/%s' % (
-                    project.name, spider.name))
+                    project.id, spider.id))
             except InvalidCronExpression:
                 context = {'spider': spider,
                            'errormsg': 'Invalid cron expression.'}
@@ -203,24 +193,21 @@ class DeleteSpiderTriggersHandler(AppBaseHandler):
         self.scheduler_manager = scheduler_manager
 
     @authenticated
-    def post(self, project_name, spider_name, trigger_id):
-        self.scheduler_manager \
-            .remove_schedule(project_name, spider_name, trigger_id)
-        self.redirect('/projects/%s/spiders/%s' % (project_name, spider_name))
+    def post(self, project_id, spider_id, trigger_id):
+        with session_scope() as session:
+            spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
+            self.scheduler_manager \
+                .remove_schedule(spider, trigger_id)
+            self.redirect('/projects/%s/spiders/%s' % (spider.project.id, spider.id))
 
 
 class DeleteSpiderJobHandler(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
-    def post(self, project_name, spider_name, job_id):
+    def post(self, project_id, spider_id, job_id):
         with session_scope() as session:
-            try:
-                spider = self.get_spider(session, project_name, spider_name)
-            except ProjectNotFound:
-                return self.set_status(404, 'project not found.')
-            except SpiderNotFound:
-                return self.set_status(404, 'spider not found.')
-
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
             job = session.query(HistoricalJob) \
                 .filter_by(spider_id=spider.id, id=job_id).first()
             if not job:
@@ -242,66 +229,23 @@ class JobsHandler(AppBaseHandler):
 
     @authenticated
     def get(self):
-        pending, running, finished = self.scheduler_manager.jobs()
-        context = {
-            'pending': pending,
-            'running': running,
-            'finished': finished,
-        }
-        self.render("jobs.html", **context)
-
-
-class LogsHandler(AppBaseHandler):
-    # pylint: disable=arguments-differ
-    @authenticated
-    def get(self, project_name, spider_name, job_id):
         with session_scope() as session:
-            try:
-                spider = self.get_spider(session, project_name, spider_name)
-            except ProjectNotFound:
-                return self.set_status(404, 'project not found.')
-            except SpiderNotFound:
-                return self.set_status(404, 'spider not found.')
-            job = session.query(HistoricalJob).filter_by(
-                spider_id=spider.id,
-                id=job_id).first()
-            project_storage = ProjectStorage(
-                self.settings.get('project_storage_dir'), job.spider.project)
-            log = project_storage.get_job_log(job).read()
-            self.set_header('Content-Type', 'text/plain')
-            self.write(log)
-
-
-class ItemsFileHandler(AppBaseHandler):
-    # pylint: disable=arguments-differ
-    @authenticated
-    def get(self, project_name, spider_name, job_id):
-        with session_scope() as session:
-            try:
-                spider = self.get_spider(session, project_name, spider_name)
-            except ProjectNotFound:
-                return self.set_status(404, 'project not found.')
-            except SpiderNotFound:
-                return self.set_status(404, 'spider not found.')
-            job = session.query(HistoricalJob).filter_by(
-                spider_id=spider.id,
-                id=job_id).first()
-            project_storage = ProjectStorage(
-                self.settings.get('project_storage_dir'), job.spider.project)
-            self.set_header('Content-Type', 'application/json')
-            return self.write(project_storage.get_job_items(job).read())
+            pending, running, finished = self.scheduler_manager.jobs(session)
+            context = {
+                'pending': pending,
+                'running': running,
+                'finished': finished,
+            }
+            self.render("jobs.html", **context)
 
 
 class SpiderWebhookHandler(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
-    def get(self, project_name, spider_name):
+    def get(self, project_id, spider_id):
         session = Session()
-        project = session.query(Project) \
-            .filter(Project.name == project_name).first()
-        spider = session.query(Spider) \
-            .filter(Spider.project_id == project.id,
-                    Spider.name == spider_name).first()
+        spider = self.project_manager.get_spider(session, self.current_user,
+                                                 project_id, spider_id)
         webhook_setting = session.query(SpiderSettings) \
             .filter_by(spider_id=spider.id,
                        setting_key='webhook_payload').first()
@@ -309,14 +253,11 @@ class SpiderWebhookHandler(AppBaseHandler):
             self.write(webhook_setting.value)
 
     @authenticated
-    def post(self, project_name, spider_name):
+    def post(self, project_id, spider_id):
         payload_url = self.get_argument('payload_url')
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project_name).first()
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider_name).first()
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
             webhook_setting = session.query(SpiderSettings) \
                 .filter_by(spider_id=spider.id,
                            setting_key='webhook_payload').first()
@@ -331,17 +272,14 @@ class SpiderWebhookHandler(AppBaseHandler):
             session.commit()
 
     @authenticated
-    def put(self, project_name, spider_name):
-        self.post(project_name, spider_name)
+    def put(self, project_id, spider_id):
+        self.post(project_id, spider_id)
 
     @authenticated
-    def delete(self, project_name, spider_name):
+    def delete(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter(Project.name == project_name).first()
-            spider = session.query(Spider) \
-                .filter(Spider.project_id == project.id,
-                        Spider.name == spider_name).first()
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
             session.query(SpiderSettings) \
                 .filter_by(spider_id=spider.id,
                            setting_key='webhook_payload').delete()
@@ -360,12 +298,11 @@ class SpiderSettingsHandler(AppBaseHandler):
     }
 
     @authenticated
-    def get(self, project, spider):
+    def get(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter_by(name=project).first()
-            spider = session.query(Spider) \
-                .filter_by(project_id=project.id, name=spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
+            project = spider.project
             job_settings = {
                 setting.setting_key: setting.value for setting in
                 session.query(SpiderSettings).filter_by(spider_id=spider.id)}
@@ -390,12 +327,11 @@ class SpiderSettingsHandler(AppBaseHandler):
             return self.render('spidersettings.html', **context)
 
     @authenticated
-    def post(self, project, spider):
+    def post(self, project_id, spider_id):
         with session_scope() as session:
-            project = session.query(Project) \
-                .filter_by(name=project).first()
-            spider = session.query(Spider) \
-                .filter_by(project_id=project.id, name=spider).first()
+            spider = self.project_manager.get_spider(session, self.current_user,
+                                                     project_id, spider_id)
+            project = spider.project
 
             setting_concurrency_value = self.get_body_argument('concurrency',
                                                                '1')
@@ -495,8 +431,7 @@ class SpiderSettingsHandler(AppBaseHandler):
                 spider_parameter.value = spider_parameter_value
                 session.add(spider_parameter)
 
-            self.redirect('/projects/%s/spiders/%s' % (project.name,
-                                                       spider.name))
+            self.redirect(webui.spider_url(self, spider))
 
 
 class CACertHandler(RestBaseHandler):
@@ -571,6 +506,9 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
 
     settings['authentication_providers'] = authentication_providers
     settings['node_manager'] = node_manager
+    settings['ui_methods'] = {
+        'spider_url': webui.spider_url
+    }
 
     return tornado.web.Application([
         (r"/", webui.MainHandler),
@@ -606,6 +544,9 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'/projects/(\w+)/spiders/(\w+)/egg', ProjectSpiderEggHandler),
         (r'/projects/(\w+)/delete$', webui.DeleteProjectHandler),
         (r'/projects/(\w+)/settings$', webui.ProjectSettingsHandler),
+        (r'/projects/(\w+)/package$', webui.ProjectPackageHandler),
+        (r'/new/project$', webui.NewProject),
+        (r'/projects/(\w+)$', webui.ProjectInfoHandler),
 
         (r'/profile$', profile.ProfileHomeHandler),
         (r'/profile/keys$', profile.ProfileKeysHandler),
@@ -614,6 +555,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'/admin$', admin.AdminHomeHandler),
         (r'^/admin/nodes$', admin.AdminNodesHandler),
         (r'^/admin/spiderplugins$', admin.AdminPluginsHandler),
+        (r'^/admin/users$', admin.AdminUsersHandler),
 
         # rest apis
         (r'^/api/projects/(\w+)/spiders/(\w+)/jobs/(\w+)', rest.GetProjectJob),
@@ -638,8 +580,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'/jobs/(\w+)/start', JobStartHandler,
          {'scheduler_manager': scheduler_manager}),
         (r'/jobs/(\w+)/egg', JobEggHandler),
-        (r'/logs/(\w+)/(\w+)/(\w+).log', LogsHandler),
-        (r'/items/(\w+)/(\w+)/(\w+).jl', ItemsFileHandler),
+        (r'/logs/(\w+)/(\w+)/(\w+).log', webui.LogsHandler),
+        (r'/items/(\w+)/(\w+)/(\w+).jl', webui.ItemsFileHandler),
         (r'/ca.crt', CACertHandler),
         (r'/static/(.*)', tornado.web.StaticFileHandler,
          {'path': os.path.join(os.path.dirname(__file__), 'static')}),
@@ -759,6 +701,10 @@ def start_server(argv=None):
 def run(argv=None):
     if argv is None:
         argv = sys.argv
+
+    import asyncio
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     parser = OptionParser(prog='scrapydd server')
     parser.add_option('--daemon', action='store_true',
                       help='run scrapydd server in daemon mode')

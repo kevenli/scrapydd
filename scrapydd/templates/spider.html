@@ -3,6 +3,8 @@
 {% include sidebars/sidebar_project.html %}
 {% end %}
 {% block content %}
+<input type="hidden" name="projectId" value="{{ spider.project.id }}" id="projectId">
+<input type="hidden" name="spiderId" value="{{ spider.id }}" id="spiderId" >
 <div class="d-sm-flex align-items-center justify-content-between mb-3 row">
   <div class="col-sm-2"><h1 class="h3 mb-0 text-gray-800">Spider {{spider.name}}</h1></div>
   <div class="col-auto">
@@ -80,11 +82,15 @@
       <tr>
         <td class="job_id">{{job.id}}</td>
         <td>{{job.start_time}}</td>
-        <td>{{job.complete_time-job.start_time}}</td>
-        <td><a href="/logs/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.log">Log</a></td>
+        <td>
+          {% if job.complete_time and job.start_time %}
+          {{job.complete_time-job.start_time}}
+          {% end %}
+        </td>
+        <td><a href="/logs/{{job.spider.project.id}}/{{job.spider.id}}/{{job.id}}.log">Log</a></td>
         <td>
           {% if job.items_count %}
-          <a href="/items/{{job.project_name}}/{{job.spider_name}}/{{job.id}}.jl">{{job.items_count}}</a>
+          <a href="/items/{{job.spider.project.id}}/{{job.spider.id}}/{{job.id}}.jl">{{job.items_count}}</a>
           {% end %}
         </td>
         <td class="{{job.status_obj.name}}">{{job.status_obj.name.upper()}}</td>
@@ -98,7 +104,7 @@
     </table>
   </div>
   <div class="tab-pane fade" id="settings" role="tabpanel" aria-labelledby="profile-tab">
-    <a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/settings">Settings</a>
+    <a href="{{ spider_url(spider) }}/settings">Settings</a>
     <table>
       {% for setting in settings %}
       <tr>
@@ -115,7 +121,7 @@
       <tr>
         <td>{{trigger.cron_pattern}}</td>
         <td>
-          <form action="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers/{{trigger.id}}/delete"
+          <form action="{{ spider_url(spider) }}/triggers/{{trigger.id}}/delete"
                 method="post">
             {% module xsrf_form_html() %}
             <button value="X">X</button>
@@ -124,7 +130,7 @@
       </tr>
       {% end %}
     </table>
-    <div><a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}/triggers">Create Trigger</a>
+    <div><a href="{{ spider_url(spider) }}/triggers">Create Trigger</a>
     </div>
   <div class="tab-pane fade" id="webhook" role="tabpanel">
     {%if webhook_jobs%}

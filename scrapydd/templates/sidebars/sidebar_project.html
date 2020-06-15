@@ -2,7 +2,7 @@
   <div class="sidebar-sticky">
     <ul class="nav flex-column">
       <li class="nav-item">
-        <a class="nav-link active" href="#">
+        <a class="nav-link active" href="/projects/{{ project.id }}">
           <span data-feather="home"></span>
           Project <span class="sr-only"></span>
           {{project.name}}
@@ -15,12 +15,16 @@
         </a>
         <ul>
           {% for project_spider in project.spiders %}
-            <li><a href="/projects/{{project.name}}/spiders/{{project_spider.name}}">{{project_spider.name}}</a></li>
+            <li><a href="{{ spider_url(project_spider) }}">{{project_spider.name}}</a></li>
+
           {% end %}
         </ul>
       </li>
       <li class="nav-item">
-        <a class="nav-link" href="/projects/{{project.name}}/settings">Settings</a>
+        <a class="nav-link" href="/projects/{{project.id}}/settings">Settings</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/projects/{{project.id}}/package">Package</a>
       </li>
     </ul>
   </div>

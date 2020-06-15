@@ -1,17 +1,24 @@
 from tornado.web import HTTPError
 
 
-class ProjectNotFound(HTTPError):
+class ObjectNotFound(HTTPError):
     def __init__(self):
-        super(ProjectNotFound, self, ).__init__(404, 'Project not found.')
+        super(ObjectNotFound, self, ).__init__(404, 'Object not found.')
 
 
-class SpiderNotFound(HTTPError):
-    def __init__(self):
-        super(SpiderNotFound, self).__init__(404, 'Spider not found.')
+class ProjectNotFound(ObjectNotFound):
+    pass
+
+
+class SpiderNotFound(ObjectNotFound):
+    pass
 
 
 class NodeExpired(Exception):
+    pass
+
+
+class ProjectAlreadyExists(Exception):
     pass
 
 

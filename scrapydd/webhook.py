@@ -9,7 +9,7 @@ from .models import SpiderSettings, Spider
 import os, os.path, shutil
 import sys
 from .exceptions import *
-from six import StringIO
+from six import StringIO, ensure_binary
 
 logger = logging.getLogger(__name__)
 
@@ -149,8 +149,7 @@ class WebhookJobExecutor():
             for row in rows:
                 # encode unicode fields
                 for key, value in row.items():
-                    if isinstance(value, unicode):
-                        row[key] = value.encode('utf8')
+                    row[key] = ensure_binary(value)
 
                 # fill all keys
                 keys = list(set(keys + row.keys()))
@@ -273,6 +272,13 @@ class WebhookDaemon():
     def webhook_response(self, response):
         logger.info('Webhook response, status: %s', response.code)
 
+    def webhook_callback(self, future):
+        try:
+            response = future.result()
+            self.webhook_response(response)
+        except Exception as ex:
+            logger.error(ex)
+
     def on_spider_complete(self, job, items_file):
         with session_scope() as session:
             spider = session.query(Spider).get(job.spider_id)
@@ -289,6 +295,8 @@ class WebhookDaemon():
                 'job_id': job.id
             }
             client = AsyncHTTPClient()
-            client.fetch(webhook_setting.value, method='POST',
-                         body=json.dumps(payload_dict),
-                         callback=self.webhook_response)
+            headers = {'content-type': 'application/json'}
+            future = client.fetch(webhook_setting.value, method='POST',
+                                  headers=headers,
+                                  body=json.dumps(payload_dict))
+            future.add_done_callback(self.webhook_callback)

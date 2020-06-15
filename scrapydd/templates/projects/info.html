@@ -1,0 +1,49 @@
+{% extends "../base_sidebar.html" %}
+{% block sidebar %}
+{% include '../sidebars/sidebar_project.html' %}
+{% end %}
+{% block content %}
+  <h1>Project: {{project.name}}</h1>
+    {% set status_labels = {'success': 'label bg-success text-white',
+                            'fail': 'label bg-danger text-white',
+                            'warning': 'label bg-warning text-dark'} %}
+  <table border="1" class="table">
+    <tr>
+        <th>Spider</th>
+        <th>Last Run</th>
+        <th>Last Status</th>
+        <th>Last Items</th>
+        <th>Triggers</th>
+    </tr>
+       {% for spider in project.spiders %}
+        <tr>
+          <td>
+              <a href="{{ spider_url(spider) }}">{{spider.name}}</a>
+           </td>
+          <td>
+              {% if spider.historical_jobs %}
+                  {{spider.historical_jobs[0].start_time}}
+              {% end %}
+          </td>
+          {% if spider.historical_jobs %}
+              {% set job = spider.historical_jobs[0] %}
+              <td class="{{status_labels[job.status_obj.name]}}">{{job.status_obj.name.upper()}}</td>
+          {% else %}
+              <td>
+            </td>
+        {% end %}
+        <td>
+            {% if spider.historical_jobs %}
+                {{spider.historical_jobs[0].items_count or ''}}
+            {% end %}
+        </td>
+        <td>
+            {% if spider.triggers %}
+                {{len(spider.triggers)}}
+            {% end %}
+
+        </td>
+        </tr>
+        {% end %}
+    </table>
+{% end %}

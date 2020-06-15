@@ -2,10 +2,13 @@ import os
 from shutil import copyfileobj
 from os import path
 from glob import glob
+import logging
 from distutils.version import LooseVersion
 from shutil import copyfileobj, rmtree
 import re
 from .exceptions import EggFileNotFound
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectStorage:
@@ -88,6 +91,7 @@ class ProjectStorage:
         if item_file:
             item_file.seek(0)
             with open(items_file_path, 'wb+') as f_items:
+                logger.debug('items file saved to %s', items_file_path)
                 copyfileobj(item_file, f_items)
 
     def delete_job_data(self, job):

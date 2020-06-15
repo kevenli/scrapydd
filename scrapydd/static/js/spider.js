@@ -6,13 +6,13 @@ function getCookie(name) {
 
 $(function(){
     $("table#joblist tr td.job_id").each(function(i,e){
-        var project_name = $('#projectName').val();
-        var spider_name = $('#spiderName').val();
+        var project_id = $('#projectId').val();
+        var spider_id = $('#spiderId').val();
         var job_id = $(e).text();
         var delete_button = $("<a href='#'>").text('Delete').click(function(){
             xsrf = getCookie("_xsrf");
             $.ajax({
-                url: '/projects/' + project_name + '/spiders/' + spider_name + '/jobs/' + job_id + '/delete',
+                url: '/projects/' + project_id + '/spiders/' + spider_id + '/jobs/' + job_id + '/delete',
                 headers: {'X-XSRFToken': xsrf},
                 method: "POST",
                 success: function(){
@@ -30,14 +30,13 @@ $(function(){
     });
 
     $("#btnRun").click(function(){
-        var project = $('#projectName').val();
-        var spider = $('#spiderName').val();
+        var project_id = $('#projectId').val();
+        var spider_id = $('#spiderId').val();
         xsrf = getCookie("_xsrf");
         $.ajax({
-            url: '/projects/' + project + '/spiders/' + spider + '/run',
+            url: '/projects/' + project_id + '/spiders/' + spider_id + '/run',
             method: "POST",
             headers: {'X-XSRFToken': xsrf},
-            data: {'project': project, 'spider': spider},
             success: function(){
                 alert('Spider started.');
             },

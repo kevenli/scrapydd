@@ -21,12 +21,14 @@
         </tr>
         {% for project in projects %}
             <tr>
-                <td rowspan="{{len(project.spiders) or 1}}"><strong>{{project.name}}</strong></td>
+                <td rowspan="{{len(project.spiders) or 1}}">
+                  <a href="/projects/{{ project.id }}"><strong>{{project.name}}</strong></a>
+                </td>
                 {% if project.spiders %}
 
                     {% for spider in project.spiders[0:1]%}
                     <td>
-                        <a href="/projects/{{project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
+                        <a href="{{ spider_url(spider) }}">{{spider.name}}</a>
                      </td>
                     <td>
                         {% if spider.historical_jobs %}
@@ -57,7 +59,7 @@
                     {% for spider in project.spiders[1:] %}
                         <tr>
                             <td>
-                        <a href="/projects/{{project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
+                        <a href="{{ spider_url(spider) }}">{{spider.name}}</a>
                             </td>
                             <td>
                                 {% if spider.historical_jobs %}

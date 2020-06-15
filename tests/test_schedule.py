@@ -126,6 +126,7 @@ class ScheduleTest(AsyncHTTPTestCase):
                     session.refresh(spider)
 
                 session.commit()
+        egg_file.close()
 
 
 class SchedulerManagerTest(unittest.TestCase):
@@ -164,15 +165,16 @@ class SchedulerManagerTest(unittest.TestCase):
         with session_scope() as session:
             session.query(SpiderExecutionQueue).delete()
             session.query(HistoricalJob).delete()
+            session.commit()
 
-        new_job = target.add_task(project_name, spider_name)
-        self.assertIsNotNone(new_job)
-        self.assertIsNotNone(new_job.spider_id)
+            new_job = target.add_task(project_name, spider_name)
+            self.assertIsNotNone(new_job)
+            self.assertIsNotNone(new_job.spider_id)
 
-        pending_jobs, running_jobs, finished_job = target.jobs()
-        self.assertEqual([x.id for x in pending_jobs], [new_job.id])
-        self.assertEqual([x.id for x in running_jobs], [])
-        self.assertEqual([x.id for x in finished_job], [])
+            pending_jobs, running_jobs, finished_job = target.jobs(session)
+            self.assertEqual([x.id for x in pending_jobs], [new_job.id])
+            self.assertEqual([x.id for x in running_jobs], [])
+            self.assertEqual([x.id for x in finished_job], [])
 
     def test_add_task_settings(self):
         project_name = 'test_project'

@@ -15,7 +15,7 @@
                 {{spider.project.name}}
             </td>
             <td>
-                <a href="/projects/{{spider.project.name}}/spiders/{{spider.name}}">{{spider.name}}</a>
+                <a href="{{ spider_url(spider) }}">{{spider.name}}</a>
             </td>
         </tr>
        {% end %}

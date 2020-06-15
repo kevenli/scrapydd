@@ -17,3 +17,7 @@ cover
 items
 data
 .venv
+
+plugins
+test_data
+tests/test_project/dist

@@ -165,8 +165,8 @@ class DeleteProjectHandler(RestBaseHandler):
     def post(self):
         project_name = self.get_argument('project')
         with session_scope() as session:
-            project = session.query(Project)\
-                .filter_by(name=project_name).first()
+            project = self.project_manager.get_project_by_name(session, self.current_user,
+                                                               project_name)
             project_storage = ProjectStorage(
                 self.settings.get('project_storage_dir'), project)
             if not project:
@@ -182,9 +182,7 @@ class DeleteProjectHandler(RestBaseHandler):
                 session.commit()
                 for trigger in triggers:
                     self.scheduler_manager\
-                        .remove_schedule(project_name,
-                                         spider.name,
-                                         trigger_id=trigger.id)
+                        .remove_schedule(spider, trigger_id=trigger.id)
 
                 for job in spider.historical_jobs:
                     project_storage.delete_job_data(job)
