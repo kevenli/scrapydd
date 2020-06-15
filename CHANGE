@@ -1,3 +1,16 @@
+v0.7.3:
+
+* fix: docker runner AttributeError
+* admin users page.
+* move jobs page into admin pages.
+* relate projects to owner user, add related authorization.
+* fix: delete project error.
+* upgrade dependency tornado v6.0, scrapy v2.1
+* a creating empty project page and a separated page to upload package of existing project.
+* a project info page.
+* share database session instance in request processing context.
+* fix: io error when uploading failed job log.
+
 v0.7.2:
 
 * add queue_job.settings field, each job can have its own settings now.
