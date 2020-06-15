@@ -384,7 +384,7 @@ class VenvRunner(object):
         self._project_workspace.kill_process()
 
     def clear(self):
-        del self._project_workspace
+        self._project_workspace = None
         if os.path.exists(self._work_dir):
             shutil.rmtree(self._work_dir)
 
@@ -581,7 +581,7 @@ class DockerRunner(object):
             return
         if self._container:
             self._container.remove()
-            del self._container
+            self._container = None
         if os.path.exists(self._work_dir):
             shutil.rmtree(self._work_dir)
 
