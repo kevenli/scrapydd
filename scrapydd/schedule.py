@@ -454,7 +454,8 @@ order by fire_time
                 if m and historical_job.status == JOB_STATUS_SUCCESS:
                     historical_job.status = JOB_STATUS_WARNING
                 log_file.seek(0)
-            except UnicodeDecodeError:
+            except (UnicodeDecodeError, TypeError):
+                # use TypeError when detected log_encoding be null.
                 LOGGER.warning('Cannot read unicode in log file.')
                 log_file.seek(0)
         #if items_file:
