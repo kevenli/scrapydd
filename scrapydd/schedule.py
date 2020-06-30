@@ -329,7 +329,7 @@ where status=0
     ) as a
    on spider_execution_queue.fire_time = a.fire_time
     and spider_execution_queue.spider_id = a.spider_id
-order by fire_time
+order by a.fire_time
 """)
         for job in session.query(SpiderExecutionQueue).instances(result):
             spider_max_concurrency = 1
