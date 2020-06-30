@@ -1,17 +1,14 @@
 import os
 from sqlalchemy.ext.serializer import loads, dumps
 from scrapydd.models import init_database, engine, metadata, Session
-from scrapydd.models import Project, Spider, User
+from scrapydd import models
+from .backup import backup_tables
 
 
 def restore():
     if not os.path.exists('backup'):
         os.mkdir('backup')
-    backup_tables = [
-        User,
-        Project,
-        Spider,
-    ]
+
     session = Session()
     for table in backup_tables:
         table_name = table.__tablename__
@@ -26,5 +23,10 @@ def restore():
         session.commit()
         print(f'{loaded_objs_len} objs loaded into {table_name}.')
 
+
+class RestoreCommand:
+    def run(self):
+        init_database()
+        restore()
 
 
