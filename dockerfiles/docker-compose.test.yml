@@ -1,4 +1,4 @@
-version: '2'
+version: '3.4:'
 services:
   sut:
     image: scrapydd:develop
@@ -14,3 +14,4 @@ services:
     build:
       context: ..
       dockerfile: dockerfiles/Dockerfile.develop.py3
+      network: host
