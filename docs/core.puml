@@ -1,0 +1,49 @@
+@startuml
+
+class Project
+
+class ProjectPackage
+
+class ProjectStorage
+
+class Spider
+
+class SpiderExecutionQueue
+
+class HistoricalJob
+
+class ProjectManager{
+    create_project()
+    delete_project()
+    add_project_package()
+    remove_project_package()
+    add_spider()
+    remove_spider()
+    update_spider_settings()
+}
+
+ProjectManager *-- Project
+ProjectManager *-- Spider
+Project o-- Spider
+
+class SchedulerManager{
+    add_spider_trigger()
+    remove_spider_trigger()
+    add_job(spider, settings) : SpiderExecutionQueue
+    job_finish(job: SpiderExecutionQueue): HistoricalJob
+}
+
+SchedulerManager --> Spider
+SchedulerManager *-- SpiderExecutionQueue
+SchedulerManager *-- HistoricalJob
+
+package APScheduler{
+    class BaseScheduler
+}
+
+SchedulerManager --> BaseScheduler
+
+
+
+
+@enduml

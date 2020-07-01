@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest.mock import MagicMock
 import logging
 import datetime
 import json
@@ -777,5 +778,14 @@ class ScheduleAddTaskTest(ScheduleTest):
         self.assertEqual(actual.tag, actual2.tag)
 
 
-    class ScheduleManagerJobObserverTest(unittest.TestCase):
-        pass
+class ScheduleManagerJobObserverTest(AppTest):
+    def test_job_observer(self):
+        init_database()
+        observer = MagicMock()
+        target = SchedulerManager()
+        target.attach_job_observer(observer)
+        job = target.add_task('test_project', 'error_spider')
+        target.job_start(job.id, 0)
+        job.status = 2
+        target.job_finished(job)
+        observer.on_job_finished.assert_called_once()
