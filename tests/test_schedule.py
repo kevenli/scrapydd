@@ -780,7 +780,6 @@ class ScheduleAddTaskTest(ScheduleTest):
 
 class ScheduleManagerJobObserverTest(AppTest):
     def test_job_observer(self):
-        init_database()
         observer = MagicMock()
         target = SchedulerManager()
         target.attach_job_observer(observer)
