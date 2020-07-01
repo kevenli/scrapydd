@@ -1,15 +1,17 @@
-from tornado.ioloop import IOLoop, PeriodicCallback
 import json
 import urllib
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 import logging
-from tornado.concurrent import Future
-from .models import Session, WebhookJob, SpiderWebhook, session_scope
-from .models import SpiderSettings, Spider
 import os, os.path, shutil
 import sys
-from .exceptions import *
 from six import StringIO, ensure_binary
+from tornado.concurrent import Future
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from tornado.ioloop import IOLoop, PeriodicCallback
+from .exceptions import *
+from .models import Session, WebhookJob, SpiderWebhook, session_scope
+from .models import SpiderSettings, Spider
+from .schedule import SchedulerManager
+
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +199,7 @@ class WebhookJobExecutor():
 class WebhookDaemon():
     queue_file_dir = 'webhook'
 
-    def __init__(self, config, spider_setting_loader):
+    def __init__(self, config, spider_setting_loader, job_manager: SchedulerManager):
         logger.debug('webhookdaemon start')
         self.ioloop = IOLoop.current()
         self.poll_next_job_callback = PeriodicCallback(self.check_job, 10*1000)
@@ -206,6 +208,8 @@ class WebhookDaemon():
         self.poll_next_job_callback.start()
         self.webhook_memory_limit = config.getint('webhook_memory_limit')
         self.spider_setting_loader = spider_setting_loader
+        self.job_manager = job_manager
+        job_manager.attach_job_observer(self)
 
         if not os.path.exists(self.queue_file_dir):
             os.makedirs(self.queue_file_dir)
@@ -278,6 +282,9 @@ class WebhookDaemon():
             self.webhook_response(response)
         except Exception as ex:
             logger.error(ex)
+
+    def on_job_finished(self, job):
+        self.on_spider_complete(job, None)
 
     def on_spider_complete(self, job, items_file):
         with session_scope() as session:

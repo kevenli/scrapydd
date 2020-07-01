@@ -320,12 +320,10 @@ class ExecuteCompleteHandler(NodeBaseHandler):
         historical_job = self.scheduler_manager.job_finished(job,
                                                              log_stream,
                                                              items_stream)
-
-
-        if items_file:
-            self.webhook_daemon.on_spider_complete(historical_job,
-                                                   items_file)
-
+        #
+        # if items_file:
+        #     self.webhook_daemon.on_spider_complete(historical_job,
+        #                                            items_file)
         session.close()
         LOGGER.info('Job %s completed.', task_id)
         response_data = {'status': 'ok'}

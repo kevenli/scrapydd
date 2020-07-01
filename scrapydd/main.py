@@ -658,7 +658,7 @@ def start_server(argv=None):
     node_manager = NodeManager(scheduler_manager)
     node_manager.init()
 
-    webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
+    webhook_daemon = WebhookDaemon(config, SpiderSettingLoader(), scheduler_manager)
     webhook_daemon.init()
 
     runner_factory = RunnerFactory(config)

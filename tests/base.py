@@ -108,7 +108,7 @@ class AppTest(AsyncHTTPTestCase):
         self.scheduler_manager.init()
         node_manager = NodeManager(self.scheduler_manager)
         node_manager.init()
-        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
+        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader(), self.scheduler_manager)
         webhook_daemon.init()
         return make_app(self.scheduler_manager, node_manager, webhook_daemon, secret_key='123',
                         project_storage_dir=self.project_storage_dir,
