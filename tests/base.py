@@ -59,6 +59,10 @@ class TestRunnerFactoryStub:
 class AppTest(AsyncHTTPTestCase):
     @classmethod
     def setUpClass(cls):
+        import asyncio
+        import sys
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         if os._exists('test.db'):
             os.remove('test.db')
         config = Config(values = {'database_url': 'sqlite:///test.db'})

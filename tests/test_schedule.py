@@ -26,6 +26,10 @@ LOGGER = logging.getLogger(__name__)
 class ScheduleTest(AsyncHTTPTestCase):
     @classmethod
     def setUpClass(cls):
+        import asyncio
+        import sys
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         if os._exists('test.db'):
             os.remove('test.db')
         config = Config(values={'database_url': 'sqlite:///test.db'})
@@ -771,3 +775,7 @@ class ScheduleAddTaskTest(ScheduleTest):
         self.assertEqual(actual.update_time, actual2.update_time)
         self.assertEqual(actual.pid, actual2.pid)
         self.assertEqual(actual.tag, actual2.tag)
+
+
+    class ScheduleManagerJobObserverTest(unittest.TestCase):
+        pass

@@ -26,7 +26,7 @@ from .models import Session, Project, Spider, SpiderExecutionQueue
 from .models import init_database, HistoricalJob
 from .models import session_scope, SpiderSettings, WebhookJob
 from .models import SpiderParameter
-from .schedule import SchedulerManager
+from .schedule import SchedulerManager, build_scheduler
 from .nodes import NodeManager
 from .config import Config
 from .process import fork_processes
@@ -649,8 +649,10 @@ def start_server(argv=None):
         cluster_node = ClusterNode(task_id, config)
         cluster_sync_obj = cluster_node.sync_obj
 
+    scheduler = build_scheduler()
     scheduler_manager = SchedulerManager(config=config,
-                                         syncobj=cluster_sync_obj)
+                                         syncobj=cluster_sync_obj,
+                                         scheduler=scheduler)
     scheduler_manager.init()
 
     node_manager = NodeManager(scheduler_manager)
@@ -694,7 +696,9 @@ def start_server(argv=None):
         httpsserver = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
         httpsserver.add_sockets(https_sockets)
         LOGGER.info('starting https server on %s:%s', bind_address, https_port)
+
     ioloop = tornado.ioloop.IOLoop.current()
+    scheduler.start()
     ioloop.start()
 
 

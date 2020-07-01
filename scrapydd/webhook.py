@@ -298,5 +298,6 @@ class WebhookDaemon():
             headers = {'content-type': 'application/json'}
             future = client.fetch(webhook_setting.value, method='POST',
                                   headers=headers,
+                                  request_timeout=60,
                                   body=json.dumps(payload_dict))
             future.add_done_callback(self.webhook_callback)
