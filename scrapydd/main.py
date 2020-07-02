@@ -556,6 +556,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'^/admin/nodes$', admin.AdminNodesHandler),
         (r'^/admin/spiderplugins$', admin.AdminPluginsHandler),
         (r'^/admin/users$', admin.AdminUsersHandler),
+        (r'^/admin/users/disable$', admin.AdminDisableUserAjaxHandler),
+        (r'^/admin/users/enable$', admin.AdminEnableUserAjaxHandler),
 
         # rest apis
         (r'^/api/projects/(\w+)/spiders/(\w+)/jobs/(\w+)', rest.GetProjectJob),

@@ -1,20 +1,69 @@
 {% extends '../base_sidebar.html' %}
 {% block sidebar %}
-  {% include 'admin_sidebar.html' %}
+{% include 'admin_sidebar.html' %}
 {% end sidebar %}
 {% block content %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>User</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for user in users %}
-        <tr>
-          <td>{{user.username}}</td>
-        </tr>
-      {% end %}
-    </tbody>
-  </table>
+<table class="table">
+  <thead>
+    <tr>
+      <th>User</th>
+      <th>Last Login</th>
+      <th>Admin</th>
+      <th>Active</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr class="user-row" data-user-id="{{user.id}}">
+      <td>{{user.username}}</td>
+      <td>{{user.last_login}}</td>
+      <td>{{user.is_admin}}</td>
+      <td>{{user.is_active}}</td>
+      <td>
+        {% if user.is_active %}
+          <button type="button" class="btn btn-outline-primary btn-disable-user">Disable</button>
+        {% else %}
+          <button type="button" class="btn btn-outline-primary btn-enable-user">Enable</button>
+        {% end %}
+      </td>
+    </tr>
+    {% end %}
+  </tbody>
+</table>
+<script>
+  function getCookie(name) {
+    var r = document.cookie.match("\\b" + name + "=([^;]*)\\b");
+    return r ? r[1] : undefined;
+  }
+  $(function () {
+    $(".btn-disable-user").click(e => {
+      var user_id = $(e.target).parents("tr.user-row").attr("data-user-id");
+      var xsrf = getCookie("_xsrf");
+      $.ajax({
+        url: '/admin/users/disable',
+        headers: { 'X-XSRFToken': xsrf },
+        data: { "userid": user_id },
+        method: "POST",
+        success: function () {
+          location.reload();
+        }
+      });
+    })
+
+    $(".btn-enable-user").click(e => {
+      var user_id = $(e.target).parents("tr.user-row").attr("data-user-id");
+      var xsrf = getCookie("_xsrf");
+      $.ajax({
+        url: '/admin/users/enable',
+        headers: { 'X-XSRFToken': xsrf },
+        data: { "userid": user_id },
+        method: "POST",
+        success: function () {
+          location.reload();
+        }
+      });
+    })
+  })
+</script>
 {% end %}

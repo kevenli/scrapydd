@@ -152,6 +152,5 @@ class WebhookJobExecutorTest(AsyncHTTPTestCase):
         self.assertEqual(self.batches[2][0]['a'], '3')
 
 
-
-
-
+class TestJobFinishTriggerWebhook:
+    pass

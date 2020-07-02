@@ -77,3 +77,35 @@ class AdminUsersHandler(AppBaseHandler):
         session = self.session
         users = session.query(User).all()
         self.render('admin/users.html', users=users)
+
+
+class AdminDisableUserAjaxHandler(AppBaseHandler):
+    @authenticated
+    def post(self):
+        if not self.current_user.is_admin:
+            return self.set_status(403, "No permission")
+
+        target_user_id = int(self.get_body_argument('userid'))
+        if target_user_id == self.current_user.id:
+            return self.set_status(400, 'Cannot modify current user status')
+        session = self.session
+        user = session.query(User).get(target_user_id)
+        user.is_active = False
+        session.add(user)
+        session.commit()
+
+
+class AdminEnableUserAjaxHandler(AppBaseHandler):
+    @authenticated
+    def post(self):
+        if not self.current_user.is_admin:
+            return self.set_status(403, "No permission")
+
+        target_user_id = int(self.get_body_argument('userid'))
+        if target_user_id == self.current_user.id:
+            return self.set_status(400, 'Cannot modify current user status')
+        session = self.session
+        user = session.query(User).get(target_user_id)
+        user.is_active = True
+        session.add(user)
+        session.commit()
