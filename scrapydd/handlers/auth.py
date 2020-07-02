@@ -1,6 +1,8 @@
+from tornado.web import authenticated, HTTPError, RequestHandler
 from .base import AppBaseHandler
 from ..models import session_scope, User
 from ..security import encrypt_password
+
 
 
 class SignupHandler(AppBaseHandler):
@@ -37,3 +39,14 @@ class LogoutHandler(AppBaseHandler):
     def get(self):
         self.clear_cookie('user')
         self.redirect('/')
+
+
+def admin_required(func):
+    def wrapper(self: RequestHandler, *args, **kwargs):
+        user = self.current_user
+        if not user or not user.is_admin:
+            raise HTTPError(403)
+
+        return func(self, *args, **kwargs)
+
+    return wrapper
