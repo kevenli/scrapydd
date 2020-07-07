@@ -454,11 +454,14 @@ class DockerRunner(object):
         out.close()
 
     def _remove_container(self, container):
+        logger.debug('DockerRunner._remove_container')
         if self._container == container:
             self._container = None
 
         if not self.debug:
             container.remove()
+        else:
+            logger.debug('keep container in debug mode.')
 
     def _start_container(self, container):
         if self._container is not None:
