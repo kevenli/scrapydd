@@ -203,6 +203,26 @@ class SchedulerManager():
                 session.commit()
                 self.add_job(trigger.id, cron)
 
+    def add_spider_task(self, session, spider, settings=None):
+        executing = SpiderExecutionQueue()
+        spider_tag_vo = session.query(SpiderSettings)\
+            .filter_by(spider_id=spider.id, setting_key='tag').first()
+        spider_tag = spider_tag_vo.value if spider_tag_vo else None
+        jobid = generate_job_id()
+        executing.id = jobid
+        executing.spider_id = spider.id
+        executing.project_name = spider.project.name
+        executing.spider_name = spider.name
+        executing.fire_time = datetime.datetime.now()
+        executing.update_time = datetime.datetime.now()
+        executing.tag = spider_tag
+        if settings:
+            executing.settings = json.dumps(settings)
+        session.add(executing)
+        session.commit()
+        session.refresh(executing)
+        return executing
+
     def add_task(self, project_name, spider_name, settings=None):
         with session_scope() as session:
             project = session.query(Project)\

@@ -72,7 +72,7 @@ class SpiderInstanceHandler2(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
     def get(self, project_id, spider_id):
-        session = Session()
+        session = self.session
         spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
         project = spider.project
 

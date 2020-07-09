@@ -30,25 +30,24 @@ class RunSpiderHandler(AppBaseHandler):
 
     @authenticated
     def post(self, project_id, spider_id):
-        with session_scope() as session:
-            spider = self.project_manager.get_spider(session, self.current_user,
-                                                     project_id, spider_id)
-            try:
-                job = self.scheduler_manager.add_task(spider.project.name,
-                                                      spider.name)
-                jobid = job.id
-                response_data = {
-                    'status': 'ok',
-                    'jobid': jobid
-                }
-                self.write(json.dumps(response_data))
-            except JobRunning as e:
-                response_data = {
-                    'status': 'error',
-                    'errormsg': 'job is running with jobid %s' % e.jobid
-                }
-                self.set_status(400, 'job is running')
-                self.write(json.dumps(response_data))
+        session = self.session
+        spider = self.project_manager.get_spider(session, self.current_user,
+                                                    project_id, spider_id)
+        try:
+            job = self.scheduler_manager.add_spider_task(session, spider)
+            jobid = job.id
+            response_data = {
+                'status': 'ok',
+                'jobid': jobid
+            }
+            self.write(json.dumps(response_data))
+        except JobRunning as e:
+            response_data = {
+                'status': 'error',
+                'errormsg': 'job is running with jobid %s' % e.jobid
+            }
+            self.set_status(400, 'job is running')
+            self.write(json.dumps(response_data))
 
 
 class DeleteProjectHandler(AppBaseHandler):
