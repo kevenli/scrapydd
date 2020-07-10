@@ -177,11 +177,11 @@ class SchedulerManager():
                 LOGGER.error('Project %s not found' % project.name)
                 return
 
-        try:
-            self.add_task(project.name, spider.name)
-        except JobRunning:
-            LOGGER.info('Job for spider %s.%s already reach the '
-                        'concurrency limit' % (project.name, spider.name))
+            try:
+                self.add_spider_task(session, spider)
+            except JobRunning:
+                LOGGER.info('Job for spider %s.%s already reach the '
+                            'concurrency limit' % (project.name, spider.name))
 
     def add_schedule(self, project, spider, cron):
         with session_scope()as session:
