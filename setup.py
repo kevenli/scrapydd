@@ -34,6 +34,7 @@ setup(
             'templates/*.html',
             'migrates/migrate.cfg',
             'static/**/*',
+            'static/**/**/*',
         ],
     },
     entry_points={
