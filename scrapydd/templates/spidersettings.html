@@ -1,71 +1,94 @@
 {% extends "base.html" %}
 {% block content %}
-    <link rel="stylesheet" href="/static/css/jquery-ui.css">
-    <script language="javascript">
-        $(function(){
+<link rel="stylesheet" href="/static/css/jquery-ui.css">
+<style>
+  .SpiderParameterKey {
+    width: 40%;
+  }
+  .SpiderParameterValue {
+    width: 50%;
+  }
+</style>
+<script language="javascript">
+    $(function(){
 
-            function remove_parameter(){
-                $(this).parents('.spider_parameter_row').remove();
-             }
-            $('#btnadd').click(function(){
-                var new_parameter_section = $('<div class="spider_parameter_row">');
-                new_parameter_section.append($('<input name="SpiderParameterKey">'));
-                new_parameter_section.append($('<input name="SpiderParameterValue">'));
-                var remove_btn = $('<span class="ui-icon ui-icon-minus">')
-                remove_btn.click(remove_parameter);
-                new_parameter_section.append(remove_btn);
-                $('#spider_parameters').append(new_parameter_section);
-            });
-
-            $('.btn_remove_parameter').click(remove_parameter);
+        function remove_parameter(){
+            $(this).parents('.spider_parameter_row').remove();
+        }
+        $('#btnadd').click(function(){
+            var new_parameter_section = $('<div class="spider_parameter_row row">');
+            new_parameter_section.append($('<input class="SpiderParameterKey form-control" name="SpiderParameterKey">'));
+            new_parameter_section.append($('<input class="SpiderParameterValue form-control" name="SpiderParameterValue">'));
+            var remove_btn = $('<span class="ui-icon ui-icon-minus">')
+            remove_btn.click(remove_parameter);
+            new_parameter_section.append(remove_btn);
+            $('#spider_parameters').append(new_parameter_section);
         });
 
-    </script>
+        $('.btn_remove_parameter').click(remove_parameter);
+    });
+
+</script>
 </head>
 <body>
-    <form method="POST">
-        {% module xsrf_form_html() %}
-    <div>
-        <label>Concurrency:</label>
-        <input name="concurrency" value="{{settings['concurrency']}}">
+<form method="POST">
+  <fieldset>
+    <legend>Spider Settings</legend>
+    {% module xsrf_form_html() %}
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label">Concurrency:</label>
+      <div class="col-sm-10">
+        <input class="form-control" name="concurrency" value="{{settings['concurrency']}}">
+      </div>
+    </div>
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label">Timeout(secs):</label>
+      <div class="col-sm-10">
+        <input class="form-control" name="timeout" value="{{settings['timeout']}}">
+      </div>
+    </div>
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label">Tag:</label>
+      <div class="col-sm-10">
+        <input class="form-control" name="tag" value="{{settings['tag']}}">
+      </div>
+    </div>
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label">Webhook URL</label>
+      <div class="col-sm-10">
+        <input class="form-control" name="webhook_payload" value="{{settings.get('webhook_payload', '')}}">
+      </div>
+    </div>
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label">Webhook Batch Size</label>
+      <div class="col-sm-10">
+        <input class="form-control" name="webhook_batch_size" value="{{settings.get('webhook_batch_size', '')}}">
+      </div>
+    </div>
+    <div class="form-group row">
+      <label class="col-sm-2 col-form-label">Extra Requirements(; seperated)</label>
+      <div class="col-sm-10">
+        <input class="form-control" name="extra_requirements" value="{{settings.get('extra_requirements', '') or ''}}">
+      </div>
+    </div>
+    <div id="spider_parameters" class="col-sm-12">
+      <label>Spider Parameters:</label><span id="btnadd" class="ui-icon ui-icon-plus"></span>
+      {% for spider_parameter in spider_parameters %}
+      <div class="spider_parameter_row row">
+        <input class="form-control SpiderParameterKey" name="SpiderParameterKey" value="{{spider_parameter.parameter_key}}">
+        <input class="form-control SpiderParameterValue" name="SpiderParameterValue" value="{{spider_parameter.value}}">
+        <span class="ui-icon ui-icon-minus btn_remove_parameter"></span>
+      </div>
+      {% end %}
+      <div class="spider_parameter_row row">
+        <input class="form-control SpiderParameterKey" name="SpiderParameterKey">
+        <input class="form-control SpiderParameterValue" name="SpiderParameterValue">
+      </div>
     </div>
     <div>
-        <label>Timeout(secs):</label>
-        <input name="timeout" value="{{settings['timeout']}}">
+      <button type="submit" >保存</button>
+      <a href="{{ spider_url(spider)}}">返回</a>
     </div>
-    <div>
-        <label>Tag:</label>
-        <input name="tag" value="{{settings['tag']}}">
-    </div>
-    <div>
-        <label>Webhook Payload URL</label>
-        <input name="webhook_payload" value="{{settings.get('webhook_payload', '')}}">
-    </div>
-    <div>
-        <label>Webhook Batch Size</label>
-        <input name="webhook_batch_size" value="{{settings.get('webhook_batch_size', '')}}">
-    </div>
-    <div>
-        <label>Extra Requirements(; seperated)</label>
-        <input name="extra_requirements" value="{{settings.get('extra_requirements', '') or ''}}">
-    </div>
-    <div id="spider_parameters">
-        <label>Spider Parameters:</label><span id="btnadd" class="ui-icon ui-icon-plus"></span>
-        {% for spider_parameter in spider_parameters %}
-            <div class="spider_parameter_row">
-                <input name="SpiderParameterKey" value="{{spider_parameter.parameter_key}}">
-                <input name="SpiderParameterValue" value="{{spider_parameter.value}}">
-                <span class="ui-icon ui-icon-minus btn_remove_parameter"></span>
-            </div>
-        {% end %}
-        <div>
-            <input name="SpiderParameterKey">
-            <input name="SpiderParameterValue">
-        </div>
-    </div>
-    <div>
-        <button type="submit" >保存</button>
-        <a href="{{ spider_url(spider)}}">返回</a>
-    </div>
-    </form>
+  </fieldset>
+</form>
 {% end %}
