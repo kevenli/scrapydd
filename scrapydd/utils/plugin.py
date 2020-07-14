@@ -164,6 +164,18 @@ def load_plugins(eggs=None):
         _activate_distribution(dist)
 
 
+def load_plugin(plugin_name):
+    try:
+        entry_point = next(pkg_resources.iter_entry_points(
+            'scrapy.plugin', plugin_name))
+    except StopIteration:
+        raise Exception('Plugin %s not found.' % plugin_name)
+    plugin_name = entry_point.name
+    plugin_cls = entry_point.load()
+    plugin = plugin_cls()
+    return plugin
+
+
 def perform(base_module=None, input_file=None, output_file=None, eggs=None):
     load_plugins(eggs)
     if isinstance(input_file, str):
@@ -223,7 +235,7 @@ except NameError: %(target)s = {}
 def list_():
     load_plugins()
     for entry_point in pkg_resources.iter_entry_points(
-                                                'scrapydd.spliderplugin'):
+                                                'scrapy.plugin'):
         print(entry_point.name)
 
 
