@@ -111,7 +111,12 @@ def main():
             plugin_perform_settings(settings, plugin_name, plugin_settings)
 
     for param_key, param_value in spider_setting.spider_parameters.items():
-        settings.set(param_key, param_value)
+        if isinstance(param_value, dict):
+            existing_value = settings.getdict(param_key)
+            existing_value.update(param_value)
+            settings.set(param_key, existing_value)
+        else:
+            settings.set(param_key, param_value)
 
     execute(['scrapy', 'crawl', spider_setting.spider_name, '-o',
              output_file], settings)
