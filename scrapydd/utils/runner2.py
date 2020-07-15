@@ -21,8 +21,7 @@ import shutil
 from argparse import ArgumentParser
 from scrapydd.workspace import SpiderSetting
 from .runner import main as runner_main
-from .runner import activate_project, execute
-from .plugin import perform, _pip_installer, load_plugin
+from .plugin import perform, _pip_installer
 
 
 logger = logging.getLogger(__name__)
@@ -32,11 +31,6 @@ def randomString(stringLength=10):
     """Generate a random string of fixed length """
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(stringLength))
-
-
-def plugin_perform_settings(settings, plugin_name, plugin_settings):
-    plugin = load_plugin(plugin_name)
-    plugin.perform(settings, plugin_settings)
 
 
 def main():
@@ -60,66 +54,36 @@ def main():
         raise Exception(f'Not supported file type : {args.file}')
 
     spider_setting = SpiderSetting.from_dict(dic)
-    #plugin_settings = spider_setting.plugin_settings
+    plugin_settings = spider_setting.plugin_settings
     extra_requirements = spider_setting.extra_requirements
-    output_file = spider_setting.output_file or 'items.jl'
     if extra_requirements:
         for requirement in extra_requirements:
             _pip_installer(requirement)
-    # try:
-        # settings_module = 'settings_' + randomString(6)
-        # settings_package = tempfile.mkdtemp()
-        #
-        # settings_stream = open(os.path.join(settings_package,
-        #                                     settings_module+'.py'), 'w')
-        # if plugin_settings:
-        #     perform(base_module=spider_setting.base_settings_module,
-        #             output_file=settings_stream, input_file=plugin_settings)
-        # settings_stream.close()
-        # sys.path.append(settings_package)
-        # os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = settings_module
-        # output_file = spider_setting.output_file or 'items.jl'
-        # argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', output_file]
-        # for param_key, param_value in spider_setting.spider_parameters.items():
-        #     argv += [
-        #         '-s',
-        #         '%s=%s' % (param_key, param_value)
-        #     ]
-        # runner_main(argv)
-    #     settings = activate_project()
-    #     for plugin_name, plugin_settings in \
-    #         spider_setting.plugin_settings.items():
-    #         plugin_perform_settings(settings, plugin_name, plugin_settings)
-    #
-    #     for param_key, param_value in spider_setting.spider_parameters.items():
-    #         settings.set(param_key, param_value)
-    #
-    #     execute(['scrapy', 'crawl', spider_setting.spider_name, '-o',
-    #              output_file], settings)
-    #
-    #
-    # except SystemExit:
-    #     pass
-    # finally:
-    #     if os.path.exists(settings_package):
-    #         shutil.rmtree(settings_package)
+    try:
+        settings_module = 'settings_' + randomString(6)
+        settings_package = tempfile.mkdtemp()
 
-    settings = activate_project()
-    if spider_setting.plugin_settings:
-        for plugin_name, plugin_settings in \
-                spider_setting.plugin_settings.items():
-            plugin_perform_settings(settings, plugin_name, plugin_settings)
-
-    for param_key, param_value in spider_setting.spider_parameters.items():
-        if isinstance(param_value, dict):
-            existing_value = settings.getdict(param_key)
-            existing_value.update(param_value)
-            settings.set(param_key, existing_value)
-        else:
-            settings.set(param_key, param_value)
-
-    execute(['scrapy', 'crawl', spider_setting.spider_name, '-o',
-             output_file], settings)
+        settings_stream = open(os.path.join(settings_package,
+                                            settings_module+'.py'), 'w')
+        if plugin_settings:
+            perform(base_module=spider_setting.base_settings_module,
+                    output_file=settings_stream, input_file=plugin_settings)
+        settings_stream.close()
+        sys.path.append(settings_package)
+        os.environ['SCRAPY_EXTRA_SETTINGS_MODULE'] = settings_module
+        output_file = spider_setting.output_file or 'items.jl'
+        argv = ['scrapy', 'crawl', spider_setting.spider_name, '-o', output_file]
+        for param_key, param_value in spider_setting.spider_parameters.items():
+            argv += [
+                '-s',
+                '%s=%s' % (param_key, param_value)
+            ]
+        runner_main(argv)
+    except SystemExit:
+        pass
+    finally:
+        if os.path.exists(settings_package):
+            shutil.rmtree(settings_package)
 
 def print_usage():
     print("usage:")
