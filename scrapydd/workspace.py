@@ -151,7 +151,7 @@ class ProjectWorkspace(object):
             env['SCRAPY_EGG'] = 'spider.egg'
             # args = [self.python, '-m',
             #                  'scrapydd.utils.runner', 'list']
-            args = ['pansi', 'list', '--package', 'spider.egg']
+            args = [self.python, '-m', 'pancli.cli', 'list', '--package', 'spider.egg']
             process = Popen(args,
                             env=env, cwd=cwd, stdout=PIPE,
                             stderr=PIPE, encoding=PROCESS_ENCODING)
@@ -216,7 +216,7 @@ class ProjectWorkspace(object):
         items_file_path = os.path.join(self.project_workspace_dir, items_file)
         runner = 'scrapydd.utils.runner'
         #pargs = [self.python, '-m', runner, 'crawl', spider]
-        pargs = ['pansi', 'crawl', spider, '--package', 'spider.egg']
+        pargs = [self.python, '-m', 'pancli.cli', 'crawl', spider, '--package', 'spider.egg']
         if project:
             spider_parameters['BOT_NAME'] = project
         if spider_parameters:
