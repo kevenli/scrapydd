@@ -100,7 +100,7 @@ class ProjectWorkspace(object):
     @gen.coroutine
     def install_requirements(self, extra_requirements=None):
         requirements = self.find_project_requirements()
-        requirements += ['scrapydd', 'scrapy']
+        requirements += ['pancli', 'scrapy']
         if extra_requirements:
             requirements += extra_requirements
         logger.info('start install requirements: %s.' % (requirements,))
@@ -149,8 +149,10 @@ class ProjectWorkspace(object):
             env = os.environ.copy()
             env['SCRAPY_PROJECT'] = self.project_name
             env['SCRAPY_EGG'] = 'spider.egg'
-            process = Popen([self.python, '-m',
-                             'scrapydd.utils.runner', 'list'],
+            # args = [self.python, '-m',
+            #                  'scrapydd.utils.runner', 'list']
+            args = ['pansi', 'list', '--package', 'spider.egg']
+            process = Popen(args,
                             env=env, cwd=cwd, stdout=PIPE,
                             stderr=PIPE, encoding=PROCESS_ENCODING)
         except Exception as e:
@@ -209,9 +211,12 @@ class ProjectWorkspace(object):
 
     def run_spider(self, spider, spider_parameters=None, f_output=None, project=None):
         ret_future = Future()
-        items_file = os.path.join(self.project_workspace_dir, 'items.jl')
+        #items_file = os.path.join(self.project_workspace_dir, 'items.jl')
+        items_file = 'items.jl'
+        items_file_path = os.path.join(self.project_workspace_dir, items_file)
         runner = 'scrapydd.utils.runner'
-        pargs = [self.python, '-m', runner, 'crawl', spider]
+        #pargs = [self.python, '-m', runner, 'crawl', spider]
+        pargs = ['pansi', 'crawl', spider, '--package', 'spider.egg']
         if project:
             spider_parameters['BOT_NAME'] = project
         if spider_parameters:
@@ -220,7 +225,8 @@ class ProjectWorkspace(object):
                     '-s',
                     '%s=%s' % (spider_parameter_key, spider_parameter_value)
                 ]
-        pargs += ['-o', str(path_to_file_uri(items_file)), '-t', 'jl']
+        pargs += ['-o', items_file]
+        #pargs += ['-o', f'{path_to_file_uri(items_file)}:jl']
 
         env = os.environ.copy()
         env['SCRAPY_PROJECT'] = str(self.project_name)
@@ -237,7 +243,7 @@ class ProjectWorkspace(object):
             if process.returncode:
                 return ret_future.set_exception(ProcessFailed())
 
-            return ret_future.set_result(items_file)
+            return ret_future.set_result(items_file_path)
 
         wait_process(p, done)
         return ret_future
