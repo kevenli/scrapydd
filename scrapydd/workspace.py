@@ -528,24 +528,27 @@ class DockerRunner(object):
         see: https://docs.scrapy.org/en/latest/topics/api.html#scrapy.settings.BaseSettings.get
 
         """
-        spider_settings.output = 'items.jl'
-        spider_settings.package = 'spider.egg'
         spider_json_buffer = BytesIO()
         spider_json_buffer.write(spider_settings.to_json().encode('utf8'))
         spider_json_buffer.seek(0)
         items_file_path = path.join(self._work_dir, 'items.jl')
         log_file_path = path.join(self._work_dir, 'crawl.log')
 
+        pargs = ["python",
+                 "-m",
+                 "pancli.cli",
+                 "crawl",
+                 "-f",
+                 "spider.json",
+                 '--output',
+                 'items.jl',
+                 '--package',
+                 'spider.egg'
+                 ]
 
-        #pargs = ["python", "-m", "scrapydd.utils.runner2"]
-        pargs = ["python", "-m", "pancli.cli", "crawl", "-f", "spider.json"]
-        env = {}
-        env['SCRAPY_FEED_URI'] = 'items.jl'
-        env['SCRAPY_EGG'] = 'spider.egg'
         container = self._client.containers.create(self.image, pargs,
                                                    detach=True,
-                                                   working_dir='/spider_run',
-                                                   environment=env)
+                                                   working_dir='/spider_run')
         self._put_file(container, 'spider.json', spider_json_buffer)
         self._put_egg(container)
         self._start_container(container)
