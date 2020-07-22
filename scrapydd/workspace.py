@@ -12,11 +12,13 @@ from shutil import copyfileobj
 from six import ensure_str, ensure_binary
 from os import path
 from subprocess import Popen, PIPE
+
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 from tornado import gen
 import docker
 import requests
+
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 
 logger = logging.getLogger(__name__)
@@ -396,7 +398,7 @@ class VenvRunner(object):
 
 
 class DockerRunner(object):
-    image = 'kevenli/scrapydd'
+    image = 'pansihub/pancli'
     _exit = False
     _container = None
     debug = False
@@ -526,6 +528,8 @@ class DockerRunner(object):
         see: https://docs.scrapy.org/en/latest/topics/api.html#scrapy.settings.BaseSettings.get
 
         """
+        spider_settings.output = 'items.jl'
+        spider_settings.package = 'spider.egg'
         spider_json_buffer = BytesIO()
         spider_json_buffer.write(spider_settings.to_json().encode('utf8'))
         spider_json_buffer.seek(0)
@@ -533,7 +537,8 @@ class DockerRunner(object):
         log_file_path = path.join(self._work_dir, 'crawl.log')
 
 
-        pargs = ["python", "-m", "scrapydd.utils.runner2"]
+        #pargs = ["python", "-m", "scrapydd.utils.runner2"]
+        pargs = ["python", "-m", "pancli.cli", "crawl", "-f", "spider.json"]
         env = {}
         env['SCRAPY_FEED_URI'] = 'items.jl'
         env['SCRAPY_EGG'] = 'spider.egg'
@@ -596,13 +601,9 @@ class DockerRunner(object):
 
 
 class RunnerFactory(object):
-    _runner_type = 'venv'
-    _docker_image = 'kevenli/scrapydd'
-    _debug = False
-
     def __init__(self, config):
         self._runner_type = config.get('runner_type', 'venv')
-        self._docker_image = config.get('runner_docker_image', 'kevenli/scrapydd')
+        self._docker_image = config.get('runner_docker_image', 'pansihub/pancli')
         self._debug = config.getboolean('debug', 'false')
 
     def build(self, eggf):
@@ -628,12 +629,13 @@ class SpiderSetting(object):
     extra_requirements = None
     spider_parameters = None
     base_settings_module = None
-    output_file = None
+    output = None
+    egg_path = None
 
     def __init__(self, spider_name, extra_requirements=None, spider_parameters=None, project_name=None,
                  base_settings_module=None,
-                 output_file=None,
-                 plugin_settings=None):
+                 output=None,
+                 plugin_settings=None, **kwargs):
         self.spider_name = spider_name
         if extra_requirements and isinstance(extra_requirements, str):
             extra_requirements = [x for x in
@@ -642,9 +644,10 @@ class SpiderSetting(object):
         self.spider_parameters = spider_parameters or {}
         self.project_name = project_name
         self.base_settings_module = base_settings_module
-        self.output_file = output_file
-        self.plugin_settings = plugin_settings
-
+        self.output = output
+        self.plugin_settings = plugin_settings or {}
+        self.plugins = kwargs.get('plugins') or []
+        self.package = kwargs.get('package')
 
     def to_json(self):
         d = {
@@ -654,9 +657,10 @@ class SpiderSetting(object):
             'spider_parameters': self.spider_parameters,
             'base_settings_module': self.base_settings_module,
             'plugin_settings': self.plugin_settings,
+            'package': self.package,
         }
-        if self.output_file:
-            d['output_file'] = self.output_file
+        if self.output:
+            d['output'] = self.output
         return json.dumps(d)
 
     @classmethod
@@ -669,25 +673,22 @@ class SpiderSetting(object):
         """
         type: (cls, dict) -> SpiderSetting
         """
-        spider_name = dic['spider_name']
+        spider_name = dic.get('spider_name') or dic.get('spider')
         project_name = dic.get('project_name')
         extra_requirements = dic.get('extra_requirements')
         spider_parameters = dic.get('spider_parameters')
         base_settings_module = dic.get('base_settings_module')
-        output_file = dic.get('output_file')
+        output = dic.get('output')
         plugin_settings = dic.get('plugin_settings')
+
 
         return cls(spider_name, extra_requirements, spider_parameters,
                    project_name,
                    base_settings_module=base_settings_module,
-                   output_file=output_file,
-                   plugin_settings=plugin_settings)
-
-    @classmethod
-    def from_file(cls, file_path):
-        with open(file_path, 'r') as f:
-            json_content = f.read()
-            return SpiderSetting.from_json(json_content)
+                   output=output,
+                   plugin_settings=plugin_settings,
+                   plugins=dic.get('plugins'),
+                   package=dic.get('package'))
 
 
 class CrawlResult(object):
