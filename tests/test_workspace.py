@@ -153,9 +153,9 @@ class VenvRunnerTest(AsyncTestCase):
 
     @gen_test(timeout=200)
     def test_crawl_process_fail(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('NO_EXIST_SPIDER')
-        target = VenvRunner(eggf)
+        with open(test_project_file, 'rb') as eggf:
+            spider_settings = SpiderSetting('NO_EXIST_SPIDER')
+            target = VenvRunner(eggf)
         ret = yield target.crawl(spider_settings)
         self.assertNotEqual(ret.ret_code, 0)
 

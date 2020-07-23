@@ -159,13 +159,10 @@ class ProjectWorkspace(object):
         cwd = self.project_workspace_dir
         try:
             env = os.environ.copy()
-            env['SCRAPY_PROJECT'] = self.project_name
-            env['SCRAPY_EGG'] = 'spider.egg'
-            # args = [self.python, '-m',
-            #                  'scrapydd.utils.runner', 'list']
-            args = [self.python, '-m', 'pancli.cli', 'list', '--package', 'spider.egg']
+            args = [self.python, '-m', 'pancli.cli', 'list',
+                    '--package', 'spider.egg']
             process = Popen(args,
-                            env=env, cwd=cwd, stdout=PIPE,
+                            cwd=cwd, stdout=PIPE,
                             stderr=PIPE, encoding=PROCESS_ENCODING)
         except Exception as e:
             logger.error(e)
