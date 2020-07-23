@@ -153,12 +153,8 @@ class VenvRunnerTest(AsyncTestCase):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('NO_EXIST_SPIDER')
         target = VenvRunner(eggf)
-        try:
-            ret = yield target.crawl(spider_settings)
-            self.fail('Did not caught ProcessFail exception.')
-        except ProcessFailed as e:
-            self.assertIsNotNone(e.err_output)
-            self.assertTrue("KeyError: 'Spider not found: NO_EXIST_SPIDER'" in e.err_output)
+        ret = yield target.crawl(spider_settings)
+        self.assertNotEqual(ret.ret_code, 0)
 
     @gen_test(timeout=200)
     def test_clear(self):
