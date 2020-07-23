@@ -90,17 +90,24 @@ class ProjectWorkspace(object):
         return future
 
     def find_project_requirements(self):
+        eggf = None
         try:
             file_path = os.path.join(self.project_workspace_dir, 'spider.egg')
             eggf = open(file_path, 'rb')
+            with ZipFile(eggf) as egg_zip_file:
+                try:
+                    requires_fileinfo = egg_zip_file.getinfo(
+                        'EGG-INFO/requires.txt')
+                    return ensure_str(
+                        egg_zip_file.read(requires_fileinfo)).split()
+                except KeyError:
+                    return []
         except IOError:
             raise PackageNotFoundException()
-        with ZipFile(eggf) as egg_zip_file:
-            try:
-                requires_fileinfo = egg_zip_file.getinfo('EGG-INFO/requires.txt')
-                return ensure_str(egg_zip_file.read(requires_fileinfo)).split()
-            except KeyError:
-                return []
+        finally:
+            if eggf:
+                eggf.close()
+
 
     @gen.coroutine
     def install_requirements(self, extra_requirements=None):
