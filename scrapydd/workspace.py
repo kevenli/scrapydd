@@ -1,6 +1,7 @@
 import sys
 import os
 import os.path
+import asyncio
 import logging
 import tempfile
 import shutil
@@ -37,8 +38,10 @@ class ProjectWorkspace(object):
     def __init__(self, project_name, base_workdir=None, keep_files=False):
         if not base_workdir:
             base_workdir = tempfile.mkdtemp(prefix='scrapydd-tmp')
+            logger.debug('creating workspace dir in %s', base_workdir)
         project_workspace_dir = base_workdir
         self.venv_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
+        logger.debug('venv_dir: %s', self.venv_dir)
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
         self.keep_files = keep_files
@@ -211,16 +214,12 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
-    def run_spider(self, spider, spider_parameters=None, f_output=None, project=None):
-        ret_future = Future()
-        #items_file = os.path.join(self.project_workspace_dir, 'items.jl')
+    async def run_spider(self, spider, spider_parameters=None, f_output=None, project=None):
         items_file = 'items.jl'
         items_file_path = os.path.join(self.project_workspace_dir, items_file)
-        runner = 'scrapydd.utils.runner'
-        #pargs = [self.python, '-m', runner, 'crawl', spider]
-        pargs = [self.python, '-m', 'pancli.cli', 'crawl', spider, '--package', 'spider.egg']
-        if project:
-            spider_parameters['BOT_NAME'] = project
+        pargs = [self.python, '-m', 'pancli.cli', 'crawl', spider,
+                 '--package', 'spider.egg']
+
         if spider_parameters:
             for spider_parameter_key, spider_parameter_value in spider_parameters.items():
                 pargs += [
@@ -228,27 +227,21 @@ class ProjectWorkspace(object):
                     '%s=%s' % (spider_parameter_key, spider_parameter_value)
                 ]
         pargs += ['-o', items_file]
-        #pargs += ['-o', f'{path_to_file_uri(items_file)}:jl']
 
-        env = os.environ.copy()
-        env['SCRAPY_PROJECT'] = str(self.project_name)
-        env['SCRAPY_EGG'] = 'spider.egg'
-
-
-        p = Popen(pargs, env=env, stdout=f_output,
+        p = Popen(pargs, stdout=f_output,
                   cwd=self.project_workspace_dir,
                   stderr=f_output, encoding='utf8')
         self.processes.append(p)
 
-        def done(process):
-            self.processes.remove(process)
-            if process.returncode:
-                return ret_future.set_exception(ProcessFailed())
-
-            return ret_future.set_result(items_file_path)
-
-        wait_process(p, done)
-        return ret_future
+        retcode = None
+        while retcode is None:
+            await asyncio.sleep(1)
+            logger.debug('polling process %d', p.pid)
+            retcode = p.poll()
+        self.processes.remove(p)
+        ret = CrawlResult(ret_code=retcode, items_file=items_file_path,
+                          runner=self)
+        return ret
 
     def find_project_settings(self, project):
         cwd = self.project_workspace_dir
@@ -305,7 +298,23 @@ class ProjectWorkspace(object):
             except OSError as e:
                 logger.error('Caught OSError when try to kill subprocess: %s' % e)
 
+    async def _wait_process(self, process: Popen):
+        self.processes.append(process)
+        ret_code = process.poll()
+        while ret_code is None:
+            await asyncio.sleep(1)
+            logger.debug('polling process %d', process.pid)
+            ret_code = process.poll()
+        try:
+            self.processes.remove(process)
+        except ValueError:
+            logger.debug('process not found.')
+            pass
+        return ret_code
+
+
     def __del__(self):
+        logger.debug('Cleaning project workspace.')
         if self.venv_dir and os.path.exists(self.venv_dir):
             shutil.rmtree(self.venv_dir)
 
@@ -372,8 +381,10 @@ class VenvRunner(object):
                                                            f_output=f_crawl_log,
                                                            project=spider_settings.project_name)
             f_crawl_log.close()
-            result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
-            raise gen.Return(result)
+            #result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
+            ret.crawl_logfile = crawl_log_path
+            #raise gen.Return(result)
+            raise gen.Return(ret)
         except ProcessFailed:
             f_crawl_log.close()
             with open(crawl_log_path, 'r') as f_log:
@@ -699,12 +710,26 @@ class CrawlResult(object):
     _crawl_logfile = None
     _ret_code = 0
     _console_output = None
+    _runner = None
 
-    def __init__(self, ret_code, error_message=None, items_file=None, crawl_logfile=None):
+    def __init__(self, ret_code, error_message=None, items_file=None,
+                 crawl_logfile=None, runner=None):
+        """
+
+        :param ret_code:
+        :param error_message:
+        :param items_file:
+        :param crawl_logfile:
+        :param runner: can be anything which holds the resources before
+                    result has been processed. For example an object
+                    where holds a temp folder containing item and log
+                    files, can delete the entire folder when __del__
+                    is called.
+        """
         self._ret_code = ret_code
         self._error_message = error_message
         self._items_file = items_file
-        self._crawl_logfile = crawl_logfile
+        self.crawl_logfile = crawl_logfile
 
     @property
     def ret_code(self):
@@ -717,7 +742,3 @@ class CrawlResult(object):
     @property
     def items_file(self):
         return self._items_file
-
-    @property
-    def crawl_logfile(self):
-        return self._crawl_logfile

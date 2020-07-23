@@ -1,11 +1,14 @@
-from tornado.testing import gen_test, AsyncTestCase
-from tornado.ioloop import IOLoop
-from scrapydd.workspace import ProjectWorkspace, VenvRunner, SpiderSetting, DockerRunner
-from scrapydd.exceptions import ProcessFailed
 import tempfile
 import os
 from unittest import TestCase, skip, SkipTest
 import json
+
+from tornado.testing import gen_test, AsyncTestCase
+from tornado.ioloop import IOLoop
+
+from scrapydd.workspace import ProjectWorkspace, VenvRunner, SpiderSetting, DockerRunner
+from scrapydd.exceptions import ProcessFailed
+
 
 test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
 
@@ -14,12 +17,15 @@ class ProjectWorkspaceTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_init(self):
         target = ProjectWorkspace('test_project')
-
         yield target.init()
-        self.assertTrue(os.path.exists(target.python))
-        self.assertTrue(os.path.exists(target.pip))
+
+        python_path = target.python
+        pip_path = target.pip
+        self.assertTrue(os.path.exists(python_path))
+        self.assertTrue(os.path.exists(pip_path))
 
         self.assertTrue(file_is_in_dir(tempfile.gettempdir(), target.python))
+
 
     @gen_test(timeout=200)
     def test_init_after_init(self):
