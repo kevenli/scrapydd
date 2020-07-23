@@ -502,10 +502,10 @@ class DockerRunner(object):
 
     @gen.coroutine
     def list(self):
-        env = {'SCRAPY_EGG': 'spider.egg'}
-        container = self._client.containers.create(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
-                                                   detach=True, working_dir='/spider_run',
-                                                   environment=env)
+        pargs = ["python", "-m", "pancli.cli", 'list', '--package', 'spider.egg']
+        container = self._client.containers.create(self.image, pargs,
+                                                   detach=True,
+                                                   working_dir='/spider_run')
         self._put_egg(container)
         self._start_container(container)
         ret_code = self._wait_container(container)

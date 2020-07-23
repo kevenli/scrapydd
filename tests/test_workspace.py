@@ -13,6 +13,9 @@ from scrapydd.exceptions import ProcessFailed
 test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
 
 
+DEFAULT_DOCKER_IMAGE = 'pansihub/pancli'
+
+
 class ProjectWorkspaceTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_init(self):
@@ -175,7 +178,7 @@ class VenvRunnerTest(AsyncTestCase):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('fail_spider')
         target = VenvRunner(eggf)
-        target.image = 'scrapydd:develop'
+        target.image = DEFAULT_DOCKER_IMAGE
         future = target.crawl(spider_settings)
         target.kill()
         try:
@@ -189,7 +192,7 @@ class VenvRunnerTest(AsyncTestCase):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('fail_spider')
         target = VenvRunner(eggf)
-        target.image = 'scrapydd:develop'
+        target.image = DEFAULT_DOCKER_IMAGE
         future = target.list()
         target.kill()
         try:
@@ -210,20 +213,21 @@ class VenvRunnerTest(AsyncTestCase):
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_list(self):
-        eggf = open(test_project_file, 'rb')
-        target = DockerRunner(eggf)
-        target.image = 'scrapydd:develop'
+        with open(test_project_file, 'rb') as eggf:
+            target = DockerRunner(eggf)
+        target.image = 'pansihub/pancli'
         spider_list = yield target.list()
-        self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'sina_news', 'success_spider',
+        self.assertEqual(['error_spider', 'fail_spider', 'log_spider',
+                          'sina_news', 'success_spider',
                           'warning_spider'],
                          spider_list)
 
     @gen_test(timeout=200)
     def test_crawl(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('fail_spider')
-        target = DockerRunner(eggf)
-        target.image = 'scrapydd:develop'
+        with open(test_project_file, 'rb') as eggf:
+            spider_settings = SpiderSetting('fail_spider')
+            target = DockerRunner(eggf)
+        target.image = DEFAULT_DOCKER_IMAGE
         ret = yield target.crawl(spider_settings)
         self.assertIsNotNone(ret)
         self.assertEqual(0, ret.ret_code)
@@ -233,6 +237,7 @@ class DockerRunnerTest(AsyncTestCase):
         self.assertTrue(os.path.exists(ret.crawl_logfile))
 
     @gen_test(timeout=200)
+    @skip('the old style of settings overwriting will be changed.')
     def test_crawl_overwrite_setting(self):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('log_spider', spider_parameters={'SOME_SETTING': 'abc'})
@@ -252,10 +257,10 @@ class DockerRunnerTest(AsyncTestCase):
 
     @gen_test(timeout=200)
     def test_clear(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('fail_spider')
-        target = DockerRunner(eggf)
-        target.image = 'scrapydd:develop'
+        with open(test_project_file, 'rb') as eggf:
+            spider_settings = SpiderSetting('fail_spider')
+            target = DockerRunner(eggf)
+        target.image = DEFAULT_DOCKER_IMAGE
         ret = yield target.crawl(spider_settings)
         self.assertTrue(os.path.exists(ret.items_file))
         self.assertTrue(os.path.exists(ret.crawl_logfile))
@@ -290,6 +295,7 @@ class DockerRunnerTest(AsyncTestCase):
 
 
     @gen_test(timeout=200)
+    @skip('process run too fast to kill.')
     def test_kill_list(self):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('fail_spider')
