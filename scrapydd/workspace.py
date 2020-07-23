@@ -178,6 +178,10 @@ class ProjectWorkspace(object):
                     stdout = ensure_str(stdout)
                     future.set_result(stdout.splitlines())
                 else:
+                    stdout = process.stdout.read()
+                    logger.info(stdout)
+                    stderr = process.stderr.read()
+                    logger.warning(stderr)
                     # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
                     future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
                 return
@@ -231,6 +235,7 @@ class ProjectWorkspace(object):
                     '%s=%s' % (spider_parameter_key, spider_parameter_value)
                 ]
         pargs += ['-o', items_file]
+        logger.debug(pargs)
 
         p = Popen(pargs, stdout=f_output,
                   cwd=self.project_workspace_dir,
@@ -623,6 +628,13 @@ class RunnerFactory(object):
         self._runner_type = config.get('runner_type', 'venv')
         self._docker_image = config.get('runner_docker_image', 'pansihub/pancli')
         self._debug = config.getboolean('debug', 'false')
+
+        # try check docker image exists.
+        # It will not retrieve image at runtime.
+        if self._runner_type == 'docker':
+            client = docker.from_env()
+            image = client.images.get(self._docker_image)
+            client = None
 
     def build(self, eggf):
         runner_type = self._runner_type
