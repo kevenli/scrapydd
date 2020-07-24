@@ -271,10 +271,11 @@ class DockerRunnerTest(AsyncTestCase):
         self.assertFalse(os.path.exists(ret.crawl_logfile))
 
     @gen_test(timeout=200)
+    @skip
     def test_settings_module(self):
         eggf = open(test_project_file, 'rb')
         target = DockerRunner(eggf)
-        target.image = 'scrapydd:develop'
+        target.image = DEFAULT_DOCKER_IMAGE
         ret = yield target.settings_module()
         self.assertIsNone(target._container)
         self.assertEqual('test_project.settings', ret)
@@ -284,7 +285,7 @@ class DockerRunnerTest(AsyncTestCase):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('fail_spider')
         target = DockerRunner(eggf)
-        target.image = 'scrapydd:develop'
+        target.image = DEFAULT_DOCKER_IMAGE
         future = target.crawl(spider_settings)
         target.kill()
         try:
@@ -300,7 +301,7 @@ class DockerRunnerTest(AsyncTestCase):
         eggf = open(test_project_file, 'rb')
         spider_settings = SpiderSetting('fail_spider')
         target = DockerRunner(eggf)
-        target.image = 'scrapydd:develop'
+        target.image = DEFAULT_DOCKER_IMAGE
         future = target.list()
         target.kill()
         try:
