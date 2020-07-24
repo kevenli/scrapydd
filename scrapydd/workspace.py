@@ -138,15 +138,13 @@ class ProjectWorkspace(object):
 
         logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
-        try:
-            process = Popen([sys.executable, '-m', 'virtualenv',
-                             '--system-site-packages', self.venv_dir])
-            self.processes.append(process)
-        except Exception as e:
-            raise
+        process = Popen([sys.executable, '-m', 'virtualenv',
+                         '--system-site-packages', self.venv_dir])
 
-        await self._wait_process(process)
+        ret_code = await self._wait_process(process)
 
+        if ret_code != 0:
+            raise ProcessFailed()
         return
 
     def find_project_requirements(self):
@@ -324,8 +322,7 @@ class ProjectWorkspace(object):
         with open(eggpath, 'wb') as f:
             copyfileobj(eggfile, f)
 
-    @gen.coroutine
-    def kill_process(self, timeout=30):
+    async def kill_process(self, timeout=30):
         logger.info('killing process')
         for process in self.processes:
             if process.poll() is not None:
@@ -335,7 +332,7 @@ class ProjectWorkspace(object):
             except OSError as e:
                 logger.error('Caught OSError when try to terminate subprocess: %s' % e)
 
-            gen.sleep(timeout)
+            await asyncio.sleep(timeout)
 
             if process.poll() is not None:
                 continue

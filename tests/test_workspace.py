@@ -2,12 +2,17 @@ import tempfile
 import os
 from unittest import TestCase, skip, SkipTest
 import json
+import asyncio
+import logging
 
 from tornado.testing import gen_test, AsyncTestCase
 from tornado.ioloop import IOLoop
 
 from scrapydd.workspace import ProjectWorkspace, VenvRunner, SpiderSetting, DockerRunner
 from scrapydd.exceptions import ProcessFailed
+
+
+logger = logging.getLogger(__name__)
 
 
 test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
@@ -17,6 +22,14 @@ DEFAULT_DOCKER_IMAGE = 'pansihub/pancli'
 
 
 class ProjectWorkspaceTest(AsyncTestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        import asyncio
+        import sys
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(
+                asyncio.WindowsSelectorEventLoopPolicy())
+
     @gen_test(timeout=200)
     def test_init(self):
         target = ProjectWorkspace('test_project')
@@ -45,15 +58,16 @@ class ProjectWorkspaceTest(AsyncTestCase):
     def test_init_kill(self):
         target = ProjectWorkspace('test_project')
 
-        IOLoop.current().call_later(0.001, target.kill_process)
+        #IOLoop.current().call_later(0.001, target.kill_process)
 
+        task = asyncio.create_task(target.init())
+        #asyncio.create_task(target.kill_process())
+        yield target.kill_process()
         try:
-            yield target.init()
+            yield task
             self.fail('Exception not caught')
         except ProcessFailed:
             pass
-        except Exception as e:
-            self.fail('ProcessFailed exception not caught. %s' % e)
         self.assertEqual(len(target.processes), 0)
 
     def test_find_requirements(self):
