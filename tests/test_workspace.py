@@ -28,6 +28,8 @@ class ProjectWorkspaceTest(AsyncTestCase):
         self.assertTrue(os.path.exists(pip_path))
 
         self.assertTrue(file_is_in_dir(tempfile.gettempdir(), target.python))
+        del target
+        self.assertFalse(os.path.exists(python_path))
 
 
     @gen_test(timeout=200)

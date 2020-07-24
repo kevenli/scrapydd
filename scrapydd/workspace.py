@@ -128,15 +128,13 @@ class ProjectWorkspace(object):
         else:
             raise NotImplementedError('Unsupported system %s' % sys.platform)
 
-    def init(self):
+    async def init(self):
         """
         init project isolated workspace,
         :return: future
         """
-        future = Future()
         if os.path.exists(self.pip) and os.path.exists(self.python):
-            future.set_result(self)
-            return future
+            return
 
         logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
@@ -145,22 +143,11 @@ class ProjectWorkspace(object):
                              '--system-site-packages', self.venv_dir])
             self.processes.append(process)
         except Exception as e:
-            future.set_exception(e)
-            return future
+            raise
 
-        def done(process):
-            self.processes.remove(process)
-            retcode = process.returncode
-            if retcode is not None:
-                if retcode == 0:
-                    logger.info('Create virtualenv done.')
-                    future.set_result(self)
-                else:
-                    future.set_exception(
-                        ProcessFailed('Error when init workspace virtualenv '))
+        await self._wait_process(process)
 
-        wait_process(process, done)
-        return future
+        return
 
     def find_project_requirements(self):
         eggf = None
