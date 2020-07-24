@@ -201,14 +201,6 @@ class VenvRunnerTest(AsyncTestCase):
         except ProcessFailed:
             pass
 
-    @gen_test(timeout=200)
-    def test_settings_module(self):
-        raise SkipTest("Venv need a new scrapydd version published to be tested.")
-        eggf = open(test_project_file, 'rb')
-        target = VenvRunner(eggf)
-        ret = yield target.settings_module()
-        self.assertEqual('test_project.settings', ret)
-
 
 class DockerRunnerTest(AsyncTestCase):
     @gen_test(timeout=200)

@@ -21,12 +21,10 @@ def upgrade():
             version, eggf = storage.get_egg()
             runner = runner_factory.build(eggf)
             try:
-                project_settings_module = ioloop.run_sync(runner.settings_module)
                 spider_list = ioloop.run_sync(runner.list)
                 package = ProjectPackage()
                 package.project = project
                 package.type = 'scrapy'
-                package.settings_module = project_settings_module
                 package.spider_list = ','.join(spider_list)
                 session.add(package)
                 session.commit()

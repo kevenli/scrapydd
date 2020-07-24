@@ -263,38 +263,6 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
-    def settings_module(self):
-        future = Future()
-        cwd = self.project_workspace_dir
-        try:
-            env = os.environ.copy()
-            env['SCRAPY_PROJECT'] = self.project_name
-            env['SCRAPY_EGG'] = 'spider.egg'
-            process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings_module', 'spider.egg'],
-                            env=env, cwd=cwd, stdout=PIPE,
-                            stderr=PIPE, encoding=PROCESS_ENCODING)
-        except Exception as e:
-            logger.error(e)
-            future.set_exception(e)
-            return future
-
-        def check_process():
-            logger.debug('poll')
-            retcode = process.poll()
-            if retcode is not None:
-                if retcode == 0:
-                    stdout = process.stdout.read()
-                    stdout = ensure_str(stdout).strip()
-                    future.set_result(stdout)
-                else:
-                    # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
-                    future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
-                return
-            IOLoop.current().call_later(1, check_process)
-
-        check_process()
-        return future
-
     async def run_spider(self, spider, spider_parameters=None, f_output=None,
                          project=None, spider_settings=None):
         items_file = 'items.jl'
@@ -482,13 +450,6 @@ class VenvRunner(object):
             with open(crawl_log_path, 'r') as f_log:
                 error_log = f_log.read()
             raise ProcessFailed(err_output=error_log)
-
-
-    @gen.coroutine
-    def settings_module(self):
-        yield self._prepare()
-        ret = yield self._project_workspace.settings_module()
-        raise gen.Return(ret)
 
     def kill(self):
         logger.info('killing process')

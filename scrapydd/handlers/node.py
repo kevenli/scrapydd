@@ -202,8 +202,6 @@ class ExecuteNextHandler(NodeBaseHandler):
                 'spider_parameters': {parameter.parameter_key: parameter.value
                                       for parameter in spider.parameters},
             }
-            if project.package:
-                task['base_settings_module'] = project.package.settings_module
             LOGGER.debug('job_settings: %s', task)
             LOGGER.debug('next_task.settings: %s', next_task.settings)
             job_specific_settings = json.loads(next_task.settings) \

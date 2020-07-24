@@ -10,6 +10,7 @@ from io import StringIO
 TEST_PROJECT_EGG = 'tests/test_project-1.0-py2.7.egg'
 
 
+@unittest.skip
 class RunnerTest(unittest.TestCase):
     def test_run(self):
         env = os.environ.copy()
