@@ -283,12 +283,6 @@ class ProjectWorkspace(object):
                  '-f', 'spider.json',
                  '--package', 'spider.egg']
 
-        if spider_parameters:
-            for spider_parameter_key, spider_parameter_value in spider_parameters.items():
-                pargs += [
-                    '-s',
-                    '%s=%s' % (spider_parameter_key, spider_parameter_value)
-                ]
         pargs += ['-o', items_file]
         logger.debug(pargs)
 
