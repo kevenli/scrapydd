@@ -55,7 +55,7 @@ class SpiderSetting(object):
 
     def to_json(self):
         d = {
-            'spider_name': self.spider_name,
+            'spider': self.spider_name,
             'project_name': self.project_name,
             'extra_requirements': self.extra_requirements,
             'spider_parameters': self.spider_parameters,
@@ -94,10 +94,18 @@ class SpiderSetting(object):
                    plugins=dic.get('plugins'),
                    package=dic.get('package'))
 
+    @property
+    def spider(self):
+        return self.spider_name
+
 
 class DictSpiderSettings(dict):
     def to_json(self):
         return json.dumps(self)
+
+    @property
+    def spider(self):
+        return self.get('spider')
 
 
 class ProjectWorkspace(object):
@@ -138,8 +146,14 @@ class ProjectWorkspace(object):
 
         logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
+        stdout_stream = tempfile.NamedTemporaryFile(dir=self.project_workspace_dir)
+        stderr_stream = tempfile.NamedTemporaryFile(dir=self.project_workspace_dir)
+        env = os.environ
         process = Popen([sys.executable, '-m', 'virtualenv',
-                         '--system-site-packages', self.venv_dir])
+                         '--system-site-packages', self.venv_dir],
+                        env=env,
+                        stdout=stdout_stream, stderr=stderr_stream)
+        logger.debug('pid: %s', process.pid)
 
         ret_code = await self._wait_process(process)
 
@@ -409,7 +423,7 @@ class VenvRunner(object):
         raise gen.Return(ret)
 
     @gen.coroutine
-    def crawl(self, spider_settings):
+    def crawl(self, spider_settings: SpiderSetting):
         """
         Parameters:
             spider_settings (SpiderSetting): spider settings object.
@@ -419,7 +433,7 @@ class VenvRunner(object):
         crawl_log_path = path.join(self._work_dir, 'crawl.log')
         f_crawl_log = open(crawl_log_path, 'w')
         try:
-            ret = yield self._project_workspace.run_spider(spider_settings.spider_name,
+            ret = yield self._project_workspace.run_spider(spider_settings.spider,
                                                            spider_settings.spider_parameters,
                                                            f_output=f_crawl_log,
                                                            project=spider_settings.project_name,
@@ -559,7 +573,7 @@ class DockerRunner(object):
             raise ProcessFailed(err_output=logs)
 
     @gen.coroutine
-    def crawl(self, spider_settings: Union[dict, SpiderSetting]):
+    def crawl(self, spider_settings: Union[SpiderSetting]):
         """
         Parameters:
             spider_settings (SpiderSetting): spider settings object.
@@ -576,10 +590,7 @@ class DockerRunner(object):
         see: https://docs.scrapy.org/en/latest/topics/api.html#scrapy.settings.BaseSettings.get
 
         """
-        if isinstance(spider_settings, dict):
-            settings_content = json.dumps(spider_settings)
-        else:
-            settings_content = spider_settings.to_json()
+        settings_content = spider_settings.to_json()
         spider_json_buffer = BytesIO()
         spider_json_buffer.write(settings_content.encode('utf8'))
         spider_json_buffer.seek(0)
@@ -590,6 +601,7 @@ class DockerRunner(object):
                  "-m",
                  "pancli.cli",
                  "crawl",
+                 spider_settings.spider,
                  "-f",
                  "spider.json",
                  '--output',
