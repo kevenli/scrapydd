@@ -20,7 +20,7 @@ from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
 from tornado import gen
 from .config import AgentConfig
 from .stream import MultipartRequestBodyProducer
-from .workspace import RunnerFactory, SpiderSetting
+from .workspace import RunnerFactory, SpiderSetting, DictSpiderSettings
 from .exceptions import ProcessFailed
 from .security import generate_digest
 from .poster.encode import multipart_encode
@@ -447,7 +447,7 @@ class TaskExecutor:
         self.task = task
         self.egg_downloader = egg_downloader
         self._runner_factory = runner_factory
-        self._spider_settings = SpiderSetting.from_dict(task.settings['task'])
+        self._spider_settings = DictSpiderSettings(task.settings['task'])
         self._f_output = None
         self.output_file = None
         self.items_file = None
