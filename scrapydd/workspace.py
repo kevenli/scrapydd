@@ -289,14 +289,10 @@ class ProjectWorkspace(object):
         p = Popen(pargs, stdout=f_output,
                   cwd=self.project_workspace_dir,
                   stderr=f_output, encoding='utf8')
-        self.processes.append(p)
-
-        retcode = None
-        while retcode is None:
-            await asyncio.sleep(1)
-            logger.debug('polling process %d', p.pid)
-            retcode = p.poll()
-        self.processes.remove(p)
+        retcode = await self._wait_process(p)
+        if retcode != 0:
+            logger.debug('ret_code %s', retcode)
+            raise ProcessFailed()
         ret = CrawlResult(ret_code=retcode, items_file=items_file_path,
                           runner=self)
         return ret
@@ -443,15 +439,18 @@ class VenvRunner(object):
             ret.crawl_logfile = crawl_log_path
             #raise gen.Return(result)
             raise gen.Return(ret)
-        except ProcessFailed:
+        except ProcessFailed as e:
             f_crawl_log.close()
             with open(crawl_log_path, 'r') as f_log:
                 error_log = f_log.read()
-            raise ProcessFailed(err_output=error_log)
+            ret = CrawlResult(ret_code=1, crawl_logfile=f_crawl_log)
+            raise gen.Return(ret)
+            #raise ProcessFailed(err_output=error_log)
 
-    def kill(self):
+
+    async def kill(self):
         logger.info('killing process')
-        self._project_workspace.kill_process()
+        await self._project_workspace.kill_process()
 
     def clear(self):
         self._project_workspace = None

@@ -118,10 +118,18 @@ def file_is_in_dir(dir, file):
 
 
 class VenvRunnerTest(AsyncTestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        import asyncio
+        import sys
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(
+                asyncio.WindowsSelectorEventLoopPolicy())
+
     @gen_test(timeout=200)
     def test_list(self):
-        eggf = open(test_project_file, 'rb')
-        target = VenvRunner(eggf)
+        with open(test_project_file, 'rb') as eggf:
+            target = VenvRunner(eggf)
         spider_list = yield target.list()
         self.assertEqual(['error_spider', 'fail_spider', 'log_spider', 'sina_news', 'success_spider',
                           'warning_spider'],
@@ -129,9 +137,9 @@ class VenvRunnerTest(AsyncTestCase):
 
     @gen_test(timeout=200)
     def test_crawl(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('fail_spider')
-        target = VenvRunner(eggf)
+        with open(test_project_file, 'rb') as eggf:
+            spider_settings = SpiderSetting('fail_spider')
+            target = VenvRunner(eggf)
         ret = yield target.crawl(spider_settings)
         self.assertIsNotNone(ret)
         self.assertEqual(0, ret.ret_code)
@@ -142,10 +150,10 @@ class VenvRunnerTest(AsyncTestCase):
 
     @gen_test(timeout=200)
     def test_crawl_stderr_str(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('fail_spider')
-        spider_settings.extra_requirements = ['s']
-        target = VenvRunner(eggf)
+        with open(test_project_file, 'rb') as eggf:
+            spider_settings = SpiderSetting('fail_spider')
+            spider_settings.extra_requirements = ['s']
+            target = VenvRunner(eggf)
         try:
             yield target.crawl(spider_settings)
         except ProcessFailed as ex:
@@ -153,9 +161,9 @@ class VenvRunnerTest(AsyncTestCase):
 
     @gen_test(timeout=200)
     def test_crawl_overwrite_setting(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('log_spider', spider_parameters={'SOME_SETTING': '2'})
-        target = VenvRunner(eggf)
+        with open(test_project_file, 'rb') as eggf:
+            spider_settings = SpiderSetting('log_spider', spider_parameters={'SOME_SETTING': '2'})
+            target = VenvRunner(eggf)
         ret = yield target.crawl(spider_settings)
         self.assertIsNotNone(ret)
         self.assertEqual(0, ret.ret_code)
@@ -177,9 +185,9 @@ class VenvRunnerTest(AsyncTestCase):
 
     @gen_test(timeout=200)
     def test_clear(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('fail_spider')
-        target = VenvRunner(eggf)
+        with open(test_project_file, 'rb') as eggf:
+            spider_settings = SpiderSetting('fail_spider')
+            target = VenvRunner(eggf)
         ret = yield target.crawl(spider_settings)
         self.assertTrue(os.path.exists(ret.items_file))
         self.assertTrue(os.path.exists(ret.crawl_logfile))
@@ -191,26 +199,24 @@ class VenvRunnerTest(AsyncTestCase):
 
     @gen_test(timeout=200)
     def test_kill_crawl(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('fail_spider')
-        target = VenvRunner(eggf)
-        target.image = DEFAULT_DOCKER_IMAGE
+        with open(test_project_file, 'rb') as eggf:
+            spider_settings = SpiderSetting('fail_spider')
+            target = VenvRunner(eggf)
         future = target.crawl(spider_settings)
-        target.kill()
+        yield target.kill()
         try:
-            ret = yield future
+            yield future
             self.fail("Didnot caught ProcessFailed exception")
         except ProcessFailed:
             pass
 
     @gen_test(timeout=200)
     def test_kill_list(self):
-        eggf = open(test_project_file, 'rb')
-        spider_settings = SpiderSetting('fail_spider')
-        target = VenvRunner(eggf)
+        with open(test_project_file, 'rb') as eggf:
+            target = VenvRunner(eggf)
         target.image = DEFAULT_DOCKER_IMAGE
         future = target.list()
-        target.kill()
+        yield target.kill()
         try:
             ret = yield future
             self.fail("Did not caught the ProcessFailed")
@@ -327,7 +333,7 @@ class SpiderSettingsTest(TestCase):
         json_text = target.to_json()
         json_deserialized = json.loads(json_text)
 
-        self.assertEqual(json_deserialized['spider_name'], spider_name)
+        self.assertEqual(json_deserialized['spider'], spider_name)
         self.assertEqual(json_deserialized['project_name'], None)
         self.assertEqual(json_deserialized['extra_requirements'], [])
         self.assertEqual(json_deserialized['spider_parameters'], {})
