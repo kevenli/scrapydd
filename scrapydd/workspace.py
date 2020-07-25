@@ -268,8 +268,8 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
-    async def run_spider(self, spider, spider_parameters=None, f_output=None,
-                         project=None, spider_settings=None):
+    async def run_spider(self, spider, f_output=None,
+                         spider_settings=None):
         items_file = 'items.jl'
         items_file_path = os.path.join(self.project_workspace_dir, items_file)
 
@@ -430,14 +430,10 @@ class VenvRunner(object):
         f_crawl_log = open(crawl_log_path, 'w')
         try:
             ret = yield self._project_workspace.run_spider(spider_settings.spider,
-                                                           spider_settings.spider_parameters,
                                                            f_output=f_crawl_log,
-                                                           project=spider_settings.project_name,
                                                            spider_settings=spider_settings)
             f_crawl_log.close()
-            #result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
             ret.crawl_logfile = crawl_log_path
-            #raise gen.Return(result)
             raise gen.Return(ret)
         except ProcessFailed as e:
             f_crawl_log.close()
@@ -446,8 +442,6 @@ class VenvRunner(object):
             ret = CrawlResult(ret_code=e.ret_code,
                               crawl_logfile=f_crawl_log)
             raise gen.Return(ret)
-            #raise ProcessFailed(err_output=error_log)
-
 
     async def kill(self):
         logger.info('killing process')
