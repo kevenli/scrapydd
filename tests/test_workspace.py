@@ -44,7 +44,6 @@ class ProjectWorkspaceTest(AsyncTestCase):
         del target
         self.assertFalse(os.path.exists(python_path))
 
-
     @gen_test(timeout=200)
     def test_init_after_init(self):
         target = ProjectWorkspace('test_project')
@@ -57,17 +56,13 @@ class ProjectWorkspaceTest(AsyncTestCase):
     @gen_test(timeout=200)
     def test_init_kill(self):
         target = ProjectWorkspace('test_project')
-
-        #IOLoop.current().call_later(0.001, target.kill_process)
-
         task = asyncio.create_task(target.init())
-        #asyncio.create_task(target.kill_process())
-        yield target.kill_process()
+        yield target.kill_process(1)
         try:
             yield task
             self.fail('Exception not caught')
-        except ProcessFailed:
-            pass
+        except ProcessFailed as e:
+            self.assertNotEqual(e.ret_code, 0)
         self.assertEqual(len(target.processes), 0)
 
     def test_find_requirements(self):
@@ -91,6 +86,7 @@ class ProjectWorkspaceTest(AsyncTestCase):
             yield target.install_requirements(['s'])
             self.fail('Did not catch exception.')
         except ProcessFailed as ex:
+            self.assertNotEqual(0, ex.ret_code)
             self.assertEqual(str, type(ex.std_output))
 
 
@@ -305,9 +301,8 @@ class DockerRunnerTest(AsyncTestCase):
         try:
             ret = yield future
             self.fail("Didnot caught ProcessFailed exception")
-        except ProcessFailed:
-            pass
-
+        except ProcessFailed as e:
+            self.assertNotEqual(0, e.ret_code)
 
     @gen_test(timeout=200)
     @skip('process run too fast to kill.')
@@ -321,8 +316,8 @@ class DockerRunnerTest(AsyncTestCase):
         try:
             ret = yield future
             self.fail("Did not caught the ProcessFailed")
-        except ProcessFailed:
-            pass
+        except ProcessFailed as e:
+            self.assertNotEqual(0, e.ret_code)
 
 
 class SpiderSettingsTest(TestCase):

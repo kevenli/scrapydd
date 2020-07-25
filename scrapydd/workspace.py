@@ -146,19 +146,25 @@ class ProjectWorkspace(object):
 
         logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
-        stdout_stream = tempfile.NamedTemporaryFile(dir=self.project_workspace_dir)
-        stderr_stream = tempfile.NamedTemporaryFile(dir=self.project_workspace_dir)
-        env = os.environ
-        process = Popen([sys.executable, '-m', 'virtualenv',
-                         '--system-site-packages', self.venv_dir],
-                        env=env,
-                        stdout=stdout_stream, stderr=stderr_stream)
-        logger.debug('pid: %s', process.pid)
+        try:
+            stdout_stream = tempfile.NamedTemporaryFile(dir=self.project_workspace_dir)
+            stderr_stream = tempfile.NamedTemporaryFile(dir=self.project_workspace_dir)
+            env = os.environ
+            process = Popen([sys.executable, '-m', 'virtualenv',
+                             '--system-site-packages', self.venv_dir],
+                            env=env,
+                            stdout=stdout_stream, stderr=stderr_stream)
+            logger.debug('pid: %s', process.pid)
 
-        ret_code = await self._wait_process(process)
+            ret_code = await self._wait_process(process)
+        finally:
+            if stdout_stream:
+                stdout_stream.close()
+            if stderr_stream:
+                stderr_stream.close()
 
         if ret_code != 0:
-            raise ProcessFailed()
+            raise ProcessFailed(ret_code=ret_code)
         return
 
     def find_project_requirements(self):
@@ -179,7 +185,6 @@ class ProjectWorkspace(object):
         finally:
             if eggf:
                 eggf.close()
-
 
     @gen.coroutine
     def install_requirements(self, extra_requirements=None):
@@ -220,7 +225,8 @@ class ProjectWorkspace(object):
                     stderr_stream.seek(0)
                     std_out = stdout_stream.read().decode(PROCESS_ENCODING)
                     err_out = stderr_stream.read().decode(PROCESS_ENCODING)
-                    future.set_exception(ProcessFailed(std_output=std_out,
+                    future.set_exception(ProcessFailed(ret_code=retcode,
+                                                       std_output=std_out,
                                                        err_output=err_out))
 
         wait_process(process, done)
@@ -292,7 +298,7 @@ class ProjectWorkspace(object):
         retcode = await self._wait_process(p)
         if retcode != 0:
             logger.debug('ret_code %s', retcode)
-            raise ProcessFailed()
+            raise ProcessFailed(ret_code=retcode)
         ret = CrawlResult(ret_code=retcode, items_file=items_file_path,
                           runner=self)
         return ret
@@ -443,7 +449,8 @@ class VenvRunner(object):
             f_crawl_log.close()
             with open(crawl_log_path, 'r') as f_log:
                 error_log = f_log.read()
-            ret = CrawlResult(ret_code=1, crawl_logfile=f_crawl_log)
+            ret = CrawlResult(ret_code=e.ret_code,
+                              crawl_logfile=f_crawl_log)
             raise gen.Return(ret)
             #raise ProcessFailed(err_output=error_log)
 
@@ -569,7 +576,7 @@ class DockerRunner(object):
             raise gen.Return(ensure_str(logs).split())
         else:
             self._remove_container(container)
-            raise ProcessFailed(err_output=logs)
+            raise ProcessFailed(ret_code=ret_code, err_output=logs)
 
     @gen.coroutine
     def crawl(self, spider_settings: Union[SpiderSetting]):
@@ -630,7 +637,7 @@ class DockerRunner(object):
             raise gen.Return(result)
         else:
             self._remove_container(container)
-            raise ProcessFailed(err_output=process_output)
+            raise ProcessFailed(ret_code=ret_code, err_output=process_output)
 
     @gen.coroutine
     def settings_module(self):
@@ -649,7 +656,7 @@ class DockerRunner(object):
         if ret_code == 0:
             raise gen.Return(output)
         else:
-            raise ProcessFailed(err_output=output)
+            raise ProcessFailed(ret_code=ret_code, err_output=output)
 
     def kill(self):
         logger.info('killing process')
