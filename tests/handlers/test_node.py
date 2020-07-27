@@ -51,7 +51,7 @@ class NodeSecureTest(NodeTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
+        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader(), scheduler_manager)
         webhook_daemon.init()
         self.node_manager = node_manager
         return make_app(scheduler_manager, node_manager, webhook_daemon, secret_key='123',

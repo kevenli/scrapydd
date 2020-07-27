@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest.mock import MagicMock
 import logging
 import datetime
 import json
@@ -26,6 +27,10 @@ LOGGER = logging.getLogger(__name__)
 class ScheduleTest(AsyncHTTPTestCase):
     @classmethod
     def setUpClass(cls):
+        import asyncio
+        import sys
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         if os._exists('test.db'):
             os.remove('test.db')
         config = Config(values={'database_url': 'sqlite:///test.db'})
@@ -771,3 +776,15 @@ class ScheduleAddTaskTest(ScheduleTest):
         self.assertEqual(actual.update_time, actual2.update_time)
         self.assertEqual(actual.pid, actual2.pid)
         self.assertEqual(actual.tag, actual2.tag)
+
+
+class ScheduleManagerJobObserverTest(AppTest):
+    def test_job_observer(self):
+        observer = MagicMock()
+        target = SchedulerManager()
+        target.attach_job_observer(observer)
+        job = target.add_task('test_project', 'error_spider')
+        target.job_start(job.id, 0)
+        job.status = 2
+        target.job_finished(job)
+        observer.on_job_finished.assert_called_once()

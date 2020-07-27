@@ -26,7 +26,7 @@ from .models import Session, Project, Spider, SpiderExecutionQueue
 from .models import init_database, HistoricalJob
 from .models import session_scope, SpiderSettings, WebhookJob
 from .models import SpiderParameter
-from .schedule import SchedulerManager
+from .schedule import SchedulerManager, build_scheduler
 from .nodes import NodeManager
 from .config import Config
 from .process import fork_processes
@@ -72,7 +72,7 @@ class SpiderInstanceHandler2(AppBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
     def get(self, project_id, spider_id):
-        session = Session()
+        session = self.session
         spider = self.project_manager.get_spider(session, self.current_user, project_id, spider_id)
         project = spider.project
 
@@ -556,6 +556,9 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'^/admin/nodes$', admin.AdminNodesHandler),
         (r'^/admin/spiderplugins$', admin.AdminPluginsHandler),
         (r'^/admin/users$', admin.AdminUsersHandler),
+        (r'^/admin/users/disable$', admin.AdminDisableUserAjaxHandler),
+        (r'^/admin/users/enable$', admin.AdminEnableUserAjaxHandler),
+        (r'^/admin/users/new$', admin.AdminNewUserHandler),
 
         # rest apis
         (r'^/api/projects/(\w+)/spiders/(\w+)/jobs/(\w+)', rest.GetProjectJob),
@@ -649,14 +652,16 @@ def start_server(argv=None):
         cluster_node = ClusterNode(task_id, config)
         cluster_sync_obj = cluster_node.sync_obj
 
+    scheduler = build_scheduler()
     scheduler_manager = SchedulerManager(config=config,
-                                         syncobj=cluster_sync_obj)
+                                         syncobj=cluster_sync_obj,
+                                         scheduler=scheduler)
     scheduler_manager.init()
 
     node_manager = NodeManager(scheduler_manager)
     node_manager.init()
 
-    webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
+    webhook_daemon = WebhookDaemon(config, SpiderSettingLoader(), scheduler_manager)
     webhook_daemon.init()
 
     runner_factory = RunnerFactory(config)
@@ -694,7 +699,9 @@ def start_server(argv=None):
         httpsserver = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
         httpsserver.add_sockets(https_sockets)
         LOGGER.info('starting https server on %s:%s', bind_address, https_port)
+
     ioloop = tornado.ioloop.IOLoop.current()
+    scheduler.start()
     ioloop.start()
 
 

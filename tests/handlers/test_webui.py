@@ -154,11 +154,11 @@ class ItemsFileHandlerTest(AppTest):
         with session_scope() as session:
             project = session.query(Project).get(self.project.id)
             spider = list(filter(lambda x: x.name == 'error_spider', project.spiders))[0]
-        project_id = None
-        spider_id = None
-        job_id = None
+            project_id = None
+            spider_id = None
+            job_id = None
 
-        job = self.scheduler_manager.add_task(project.name, spider.name)
+            job = self.scheduler_manager.add_spider_task(session, spider)
         items_content = b'{"id":"123"}'
         items_file = BytesIO(items_content)
         self.scheduler_manager.jobs_running(1, [job.id])

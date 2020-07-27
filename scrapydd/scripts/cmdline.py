@@ -6,6 +6,8 @@ import scrapydd.ssl_gen
 from scrapydd.commands.resetpassword import ResetPasswordCommand
 from scrapydd.commands.package import PackageCommand
 from scrapydd.commands.run import main as run_command
+from scrapydd.commands.backup import BackupCommand
+from scrapydd.commands.restore import RestoreCommand
 
 usage = '''
 usage: scrapydd {command} [options]
@@ -43,6 +45,10 @@ def main():
         PackageCommand().run()
     elif cmd == 'run':
         run_command(argv[1:])
+    elif cmd == 'backup':
+        BackupCommand().run()
+    elif cmd == 'restore':
+        RestoreCommand().run()
     elif cmd == '--help':
         print_commands(argv)
     elif cmd == '--version' or cmd == '-v':

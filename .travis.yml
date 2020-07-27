@@ -1,12 +1,13 @@
 language: python
 python:
-  - "3.6"
+  - "3.7"
 services:
   - docker
 install:
   - pip install --upgrade pip attrs
   - pip install -r requirements.txt
   - python setup.py install
+  - docker pull pansihub/pancli
   - docker build -f dockerfiles/Dockerfile.develop.py3 -t scrapydd:develop.py3 .
   - docker tag scrapydd:develop.py3 scrapydd:develop
   - pip install nose coverage

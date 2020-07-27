@@ -28,7 +28,6 @@ class ProjectManager:
         try:
             spiders = yield runner.list()
             logger.debug('spiders: %s' % spiders)
-            project_settings_module = yield runner.settings_module()
         finally:
             runner.clear()
 
@@ -48,7 +47,6 @@ class ProjectManager:
                 package = ProjectPackage()
                 package.project = project
             package.type = 'scrapy'
-            package.settings_module = project_settings_module
             package.spider_list = ','.join(spiders)
             session.add(package)
             session.flush()
@@ -98,7 +96,6 @@ class ProjectManager:
         try:
             spiders = await runner.list()
             logger.debug('spiders: %s' % spiders)
-            project_settings_module = await runner.settings_module()
         finally:
             runner.clear()
 
@@ -107,7 +104,6 @@ class ProjectManager:
             package = ProjectPackage()
             package.project = project
         package.type = 'scrapy'
-        package.settings_module = project_settings_module
         package.spider_list = ','.join(spiders)
         project_storage = ProjectStorage(self.project_storage_dir, project)
         f_egg.seek(0)

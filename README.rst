@@ -65,26 +65,42 @@ Docker-Compose
 
     version: '3'
     services:
-      scrapydd-server:
+      db:
+        image: mysql
+        command: --default-authentication-plugin=mysql_native_password
+        restart: always
+        ports:
+          - "3306:3306"
+        volumes:
+          - "datadb:/var/lib/mysql"
+        environment:
+          MYSQL_ROOT_PASSWORD: mysqlPassword
+          MYSQL_DATABASE: scrapydd
+          MYSQL_USER: scrapydd
+          MYSQL_PASSWORD: scrapyddPwd
+
+      server:
         image: "kevenli/scrapydd"
         ports:
           - "6800:6800"
         volumes:
-          - "/scrapydd/server:/scrapydd"
+          - "./server:/scrapydd"
           - "/var/run/docker.sock:/var/run/docker.sock"
         command: scrapydd server
     
-      scrapydd-agent:
+      agent:
         image: "kevenli/scrapydd"
         volumes:
-          - "/scrapydd/server:/scrapydd"
+          - "./agent:/scrapydd"
           - "/var/run/docker.sock:/var/run/docker.sock"
         links:
-          - scrapydd-server
+          - server
         environment:
-          - SCRAPYDD_SERVER=scrapydd-server
+          - SCRAPYDD_SERVER=server
         command: scrapydd agent
 
+    volumes:
+      datadb:
 
 
 

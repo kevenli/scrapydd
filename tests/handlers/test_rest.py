@@ -102,7 +102,7 @@ class AddVersionHandlerTestInvalidProjectEgg(AppTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
+        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader(), scheduler_manager)
         webhook_daemon.init()
         runner_cls = AddVersionHandlerTestInvalidProjectEgg.\
             InvalidProjectWorkspaceStub
@@ -142,7 +142,7 @@ class AddVersionHandlerTestProcessFail(AppTest):
         scheduler_manager.init()
         node_manager = NodeManager(scheduler_manager)
         node_manager.init()
-        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader())
+        webhook_daemon = WebhookDaemon(config, SpiderSettingLoader(), scheduler_manager)
         webhook_daemon.init()
         runner_cls = AddVersionHandlerTestProcessFail.ProcessFailProjectWorkspaceStub
         runner_factory = TestRunnerFactoryStub(runner_cls)

@@ -1,10 +1,13 @@
+from tornado.web import authenticated, HTTPError
+from datetime import datetime, timedelta
+import uuid
+from distutils.util import strtobool
+from sqlalchemy import or_
 from .base import AppBaseHandler
 from ..models import *
-from tornado.web import authenticated
-from datetime import datetime, timedelta
-from ..security import generate_random_string
-import uuid
-from sqlalchemy import or_
+from .. import models
+from ..security import generate_random_string, encrypt_password
+from .auth import admin_required
 
 
 class AdminNodesHandler(AppBaseHandler):
@@ -77,3 +80,81 @@ class AdminUsersHandler(AppBaseHandler):
         session = self.session
         users = session.query(User).all()
         self.render('admin/users.html', users=users)
+
+
+class AdminDisableUserAjaxHandler(AppBaseHandler):
+    @authenticated
+    def post(self):
+        if not self.current_user.is_admin:
+            return self.set_status(403, "No permission")
+
+        target_user_id = int(self.get_body_argument('userid'))
+        if target_user_id == self.current_user.id:
+            return self.set_status(400, 'Cannot modify current user status')
+        session = self.session
+        user = session.query(User).get(target_user_id)
+        user.is_active = False
+        session.add(user)
+        session.commit()
+
+
+class AdminEnableUserAjaxHandler(AppBaseHandler):
+    @authenticated
+    def post(self):
+        if not self.current_user.is_admin:
+            return self.set_status(403, "No permission")
+
+        target_user_id = int(self.get_body_argument('userid'))
+        if target_user_id == self.current_user.id:
+            return self.set_status(400, 'Cannot modify current user status')
+        session = self.session
+        user = session.query(User).get(target_user_id)
+        user.is_active = True
+        session.add(user)
+        session.commit()
+
+
+class AdminNewUserHandler(AppBaseHandler):
+    @admin_required
+    def get(self):
+        return self.render('admin/new_user.html')
+
+
+    @admin_required
+    def post(self):
+        username = self.get_body_argument('username')
+        password = self.get_body_argument('password')
+        email = self.get_body_argument('email')
+        password2 = self.get_body_argument('password2')
+        is_active = strtobool(self.get_body_argument('is_active', 'true'))
+        is_admin = strtobool(self.get_body_argument('is_admin', 'false'))
+
+        session = self.session
+
+        if not username:
+            raise HTTPError(400, 'username is required.')
+
+        existing_user = session.query(User).filter_by(username=username).first()
+        if existing_user:
+            raise HTTPError(400, 'username already exists.')
+
+        if not email:
+            raise HTTPError(400, 'email is required.')
+
+        if not password:
+            raise HTTPError(400, 'password is required')
+
+        if password != password2:
+            raise HTTPError(400, 'please input identical passwords.')
+
+        entrypted_password = encrypt_password(password, self.settings.get('cookie_secret', ''))
+
+        user = models.User()
+        user.username = username
+        user.email = email
+        user.password = entrypted_password
+        user.is_active = is_active
+        user.is_admin = is_admin
+        session.add(user)
+        session.commit()
+        return self.redirect('/admin/users')

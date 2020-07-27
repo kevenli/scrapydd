@@ -44,8 +44,12 @@ class InvalidCronExpression(Exception):
 
 
 class ProcessFailed(Exception):
-    def __init__(self, message='Error when running process.', err_output=None, std_output=None):
+    def __init__(self, message='Error when running process.',
+                 ret_code=None,
+                 err_output=None,
+                 std_output=None):
         super(ProcessFailed, self).__init__(self, message)
+        self.ret_code = ret_code
         self.message = message
         self.err_output = err_output
         self.std_output = std_output

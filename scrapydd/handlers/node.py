@@ -202,8 +202,6 @@ class ExecuteNextHandler(NodeBaseHandler):
                 'spider_parameters': {parameter.parameter_key: parameter.value
                                       for parameter in spider.parameters},
             }
-            if project.package:
-                task['base_settings_module'] = project.package.settings_module
             LOGGER.debug('job_settings: %s', task)
             LOGGER.debug('next_task.settings: %s', next_task.settings)
             job_specific_settings = json.loads(next_task.settings) \
@@ -320,12 +318,10 @@ class ExecuteCompleteHandler(NodeBaseHandler):
         historical_job = self.scheduler_manager.job_finished(job,
                                                              log_stream,
                                                              items_stream)
-
-
-        if items_file:
-            self.webhook_daemon.on_spider_complete(historical_job,
-                                                   items_file)
-
+        #
+        # if items_file:
+        #     self.webhook_daemon.on_spider_complete(historical_job,
+        #                                            items_file)
         session.close()
         LOGGER.info('Job %s completed.', task_id)
         response_data = {'status': 'ok'}

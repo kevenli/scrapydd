@@ -92,11 +92,11 @@ class ProjectUploadPackageTest(AsyncTestCase, ProjectManagerTest):
         project = target.create_project(session, user, project_name)
 
         test_project_file = os.path.join(os.path.dirname(__file__), 'test_project-1.0-py2.7.egg')
-        f_egg = open(test_project_file, 'rb')
-
-        project = yield target.upload_project_package(session, project, f_egg, version)
+        with open(test_project_file, 'rb') as f_egg:
+            project = yield target.upload_project_package(session, project,
+                                                          f_egg, version)
         self.assertIsNotNone(project)
-        self.assertEquals(project.package.spider_list, ','.join(['error_spider', 'fail_spider',
+        self.assertEqual(project.package.spider_list, ','.join(['error_spider', 'fail_spider',
                                                                  'log_spider', 'sina_news', 'success_spider',
                           'warning_spider']))
 

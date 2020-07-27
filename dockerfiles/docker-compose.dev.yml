@@ -1,0 +1,42 @@
+version: '3'
+services:
+  db:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    ports:
+      - "3306:3306"
+    volumes:
+      - "datadb:/var/lib/mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: mysqlPassword
+      MYSQL_DATABASE: scrapydd
+      MYSQL_USER: scrapydd
+      MYSQL_PASSWORD: scrapyddPwd
+
+  server:
+    image: "scrapydd:develop"
+    ports:
+      - "6800:6800"
+    volumes:
+      - "./server:/scrapydd"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    command: scrapydd server
+    environment:
+      - SCRAPYDD_DATABASE_URL=mysql+pymysql://scrapydd:scrapyddPwd@localhost/scrapydd?charset=utf8mb4
+    depends_on:
+      - db
+    network_mode: host
+
+  agent:
+    image: "scrapydd:develop"
+    volumes:
+      - "./agent:/scrapydd"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    environment:
+      - SCRAPYDD_SERVER=http://localhost:6800
+    command: scrapydd agent
+    network_mode: host
+
+volumes:
+  datadb:

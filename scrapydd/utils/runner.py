@@ -51,7 +51,7 @@ def main(argv=None):
     from scrapy.cmdline import execute
     from scrapy.settings import Settings
     settings = None
-    egg_path = os.environ.get('SCRAPY_EGG')
+    egg_path = os.environ.pop('SCRAPY_EGG', None)
 
     if egg_path:
         distribute = activate_egg(egg_path)

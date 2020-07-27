@@ -38,6 +38,7 @@ class User(Base):
     create_at = Column(DateTime)
     last_login = Column(DateTime)
     is_admin = Column(Boolean, default=False)
+    is_active = Column(Integer, default=1)
 
 
 class UserKey(Base):

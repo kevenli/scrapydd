@@ -1,27 +1,111 @@
 import sys
 import os
 import os.path
+import asyncio
 import logging
 import tempfile
 import shutil
 import json
 from io import BytesIO
 from zipfile import ZipFile
-from w3lib.url import path_to_file_uri
+from typing import Union
 from shutil import copyfileobj
 from six import ensure_str, ensure_binary
 from os import path
 from subprocess import Popen, PIPE
+
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 from tornado import gen
 import docker
 import requests
+
 from scrapydd.exceptions import ProcessFailed, InvalidProjectEgg
 
 logger = logging.getLogger(__name__)
 
 PROCESS_ENCODING = 'utf8'
+
+
+class SpiderSetting(object):
+    spider_name = None
+    project_name = None
+    extra_requirements = None
+    spider_parameters = None
+    base_settings_module = None
+    output = None
+    egg_path = None
+
+    def __init__(self, spider_name, extra_requirements=None, spider_parameters=None, project_name=None,
+                 base_settings_module=None,
+                 output=None,
+                 plugin_settings=None, **kwargs):
+        self.spider_name = spider_name
+        if extra_requirements and isinstance(extra_requirements, str):
+            extra_requirements = [x for x in
+                                  extra_requirements.split(';') if x]
+        self.extra_requirements = extra_requirements or []
+        self.spider_parameters = spider_parameters or {}
+        self.project_name = project_name
+        self.base_settings_module = base_settings_module
+        self.output = output
+        self.plugin_settings = plugin_settings or {}
+        self.plugins = kwargs.get('plugins') or []
+        self.package = kwargs.get('package')
+
+    def to_json(self):
+        d = {
+            'spider': self.spider_name,
+            'project_name': self.project_name,
+            'extra_requirements': self.extra_requirements,
+            'spider_parameters': self.spider_parameters,
+            'base_settings_module': self.base_settings_module,
+            'plugin_settings': self.plugin_settings,
+            'package': self.package,
+        }
+        if self.output:
+            d['output'] = self.output
+        return json.dumps(d)
+
+    @classmethod
+    def from_json(cls, json_str):
+        parsed = json.loads(json_str)
+        return SpiderSetting.from_dict(parsed)
+
+    @classmethod
+    def from_dict(cls, dic):
+        """
+        type: (cls, dict) -> SpiderSetting
+        """
+        spider_name = dic.get('spider_name') or dic.get('spider')
+        project_name = dic.get('project_name')
+        extra_requirements = dic.get('extra_requirements')
+        spider_parameters = dic.get('spider_parameters')
+        base_settings_module = dic.get('base_settings_module')
+        output = dic.get('output')
+        plugin_settings = dic.get('plugin_settings')
+
+
+        return cls(spider_name, extra_requirements, spider_parameters,
+                   project_name,
+                   base_settings_module=base_settings_module,
+                   output=output,
+                   plugin_settings=plugin_settings,
+                   plugins=dic.get('plugins'),
+                   package=dic.get('package'))
+
+    @property
+    def spider(self):
+        return self.spider_name
+
+
+class DictSpiderSettings(dict):
+    def to_json(self):
+        return json.dumps(self)
+
+    @property
+    def spider(self):
+        return self.get('spider')
 
 
 class ProjectWorkspace(object):
@@ -35,8 +119,10 @@ class ProjectWorkspace(object):
     def __init__(self, project_name, base_workdir=None, keep_files=False):
         if not base_workdir:
             base_workdir = tempfile.mkdtemp(prefix='scrapydd-tmp')
+            logger.debug('creating workspace dir in %s', base_workdir)
         project_workspace_dir = base_workdir
         self.venv_dir = tempfile.mkdtemp(prefix='scrapydd-tmp')
+        logger.debug('venv_dir: %s', self.venv_dir)
         self.project_workspace_dir = project_workspace_dir
         self.project_name = project_name
         self.keep_files = keep_files
@@ -50,57 +136,60 @@ class ProjectWorkspace(object):
         else:
             raise NotImplementedError('Unsupported system %s' % sys.platform)
 
-    def init(self):
+    async def init(self):
         """
         init project isolated workspace,
         :return: future
         """
-        future = Future()
         if os.path.exists(self.pip) and os.path.exists(self.python):
-            future.set_result(self)
-            return future
+            return
 
         logger.debug('workspace dir : %s' % (self.project_workspace_dir,))
         logger.info('start creating virtualenv.')
         try:
+            stdout_stream = tempfile.NamedTemporaryFile(dir=self.project_workspace_dir)
+            stderr_stream = tempfile.NamedTemporaryFile(dir=self.project_workspace_dir)
+            env = os.environ
             process = Popen([sys.executable, '-m', 'virtualenv',
-                             '--system-site-packages', self.venv_dir])
-            self.processes.append(process)
-        except Exception as e:
-            future.set_exception(e)
-            return future
+                             '--system-site-packages', self.venv_dir],
+                            env=env,
+                            stdout=stdout_stream, stderr=stderr_stream)
+            logger.debug('pid: %s', process.pid)
 
-        def done(process):
-            self.processes.remove(process)
-            retcode = process.returncode
-            if retcode is not None:
-                if retcode == 0:
-                    logger.info('Create virtualenv done.')
-                    future.set_result(self)
-                else:
-                    future.set_exception(
-                        ProcessFailed('Error when init workspace virtualenv '))
+            ret_code = await self._wait_process(process)
+        finally:
+            if stdout_stream:
+                stdout_stream.close()
+            if stderr_stream:
+                stderr_stream.close()
 
-        wait_process(process, done)
-        return future
+        if ret_code != 0:
+            raise ProcessFailed(ret_code=ret_code)
+        return
 
     def find_project_requirements(self):
+        eggf = None
         try:
             file_path = os.path.join(self.project_workspace_dir, 'spider.egg')
             eggf = open(file_path, 'rb')
+            with ZipFile(eggf) as egg_zip_file:
+                try:
+                    requires_fileinfo = egg_zip_file.getinfo(
+                        'EGG-INFO/requires.txt')
+                    return ensure_str(
+                        egg_zip_file.read(requires_fileinfo)).split()
+                except KeyError:
+                    return []
         except IOError:
             raise PackageNotFoundException()
-        with ZipFile(eggf) as egg_zip_file:
-            try:
-                requires_fileinfo = egg_zip_file.getinfo('EGG-INFO/requires.txt')
-                return ensure_str(egg_zip_file.read(requires_fileinfo)).split()
-            except KeyError:
-                return []
+        finally:
+            if eggf:
+                eggf.close()
 
     @gen.coroutine
     def install_requirements(self, extra_requirements=None):
         requirements = self.find_project_requirements()
-        requirements += ['scrapydd', 'scrapy']
+        requirements += ['pancli', 'scrapy']
         if extra_requirements:
             requirements += extra_requirements
         logger.info('start install requirements: %s.' % (requirements,))
@@ -136,7 +225,8 @@ class ProjectWorkspace(object):
                     stderr_stream.seek(0)
                     std_out = stdout_stream.read().decode(PROCESS_ENCODING)
                     err_out = stderr_stream.read().decode(PROCESS_ENCODING)
-                    future.set_exception(ProcessFailed(std_output=std_out,
+                    future.set_exception(ProcessFailed(ret_code=retcode,
+                                                       std_output=std_out,
                                                        err_output=err_out))
 
         wait_process(process, done)
@@ -147,11 +237,10 @@ class ProjectWorkspace(object):
         cwd = self.project_workspace_dir
         try:
             env = os.environ.copy()
-            env['SCRAPY_PROJECT'] = self.project_name
-            env['SCRAPY_EGG'] = 'spider.egg'
-            process = Popen([self.python, '-m',
-                             'scrapydd.utils.runner', 'list'],
-                            env=env, cwd=cwd, stdout=PIPE,
+            args = [self.python, '-m', 'pancli.cli', 'list',
+                    '--package', 'spider.egg']
+            process = Popen(args,
+                            cwd=cwd, stdout=PIPE,
                             stderr=PIPE, encoding=PROCESS_ENCODING)
         except Exception as e:
             logger.error(e)
@@ -167,38 +256,10 @@ class ProjectWorkspace(object):
                     stdout = ensure_str(stdout)
                     future.set_result(stdout.splitlines())
                 else:
-                    # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
-                    future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
-                return
-            IOLoop.current().call_later(1, check_process)
-
-        check_process()
-        return future
-
-    def settings_module(self):
-        future = Future()
-        cwd = self.project_workspace_dir
-        try:
-            env = os.environ.copy()
-            env['SCRAPY_PROJECT'] = self.project_name
-            env['SCRAPY_EGG'] = 'spider.egg'
-            process = Popen([self.python, '-m', 'scrapydd.utils.extract_settings_module', 'spider.egg'],
-                            env=env, cwd=cwd, stdout=PIPE,
-                            stderr=PIPE, encoding=PROCESS_ENCODING)
-        except Exception as e:
-            logger.error(e)
-            future.set_exception(e)
-            return future
-
-        def check_process():
-            logger.debug('poll')
-            retcode = process.poll()
-            if retcode is not None:
-                if retcode == 0:
                     stdout = process.stdout.read()
-                    stdout = ensure_str(stdout).strip()
-                    future.set_result(stdout)
-                else:
+                    logger.info(stdout)
+                    stderr = process.stderr.read()
+                    logger.warning(stderr)
                     # future.set_exception(ProcessFailed(std_output=process.stdout.read(), err_output=process.stderr.read()))
                     future.set_exception(InvalidProjectEgg(detail=process.stderr.read()))
                 return
@@ -207,40 +268,34 @@ class ProjectWorkspace(object):
         check_process()
         return future
 
-    def run_spider(self, spider, spider_parameters=None, f_output=None, project=None):
-        ret_future = Future()
-        items_file = os.path.join(self.project_workspace_dir, 'items.jl')
-        runner = 'scrapydd.utils.runner'
-        pargs = [self.python, '-m', runner, 'crawl', spider]
-        if project:
-            spider_parameters['BOT_NAME'] = project
-        if spider_parameters:
-            for spider_parameter_key, spider_parameter_value in spider_parameters.items():
-                pargs += [
-                    '-s',
-                    '%s=%s' % (spider_parameter_key, spider_parameter_value)
-                ]
-        pargs += ['-o', str(path_to_file_uri(items_file)), '-t', 'jl']
+    async def run_spider(self, spider, f_output=None,
+                         spider_settings=None):
+        items_file = 'items.jl'
+        items_file_path = os.path.join(self.project_workspace_dir, items_file)
 
-        env = os.environ.copy()
-        env['SCRAPY_PROJECT'] = str(self.project_name)
-        env['SCRAPY_EGG'] = 'spider.egg'
+        spider_json = 'spider.json'
+        spider_json_path = os.path.join(self.project_workspace_dir, spider_json)
 
+        with open(spider_json_path, 'w') as f:
+            f.write(spider_settings.to_json())
 
-        p = Popen(pargs, env=env, stdout=f_output,
+        pargs = [self.python, '-m', 'pancli.cli', 'crawl', spider,
+                 '-f', 'spider.json',
+                 '--package', 'spider.egg']
+
+        pargs += ['-o', items_file]
+        logger.debug(pargs)
+
+        p = Popen(pargs, stdout=f_output,
                   cwd=self.project_workspace_dir,
                   stderr=f_output, encoding='utf8')
-        self.processes.append(p)
-
-        def done(process):
-            self.processes.remove(process)
-            if process.returncode:
-                return ret_future.set_exception(ProcessFailed())
-
-            return ret_future.set_result(items_file)
-
-        wait_process(p, done)
-        return ret_future
+        retcode = await self._wait_process(p)
+        if retcode != 0:
+            logger.debug('ret_code %s', retcode)
+            raise ProcessFailed(ret_code=retcode)
+        ret = CrawlResult(ret_code=retcode, items_file=items_file_path,
+                          runner=self)
+        return ret
 
     def find_project_settings(self, project):
         cwd = self.project_workspace_dir
@@ -277,8 +332,7 @@ class ProjectWorkspace(object):
         with open(eggpath, 'wb') as f:
             copyfileobj(eggfile, f)
 
-    @gen.coroutine
-    def kill_process(self, timeout=30):
+    async def kill_process(self, timeout=30):
         logger.info('killing process')
         for process in self.processes:
             if process.poll() is not None:
@@ -288,7 +342,7 @@ class ProjectWorkspace(object):
             except OSError as e:
                 logger.error('Caught OSError when try to terminate subprocess: %s' % e)
 
-            gen.sleep(timeout)
+            await asyncio.sleep(timeout)
 
             if process.poll() is not None:
                 continue
@@ -297,7 +351,23 @@ class ProjectWorkspace(object):
             except OSError as e:
                 logger.error('Caught OSError when try to kill subprocess: %s' % e)
 
+    async def _wait_process(self, process: Popen):
+        self.processes.append(process)
+        ret_code = process.poll()
+        while ret_code is None:
+            await asyncio.sleep(1)
+            logger.debug('polling process %d', process.pid)
+            ret_code = process.poll()
+        try:
+            self.processes.remove(process)
+        except ValueError:
+            logger.debug('process not found.')
+            pass
+        return ret_code
+
+
     def __del__(self):
+        logger.debug('Cleaning project workspace.')
         if self.venv_dir and os.path.exists(self.venv_dir):
             shutil.rmtree(self.venv_dir)
 
@@ -349,7 +419,7 @@ class VenvRunner(object):
         raise gen.Return(ret)
 
     @gen.coroutine
-    def crawl(self, spider_settings):
+    def crawl(self, spider_settings: SpiderSetting):
         """
         Parameters:
             spider_settings (SpiderSetting): spider settings object.
@@ -359,29 +429,23 @@ class VenvRunner(object):
         crawl_log_path = path.join(self._work_dir, 'crawl.log')
         f_crawl_log = open(crawl_log_path, 'w')
         try:
-            ret = yield self._project_workspace.run_spider(spider_settings.spider_name,
-                                                           spider_settings.spider_parameters,
+            ret = yield self._project_workspace.run_spider(spider_settings.spider,
                                                            f_output=f_crawl_log,
-                                                           project=spider_settings.project_name)
+                                                           spider_settings=spider_settings)
             f_crawl_log.close()
-            result = CrawlResult(0, items_file=ret, crawl_logfile=crawl_log_path)
-            raise gen.Return(result)
-        except ProcessFailed:
+            ret.crawl_logfile = crawl_log_path
+            raise gen.Return(ret)
+        except ProcessFailed as e:
             f_crawl_log.close()
             with open(crawl_log_path, 'r') as f_log:
                 error_log = f_log.read()
-            raise ProcessFailed(err_output=error_log)
+            ret = CrawlResult(ret_code=e.ret_code,
+                              crawl_logfile=f_crawl_log)
+            raise gen.Return(ret)
 
-
-    @gen.coroutine
-    def settings_module(self):
-        yield self._prepare()
-        ret = yield self._project_workspace.settings_module()
-        raise gen.Return(ret)
-
-    def kill(self):
+    async def kill(self):
         logger.info('killing process')
-        self._project_workspace.kill_process()
+        await self._project_workspace.kill_process()
 
     def clear(self):
         self._project_workspace = None
@@ -390,7 +454,7 @@ class VenvRunner(object):
 
 
 class DockerRunner(object):
-    image = 'kevenli/scrapydd'
+    image = 'pansihub/pancli'
     _exit = False
     _container = None
     debug = False
@@ -454,11 +518,14 @@ class DockerRunner(object):
         out.close()
 
     def _remove_container(self, container):
+        logger.debug('DockerRunner._remove_container')
         if self._container == container:
             self._container = None
 
         if not self.debug:
             container.remove()
+        else:
+            logger.debug('keep container in debug mode.')
 
     def _start_container(self, container):
         if self._container is not None:
@@ -480,10 +547,10 @@ class DockerRunner(object):
 
     @gen.coroutine
     def list(self):
-        env = {'SCRAPY_EGG': 'spider.egg'}
-        container = self._client.containers.create(self.image, ["python", "-m", "scrapydd.utils.runner", 'list'],
-                                                   detach=True, working_dir='/spider_run',
-                                                   environment=env)
+        pargs = ["python", "-m", "pancli.cli", 'list', '--package', 'spider.egg']
+        container = self._client.containers.create(self.image, pargs,
+                                                   detach=True,
+                                                   working_dir='/spider_run')
         self._put_egg(container)
         self._start_container(container)
         ret_code = self._wait_container(container)
@@ -497,10 +564,10 @@ class DockerRunner(object):
             raise gen.Return(ensure_str(logs).split())
         else:
             self._remove_container(container)
-            raise ProcessFailed(err_output=logs)
+            raise ProcessFailed(ret_code=ret_code, err_output=logs)
 
     @gen.coroutine
-    def crawl(self, spider_settings):
+    def crawl(self, spider_settings: Union[SpiderSetting]):
         """
         Parameters:
             spider_settings (SpiderSetting): spider settings object.
@@ -517,21 +584,29 @@ class DockerRunner(object):
         see: https://docs.scrapy.org/en/latest/topics/api.html#scrapy.settings.BaseSettings.get
 
         """
+        settings_content = spider_settings.to_json()
         spider_json_buffer = BytesIO()
-        spider_json_buffer.write(spider_settings.to_json().encode('utf8'))
+        spider_json_buffer.write(settings_content.encode('utf8'))
         spider_json_buffer.seek(0)
         items_file_path = path.join(self._work_dir, 'items.jl')
         log_file_path = path.join(self._work_dir, 'crawl.log')
 
+        pargs = ["python",
+                 "-m",
+                 "pancli.cli",
+                 "crawl",
+                 spider_settings.spider,
+                 "-f",
+                 "spider.json",
+                 '--output',
+                 'items.jl',
+                 '--package',
+                 'spider.egg'
+                 ]
 
-        pargs = ["python", "-m", "scrapydd.utils.runner2"]
-        env = {}
-        env['SCRAPY_FEED_URI'] = 'items.jl'
-        env['SCRAPY_EGG'] = 'spider.egg'
         container = self._client.containers.create(self.image, pargs,
                                                    detach=True,
-                                                   working_dir='/spider_run',
-                                                   environment=env)
+                                                   working_dir='/spider_run')
         self._put_file(container, 'spider.json', spider_json_buffer)
         self._put_egg(container)
         self._start_container(container)
@@ -550,7 +625,7 @@ class DockerRunner(object):
             raise gen.Return(result)
         else:
             self._remove_container(container)
-            raise ProcessFailed(err_output=process_output)
+            raise ProcessFailed(ret_code=ret_code, err_output=process_output)
 
     @gen.coroutine
     def settings_module(self):
@@ -569,7 +644,7 @@ class DockerRunner(object):
         if ret_code == 0:
             raise gen.Return(output)
         else:
-            raise ProcessFailed(err_output=output)
+            raise ProcessFailed(ret_code=ret_code, err_output=output)
 
     def kill(self):
         logger.info('killing process')
@@ -587,14 +662,17 @@ class DockerRunner(object):
 
 
 class RunnerFactory(object):
-    _runner_type = 'venv'
-    _docker_image = 'kevenli/scrapydd'
-    _debug = False
-
     def __init__(self, config):
         self._runner_type = config.get('runner_type', 'venv')
-        self._docker_image = config.get('runner_docker_image', 'kevenli/scrapydd')
+        self._docker_image = config.get('runner_docker_image', 'pansihub/pancli')
         self._debug = config.getboolean('debug', 'false')
+
+        # try check docker image exists.
+        # It will not retrieve image at runtime.
+        if self._runner_type == 'docker':
+            client = docker.from_env()
+            image = client.images.get(self._docker_image)
+            client = None
 
     def build(self, eggf):
         runner_type = self._runner_type
@@ -613,72 +691,7 @@ class PackageNotFoundException(Exception):
     pass
 
 
-class SpiderSetting(object):
-    spider_name = None
-    project_name = None
-    extra_requirements = None
-    spider_parameters = None
-    base_settings_module = None
-    output_file = None
 
-    def __init__(self, spider_name, extra_requirements=None, spider_parameters=None, project_name=None,
-                 base_settings_module=None,
-                 output_file=None,
-                 plugin_settings=None):
-        self.spider_name = spider_name
-        if extra_requirements and isinstance(extra_requirements, str):
-            extra_requirements = [x for x in
-                                  extra_requirements.split(';') if x]
-        self.extra_requirements = extra_requirements or []
-        self.spider_parameters = spider_parameters or {}
-        self.project_name = project_name
-        self.base_settings_module = base_settings_module
-        self.output_file = output_file
-        self.plugin_settings = plugin_settings
-
-
-    def to_json(self):
-        d = {
-            'spider_name': self.spider_name,
-            'project_name': self.project_name,
-            'extra_requirements': self.extra_requirements,
-            'spider_parameters': self.spider_parameters,
-            'base_settings_module': self.base_settings_module,
-            'plugin_settings': self.plugin_settings,
-        }
-        if self.output_file:
-            d['output_file'] = self.output_file
-        return json.dumps(d)
-
-    @classmethod
-    def from_json(cls, json_str):
-        parsed = json.loads(json_str)
-        return SpiderSetting.from_dict(parsed)
-
-    @classmethod
-    def from_dict(cls, dic):
-        """
-        type: (cls, dict) -> SpiderSetting
-        """
-        spider_name = dic['spider_name']
-        project_name = dic.get('project_name')
-        extra_requirements = dic.get('extra_requirements')
-        spider_parameters = dic.get('spider_parameters')
-        base_settings_module = dic.get('base_settings_module')
-        output_file = dic.get('output_file')
-        plugin_settings = dic.get('plugin_settings')
-
-        return cls(spider_name, extra_requirements, spider_parameters,
-                   project_name,
-                   base_settings_module=base_settings_module,
-                   output_file=output_file,
-                   plugin_settings=plugin_settings)
-
-    @classmethod
-    def from_file(cls, file_path):
-        with open(file_path, 'r') as f:
-            json_content = f.read()
-            return SpiderSetting.from_json(json_content)
 
 
 class CrawlResult(object):
@@ -686,12 +699,26 @@ class CrawlResult(object):
     _crawl_logfile = None
     _ret_code = 0
     _console_output = None
+    _runner = None
 
-    def __init__(self, ret_code, error_message=None, items_file=None, crawl_logfile=None):
+    def __init__(self, ret_code, error_message=None, items_file=None,
+                 crawl_logfile=None, runner=None):
+        """
+
+        :param ret_code:
+        :param error_message:
+        :param items_file:
+        :param crawl_logfile:
+        :param runner: can be anything which holds the resources before
+                    result has been processed. For example an object
+                    where holds a temp folder containing item and log
+                    files, can delete the entire folder when __del__
+                    is called.
+        """
         self._ret_code = ret_code
         self._error_message = error_message
         self._items_file = items_file
-        self._crawl_logfile = crawl_logfile
+        self.crawl_logfile = crawl_logfile
 
     @property
     def ret_code(self):
@@ -704,7 +731,3 @@ class CrawlResult(object):
     @property
     def items_file(self):
         return self._items_file
-
-    @property
-    def crawl_logfile(self):
-        return self._crawl_logfile

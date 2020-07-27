@@ -5,6 +5,8 @@ import uuid
 import logging
 import datetime
 import json
+from abc import ABC
+from typing import List
 from apscheduler.schedulers.tornado import TornadoScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
@@ -49,16 +51,27 @@ def generate_job_id():
     return jobid
 
 
+class JobObserver(ABC):
+    def on_job_finished(self, job: HistoricalJob):
+        pass
+
+
 class SchedulerManager():
-    def __init__(self, config=None, syncobj=None):
+    _job_observers: List[JobObserver] = []
+
+    def __init__(self, config=None, syncobj=None, scheduler=None):
         if config is None:
             config = Config()
         self.config = config
-        executors = {
-            'default': ThreadPoolExecutor(20),
-        }
+
         self.project_storage_dir = config.get('project_storage_dir')
-        self.scheduler = TornadoScheduler(executors=executors)
+        if scheduler:
+            self.scheduler = scheduler
+        else:
+            executors = {
+                'default': ThreadPoolExecutor(20),
+            }
+            self.scheduler = TornadoScheduler(executors=executors)
 
         self.poll_task_queue_callback = None
         self.pool_task_queue_interval = 10
@@ -73,7 +86,20 @@ class SchedulerManager():
 
     def init(self):
         session = Session()
+        self._transfer_complete_jobs(session)
+        # init triggers
+        triggers = session.query(Trigger)
+        for trigger in triggers:
+            try:
+                self.add_job(trigger.id, trigger.cron_pattern)
+            except InvalidCronExpression:
+                LOGGER.warning('Trigger %d,%s cannot be added ',
+                               (trigger.id, trigger.cron_pattern))
+        session.close()
+        self.clear_finished_jobs_callback.start()
+        self.reset_timeout_job_callback.start()
 
+    def _transfer_complete_jobs(self, session):
         # move completed jobs into history
         for job in session.query(SpiderExecutionQueue)\
                 .filter(SpiderExecutionQueue.status.in_((2, 3))):
@@ -89,21 +115,6 @@ class SchedulerManager():
             session.delete(job)
             session.add(historical_job)
         session.commit()
-
-        # init triggers
-        triggers = session.query(Trigger)
-        for trigger in triggers:
-            try:
-                self.add_job(trigger.id, trigger.cron_pattern)
-            except InvalidCronExpression:
-                LOGGER.warning('Trigger %d,%s cannot be added ',
-                               (trigger.id, trigger.cron_pattern))
-        session.close()
-
-        self.scheduler.start()
-
-        self.clear_finished_jobs_callback.start()
-        self.reset_timeout_job_callback.start()
 
     def build_cron_trigger(self, cron):
         cron_parts = cron.split(' ')
@@ -166,11 +177,11 @@ class SchedulerManager():
                 LOGGER.error('Project %s not found' % project.name)
                 return
 
-        try:
-            self.add_task(project.name, spider.name)
-        except JobRunning:
-            LOGGER.info('Job for spider %s.%s already reach the '
-                        'concurrency limit' % (project.name, spider.name))
+            try:
+                self.add_spider_task(session, spider)
+            except JobRunning:
+                LOGGER.info('Job for spider %s.%s already reach the '
+                            'concurrency limit' % (project.name, spider.name))
 
     def add_schedule(self, project, spider, cron):
         with session_scope()as session:
@@ -191,6 +202,26 @@ class SchedulerManager():
                 session.add(trigger)
                 session.commit()
                 self.add_job(trigger.id, cron)
+
+    def add_spider_task(self, session, spider, settings=None):
+        executing = SpiderExecutionQueue()
+        spider_tag_vo = session.query(SpiderSettings)\
+            .filter_by(spider_id=spider.id, setting_key='tag').first()
+        spider_tag = spider_tag_vo.value if spider_tag_vo else None
+        jobid = generate_job_id()
+        executing.id = jobid
+        executing.spider_id = spider.id
+        executing.project_name = spider.project.name
+        executing.spider_name = spider.name
+        executing.fire_time = datetime.datetime.now()
+        executing.update_time = datetime.datetime.now()
+        executing.tag = spider_tag
+        if settings:
+            executing.settings = json.dumps(settings)
+        session.add(executing)
+        session.commit()
+        session.refresh(executing)
+        return executing
 
     def add_task(self, project_name, spider_name, settings=None):
         with session_scope() as session:
@@ -329,7 +360,7 @@ where status=0
     ) as a
    on spider_execution_queue.fire_time = a.fire_time
     and spider_execution_queue.spider_id = a.spider_id
-order by fire_time
+order by a.fire_time
 """)
         for job in session.query(SpiderExecutionQueue).instances(result):
             spider_max_concurrency = 1
@@ -454,7 +485,8 @@ order by fire_time
                 if m and historical_job.status == JOB_STATUS_SUCCESS:
                     historical_job.status = JOB_STATUS_WARNING
                 log_file.seek(0)
-            except UnicodeDecodeError:
+            except (UnicodeDecodeError, TypeError):
+                # use TypeError when detected log_encoding be null.
                 LOGGER.warning('Cannot read unicode in log file.')
                 log_file.seek(0)
         #if items_file:
@@ -469,11 +501,11 @@ order by fire_time
 
         session.commit()
         session.refresh(historical_job)
+        self.notify_job_finished(historical_job)
 
         # send mail
         if historical_job.status == JOB_STATUS_FAIL:
             self.try_send_job_failed_mail(historical_job)
-
 
         session.close()
         return historical_job
@@ -594,3 +626,23 @@ order by fire_time
         if self.sync_obj:
             LOGGER.info('remove_schedule')
             self.sync_obj.remove_schedule_job(trigger.id)
+
+    def attach_job_observer(self, observer: JobObserver):
+        LOGGER.debug('adding observer')
+        self._job_observers.append(observer)
+
+    def detach_job_observer(self, observer: JobObserver):
+        LOGGER.debug('deattch')
+        self._job_observers.remove(observer)
+
+    def notify_job_finished(self, job):
+        for observer in self._job_observers:
+            observer.on_job_finished(job)
+
+
+def build_scheduler() -> TornadoScheduler:
+    executors = {
+        'default': ThreadPoolExecutor(20),
+    }
+    scheduler = TornadoScheduler(executors=executors)
+    return scheduler
