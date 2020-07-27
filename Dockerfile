@@ -6,6 +6,6 @@ RUN apk add libffi-dev \
     tzdata jpeg-dev zlib-dev freetype-dev lcms2-dev openjpeg-dev tiff-dev tk-dev tcl-dev
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-RUN pip install scrapydd
+RUN pip install scrapydd==0.7.3
 ENV TZ /usr/share/zoneinfo/Etc/UTC
 CMD ["scrapydd"]
