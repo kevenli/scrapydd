@@ -8,8 +8,6 @@ Requirements
     For async programming and the web server.
 * apscheduler
     Internal scheduling engine.
-* scrapyd
-    Project egg storage.
 * sqlalchemy
     Data accessing
 * sqlalchemy-migrate
