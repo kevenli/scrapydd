@@ -1,3 +1,33 @@
+v0.7.4:
+
+bug fixes:
+fix: error handling in job log info extracting.
+fix: example docker-compose file use HOST network mode.
+fix: sql error when finding available job in queue.
+fix: add job by spider_id against by project_name and spider_name.
+fix: missing packaged files in static/css subfolder.
+
+features:
+feature: add database backup and restore scripts.
+feature: add pymysql requirement for connecting to mysql database.
+feature: add user.is_active field to control user active/deactive.
+feature: modify spidersettings page style as bootstrap4.
+feature: use pancli as runner entrypoint, for both VenvRunner/DockerRunner.
+
+refactorings:
+refactoring: move scheduler out of SchedulerManager.
+refactoring: trigger webhook on_job_finish from SchedulerManager.
+refactoring: add logging of container removing.
+refactoring: spider crawling methods returns CrawlResult.
+refactoring: agent will pass spider settings (json) file through to runner,
+    it will be more forward-compatiable that future server version can add feature
+    to control spider running without demanding an upgrade on agent.
+refactoring: since runner will manipulating spider settings by pansicli command line tools,
+    it do not extract package setting_module anymore.
+refactoring: remove a hard-coded runner docker image in RunnerFactory, it will
+    use the value from config.
+
+
 v0.7.3:
 
 * fix: docker runner AttributeError
