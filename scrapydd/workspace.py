@@ -54,18 +54,23 @@ class SpiderSetting(object):
         self.package = kwargs.get('package')
 
     def to_json(self):
+        d = self.to_dict()
+        return json.dumps(d)
+
+    def to_dict(self):
         d = {
             'spider': self.spider_name,
             'project_name': self.project_name,
             'extra_requirements': self.extra_requirements,
             'spider_parameters': self.spider_parameters,
+            'settings': self.spider_parameters,
             'base_settings_module': self.base_settings_module,
             'plugin_settings': self.plugin_settings,
             'package': self.package,
         }
         if self.output:
             d['output'] = self.output
-        return json.dumps(d)
+        return d
 
     @classmethod
     def from_json(cls, json_str):
@@ -80,7 +85,7 @@ class SpiderSetting(object):
         spider_name = dic.get('spider_name') or dic.get('spider')
         project_name = dic.get('project_name')
         extra_requirements = dic.get('extra_requirements')
-        spider_parameters = dic.get('spider_parameters')
+        spider_parameters = dic.get('settings') or dic.get('spider_parameters')
         base_settings_module = dic.get('base_settings_module')
         output = dic.get('output')
         plugin_settings = dic.get('plugin_settings')
@@ -97,6 +102,10 @@ class SpiderSetting(object):
     @property
     def spider(self):
         return self.spider_name
+
+    @spider.setter
+    def spider(self, value):
+        self.spider_name = value
 
 
 class DictSpiderSettings(dict):

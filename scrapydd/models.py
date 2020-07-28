@@ -222,6 +222,18 @@ Spider.parameters = relationship('SpiderParameter',
                                  order_by=SpiderParameter.parameter_key)
 
 
+class SpiderFigure(Base):
+    __tablename__ = 'spider_figure'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    spider_id = Column(Integer, ForeignKey('spiders.id'))
+    text = Column(String(length=2000))
+
+
+Spider.figure = relationship('SpiderFigure', uselist=False)
+
+
+
 class SysSpiderPlugin(Base):
     __tablename__ = 'sys_spiderplugins'
 

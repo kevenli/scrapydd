@@ -25,7 +25,7 @@ from sqlalchemy import desc
 from .models import Session, Project, Spider, SpiderExecutionQueue
 from .models import init_database, HistoricalJob
 from .models import session_scope, SpiderSettings, WebhookJob
-from .models import SpiderParameter
+from .models import SpiderParameter, SpiderFigure
 from .schedule import SchedulerManager, build_scheduler
 from .nodes import NodeManager
 from .config import Config
@@ -299,139 +299,156 @@ class SpiderSettingsHandler(AppBaseHandler):
 
     @authenticated
     def get(self, project_id, spider_id):
-        with session_scope() as session:
-            spider = self.project_manager.get_spider(session, self.current_user,
-                                                     project_id, spider_id)
-            project = spider.project
-            job_settings = {
-                setting.setting_key: setting.value for setting in
-                session.query(SpiderSettings).filter_by(spider_id=spider.id)}
+        session = self.session
+        spider = self.project_manager.get_spider(session, self.current_user,
+                                                    project_id, spider_id)
+        project = spider.project
+        job_settings = {
+            setting.setting_key: setting.value for setting in
+            session.query(SpiderSettings).filter_by(spider_id=spider.id)}
 
-            # default setting values
-            if 'concurrency' not in job_settings:
-                job_settings['concurrency'] = 1
-            if 'timeout' not in job_settings:
-                job_settings['timeout'] = 3600
-            if 'tag' not in job_settings or job_settings['tag'] is None:
-                job_settings['tag'] = ''
-            context = {}
-            context['settings'] = job_settings
-            context['project'] = project
-            context['spider'] = spider
+        # default setting values
+        if 'concurrency' not in job_settings:
+            job_settings['concurrency'] = 1
+        if 'timeout' not in job_settings:
+            job_settings['timeout'] = 3600
+        if 'tag' not in job_settings or job_settings['tag'] is None:
+            job_settings['tag'] = ''
+        context = {}
+        context['settings'] = job_settings
+        context['project'] = project
+        context['spider'] = spider
 
-            spider_parameters = session.query(SpiderParameter) \
-                .filter_by(spider_id=spider.id) \
-                .order_by(SpiderParameter.parameter_key)
-            context['spider_parameters'] = spider_parameters
+        spider_parameters = session.query(SpiderParameter) \
+            .filter_by(spider_id=spider.id) \
+            .order_by(SpiderParameter.parameter_key)
+        context['spider_parameters'] = spider_parameters
 
-            return self.render('spidersettings.html', **context)
+        figure_json = '{}'
+        if spider.figure and spider.figure.text:
+            figure_json = spider.figure.text
+        context['figure_json'] = figure_json
+
+        return self.render('spidersettings.html', **context)
 
     @authenticated
     def post(self, project_id, spider_id):
-        with session_scope() as session:
-            spider = self.project_manager.get_spider(session, self.current_user,
-                                                     project_id, spider_id)
-            project = spider.project
+        session = self.session
+        spider = self.project_manager.get_spider(session, self.current_user,
+                                                    project_id, spider_id)
+        project = spider.project
 
-            setting_concurrency_value = self.get_body_argument('concurrency',
-                                                               '1')
-            setting_concurrency = session.query(SpiderSettings).filter_by(
+        setting_concurrency_value = self.get_body_argument('concurrency',
+                                                            '1')
+        setting_concurrency = session.query(SpiderSettings).filter_by(
+            spider_id=spider.id,
+            setting_key='concurrency').first()
+        if not setting_concurrency:
+            setting_concurrency = SpiderSettings()
+            setting_concurrency.spider_id = spider.id
+            setting_concurrency.setting_key = 'concurrency'
+        setting_concurrency.value = setting_concurrency_value
+        session.add(setting_concurrency)
+
+        setting_timeout_value = self.get_body_argument('timeout', '3600')
+        setting_timeout = session.query(SpiderSettings).filter_by(
+            spider_id=spider.id,
+            setting_key='timeout').first()
+        if not setting_timeout:
+            setting_timeout = SpiderSettings()
+            setting_timeout.spider_id = spider.id
+            setting_timeout.setting_key = 'timeout'
+        setting_timeout.value = setting_timeout_value
+        session.add(setting_timeout)
+
+        setting_webhook_payload_value = self.get_body_argument(
+            'webhook_payload', '')
+        setting_webhook_payload = session.query(SpiderSettings) \
+            .filter_by(spider_id=spider.id,
+                        setting_key='webhook_payload').first()
+        if not setting_webhook_payload:
+            setting_webhook_payload = SpiderSettings()
+            setting_webhook_payload.spider_id = spider.id
+            setting_webhook_payload.setting_key = 'webhook_payload'
+        setting_webhook_payload.value = setting_webhook_payload_value
+        session.add(setting_webhook_payload)
+
+        setting_webhook_batch_size_value = self.get_body_argument(
+            'webhook_batch_size', '')
+        setting_webhook_batch_size = session.query(SpiderSettings) \
+            .filter_by(spider_id=spider.id,
+                        setting_key='webhook_batch_size').first()
+        if not setting_webhook_batch_size:
+            setting_webhook_batch_size = SpiderSettings()
+            setting_webhook_batch_size.spider_id = spider.id
+            setting_webhook_batch_size.setting_key = 'webhook_batch_size'
+        setting_webhook_batch_size.value = setting_webhook_batch_size_value
+        session.add(setting_webhook_batch_size)
+
+        setting_tag_value = self.get_body_argument('tag', '').strip()
+        setting_tag_value = None if setting_tag_value == '' else \
+            setting_tag_value
+        setting_tag = session.query(SpiderSettings).filter_by(
+            spider_id=spider.id,
+            setting_key='tag').first()
+        if not setting_tag:
+            setting_tag = SpiderSettings()
+            setting_tag.spider_id = spider.id
+            setting_tag.setting_key = 'tag'
+        setting_tag.value = setting_tag_value
+        session.add(setting_tag)
+
+        setting_extra_requirements_value = self.get_body_argument(
+            'extra_requirements', '').strip()
+        setting_extra_requirements_value = None if \
+            setting_extra_requirements_value == '' else \
+            setting_extra_requirements_value
+        setting_extra_requirements = session.query(SpiderSettings) \
+            .filter_by(spider_id=spider.id,
+                        setting_key='extra_requirements').first()
+        if not setting_extra_requirements:
+            setting_extra_requirements = SpiderSettings()
+            setting_extra_requirements.spider_id = spider.id
+            setting_extra_requirements.setting_key = 'extra_requirements'
+        setting_extra_requirements.value = setting_extra_requirements_value
+        session.add(setting_extra_requirements)
+
+        spider_parameter_keys = self.get_body_arguments(
+            'SpiderParameterKey')
+        spider_parameter_values = self.get_body_arguments(
+            'SpiderParameterValue')
+        session.query(SpiderParameter) \
+            .filter_by(spider_id=spider.id) \
+            .delete()
+
+        figure_json_text = self.get_body_argument('figure_json')
+        if figure_json_text:
+            figure = spider.figure or SpiderFigure(spider_id=spider.id)
+            try:
+                parsed_figure = json.loads(figure_json_text)
+                figure.text = figure_json_text
+                session.add(figure)
+            except Exception as ex:
+                LOGGER.error(ex)
+
+        for i, spider_parameter_key in enumerate(spider_parameter_keys):
+            spider_parameter_key = spider_parameter_key.strip()
+            if spider_parameter_key == '':
+                continue
+
+            spider_parameter_value = spider_parameter_values[i]
+            spider_parameter = session.query(SpiderParameter).filter_by(
                 spider_id=spider.id,
-                setting_key='concurrency').first()
-            if not setting_concurrency:
-                setting_concurrency = SpiderSettings()
-                setting_concurrency.spider_id = spider.id
-                setting_concurrency.setting_key = 'concurrency'
-            setting_concurrency.value = setting_concurrency_value
-            session.add(setting_concurrency)
+                parameter_key=spider_parameter_key).first()
+            if not spider_parameter:
+                spider_parameter = SpiderParameter()
+                spider_parameter.spider_id = spider.id
+                spider_parameter.parameter_key = spider_parameter_key
+            spider_parameter.value = spider_parameter_value
+            session.add(spider_parameter)
+        session.commit()
 
-            setting_timeout_value = self.get_body_argument('timeout', '3600')
-            setting_timeout = session.query(SpiderSettings).filter_by(
-                spider_id=spider.id,
-                setting_key='timeout').first()
-            if not setting_timeout:
-                setting_timeout = SpiderSettings()
-                setting_timeout.spider_id = spider.id
-                setting_timeout.setting_key = 'timeout'
-            setting_timeout.value = setting_timeout_value
-            session.add(setting_timeout)
-
-            setting_webhook_payload_value = self.get_body_argument(
-                'webhook_payload', '')
-            setting_webhook_payload = session.query(SpiderSettings) \
-                .filter_by(spider_id=spider.id,
-                           setting_key='webhook_payload').first()
-            if not setting_webhook_payload:
-                setting_webhook_payload = SpiderSettings()
-                setting_webhook_payload.spider_id = spider.id
-                setting_webhook_payload.setting_key = 'webhook_payload'
-            setting_webhook_payload.value = setting_webhook_payload_value
-            session.add(setting_webhook_payload)
-
-            setting_webhook_batch_size_value = self.get_body_argument(
-                'webhook_batch_size', '')
-            setting_webhook_batch_size = session.query(SpiderSettings) \
-                .filter_by(spider_id=spider.id,
-                           setting_key='webhook_batch_size').first()
-            if not setting_webhook_batch_size:
-                setting_webhook_batch_size = SpiderSettings()
-                setting_webhook_batch_size.spider_id = spider.id
-                setting_webhook_batch_size.setting_key = 'webhook_batch_size'
-            setting_webhook_batch_size.value = setting_webhook_batch_size_value
-            session.add(setting_webhook_batch_size)
-
-            setting_tag_value = self.get_body_argument('tag', '').strip()
-            setting_tag_value = None if setting_tag_value == '' else \
-                setting_tag_value
-            setting_tag = session.query(SpiderSettings).filter_by(
-                spider_id=spider.id,
-                setting_key='tag').first()
-            if not setting_tag:
-                setting_tag = SpiderSettings()
-                setting_tag.spider_id = spider.id
-                setting_tag.setting_key = 'tag'
-            setting_tag.value = setting_tag_value
-            session.add(setting_tag)
-
-            setting_extra_requirements_value = self.get_body_argument(
-                'extra_requirements', '').strip()
-            setting_extra_requirements_value = None if \
-                setting_extra_requirements_value == '' else \
-                setting_extra_requirements_value
-            setting_extra_requirements = session.query(SpiderSettings) \
-                .filter_by(spider_id=spider.id,
-                           setting_key='extra_requirements').first()
-            if not setting_extra_requirements:
-                setting_extra_requirements = SpiderSettings()
-                setting_extra_requirements.spider_id = spider.id
-                setting_extra_requirements.setting_key = 'extra_requirements'
-            setting_extra_requirements.value = setting_extra_requirements_value
-            session.add(setting_extra_requirements)
-
-            spider_parameter_keys = self.get_body_arguments(
-                'SpiderParameterKey')
-            spider_parameter_values = self.get_body_arguments(
-                'SpiderParameterValue')
-            session.query(SpiderParameter) \
-                .filter_by(spider_id=spider.id) \
-                .delete()
-            for i, spider_parameter_key in enumerate(spider_parameter_keys):
-                spider_parameter_key = spider_parameter_key.strip()
-                if spider_parameter_key == '':
-                    continue
-
-                spider_parameter_value = spider_parameter_values[i]
-                spider_parameter = session.query(SpiderParameter).filter_by(
-                    spider_id=spider.id,
-                    parameter_key=spider_parameter_key).first()
-                if not spider_parameter:
-                    spider_parameter = SpiderParameter()
-                    spider_parameter.spider_id = spider.id
-                    spider_parameter.parameter_key = spider_parameter_key
-                spider_parameter.value = spider_parameter_value
-                session.add(spider_parameter)
-
-            self.redirect(webui.spider_url(self, spider))
+        self.redirect(webui.spider_url(self, spider))
 
 
 class CACertHandler(RestBaseHandler):

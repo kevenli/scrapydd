@@ -21,6 +21,7 @@ from ..stream import PostDataStreamer
 from ..exceptions import NodeExpired
 from ..security import generate_digest
 from ..storage import ProjectStorage
+from ..workspace import SpiderSetting
 
 LOGGER = logging.getLogger(__name__)
 
@@ -203,6 +204,11 @@ class ExecuteNextHandler(NodeBaseHandler):
                                       for parameter in spider.parameters},
                 'figure': self.project_manager.get_job_def(session, next_task),
             }
+
+            figure = self.project_manager.get_job_figure(session, next_task)
+            if figure:
+                task['figure'] = figure.to_dict()
+
             LOGGER.debug('job_settings: %s', task)
             LOGGER.debug('next_task.settings: %s', next_task.settings)
             job_specific_settings = json.loads(next_task.settings) \

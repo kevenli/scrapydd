@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import List
 from tornado.gen import coroutine, Return
@@ -6,6 +7,7 @@ from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trig
     SpiderParameter, Session, User
 from scrapydd.storage import ProjectStorage
 from scrapydd.exceptions import ProjectNotFound, SpiderNotFound, ProjectAlreadyExists
+from .workspace import SpiderSetting
 
 
 logger = logging.getLogger(__name__)
@@ -180,9 +182,13 @@ class ProjectManager:
 
     def get_job_def(self, session: Session, job: SpiderExecutionQueue) -> dict:
         job = session.query(SpiderExecutionQueue).get(job.id)
-        dict = {}
-        dict['spider'] = job.spider_name
-        dict['settings'] = settings_dict = {}
+
+        if job.spider.figure and job.spider.figure.text:
+            figure = SpiderSetting.from_json(job.spider.figure.text)
+        else:
+            figure = SpiderSetting()
+        figure.spider = job.spider_name
+        
         for parameter in job.spider.parameters:
-            settings_dict[parameter.parameter_key] = parameter.value
-        return dict
+            figure.spider_parameters[parameter.parameter_key] = parameter.value
+        return figure
