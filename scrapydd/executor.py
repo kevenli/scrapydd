@@ -90,6 +90,7 @@ class SpiderTask:
     spider_parameters = None
     extra_requirements = None
     settings = None
+    figure = None
 
 
 class TaskSlotContainer:
@@ -314,6 +315,8 @@ class Executor:
         else:
             task.spider_parameters = {}
         task.settings = response_data['data']
+        if 'figure' in response_data['data']['task']:
+            task.figure = response_data['data']['task']['figure']
         return task
 
     @coroutine
@@ -447,7 +450,8 @@ class TaskExecutor:
         self.task = task
         self.egg_downloader = egg_downloader
         self._runner_factory = runner_factory
-        self._spider_settings = DictSpiderSettings(task.settings['task'])
+        self._spider_settings = DictSpiderSettings(task.figure or
+                                                   task.settings['task'])
         self._f_output = None
         self.output_file = None
         self.items_file = None

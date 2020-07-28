@@ -177,3 +177,12 @@ class ProjectManager:
         if not project:
             raise ProjectNotFound()
         return project
+
+    def get_job_def(self, session: Session, job: SpiderExecutionQueue) -> dict:
+        job = session.query(SpiderExecutionQueue).get(job.id)
+        dict = {}
+        dict['spider'] = job.spider_name
+        dict['settings'] = settings_dict = {}
+        for parameter in job.spider.parameters:
+            settings_dict[parameter.parameter_key] = parameter.value
+        return dict

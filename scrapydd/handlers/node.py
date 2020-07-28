@@ -201,6 +201,7 @@ class ExecuteNextHandler(NodeBaseHandler):
                 'extra_requirements': extra_requirements,
                 'spider_parameters': {parameter.parameter_key: parameter.value
                                       for parameter in spider.parameters},
+                'figure': self.project_manager.get_job_def(session, next_task),
             }
             LOGGER.debug('job_settings: %s', task)
             LOGGER.debug('next_task.settings: %s', next_task.settings)

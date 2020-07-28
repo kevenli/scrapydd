@@ -107,6 +107,10 @@ class DictSpiderSettings(dict):
     def spider(self):
         return self.get('spider')
 
+    @property
+    def extra_requirements(self):
+        return self.get('extra_requirements', [])
+
 
 class ProjectWorkspace(object):
     pip = None
@@ -407,7 +411,7 @@ class VenvRunner(object):
             raise gen.Return()
         yield self._project_workspace.init()
         requirements = self._project_workspace.find_project_requirements()
-        if self._spider_settings:
+        if self._spider_settings and self._spider_settings.extra_requirements:
             requirements += self._spider_settings.extra_requirements
         yield self._project_workspace.install_requirements(requirements)
         self._prepare_finish = True
