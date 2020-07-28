@@ -180,7 +180,7 @@ class ProjectManager:
             raise ProjectNotFound()
         return project
 
-    def get_job_def(self, session: Session, job: SpiderExecutionQueue) -> dict:
+    def get_job_figure(self, session: Session, job: SpiderExecutionQueue) -> dict:
         job = session.query(SpiderExecutionQueue).get(job.id)
 
         if job.spider.figure and job.spider.figure.text:
