@@ -66,6 +66,7 @@ class SpiderSetting(object):
             'settings': self.spider_parameters,
             'base_settings_module': self.base_settings_module,
             'plugin_settings': self.plugin_settings,
+            'plugins': self.plugins,
             'package': self.package,
         }
         if self.output:
@@ -453,7 +454,7 @@ class VenvRunner(object):
             with open(crawl_log_path, 'r') as f_log:
                 error_log = f_log.read()
             ret = CrawlResult(ret_code=e.ret_code,
-                              crawl_logfile=f_crawl_log)
+                              crawl_logfile=crawl_log_path)
             raise gen.Return(ret)
 
     async def kill(self):

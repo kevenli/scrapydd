@@ -186,7 +186,7 @@ class ProjectManager:
         if job.spider.figure and job.spider.figure.text:
             figure = SpiderSetting.from_json(job.spider.figure.text)
         else:
-            figure = SpiderSetting()
+            figure = SpiderSetting(job.spider_name)
         figure.spider = job.spider_name
         
         for parameter in job.spider.parameters:

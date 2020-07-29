@@ -202,7 +202,7 @@ class ExecuteNextHandler(NodeBaseHandler):
                 'extra_requirements': extra_requirements,
                 'spider_parameters': {parameter.parameter_key: parameter.value
                                       for parameter in spider.parameters},
-                'figure': self.project_manager.get_job_def(session, next_task),
+                'figure': self.project_manager.get_job_figure(session, next_task),
             }
 
             figure = self.project_manager.get_job_figure(session, next_task)
