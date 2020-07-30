@@ -356,7 +356,7 @@ def run(argv=None):
     parser.add_argument('--cert-ou', help='Certificate organizational unit (required with --ca)')
     parser.add_argument('--alt-name', help='Subject Alternative Name', action='append')
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args()
 
     sslgen = SSLCertificateGenerator(key_dir)
 
