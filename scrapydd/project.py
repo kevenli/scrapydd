@@ -193,6 +193,7 @@ class ProjectManager:
             project_storage.delete_egg()
             if project.package:
                 session.delete(project.package)
+            session.commit()
             for package in project.packages:
                 self._delete_project_package(session, package)
             session.delete(project)

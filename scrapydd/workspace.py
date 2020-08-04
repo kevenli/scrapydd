@@ -8,7 +8,7 @@ import re
 import shutil
 import json
 from io import BytesIO
-from zipfile import ZipFile, Path
+from zipfile import ZipFile
 from typing import Union
 from shutil import copyfileobj
 from six import ensure_str, ensure_binary
@@ -125,8 +125,11 @@ class DictSpiderSettings(dict):
 
 def find_package_version(eggf):
     with ZipFile(eggf) as egg_zip_file:
-        path = Path(egg_zip_file, 'EGG-INFO/PKG-INFO')
-        lines = path.read_text().splitlines()
+        info = egg_zip_file.getinfo('EGG-INFO/PKG-INFO')
+        if info is None:
+            return
+        with egg_zip_file.open(info, 'r') as f:
+            lines = f.read().decode().splitlines()
         for line in lines:
             logger.debug(line)
             m = re.match(r'Version:\s*(\S*)', line)
