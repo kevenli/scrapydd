@@ -57,7 +57,7 @@ class ProjectManager:
             session.add(package)
             session.flush()
             project_storage = ProjectStorage(self.project_storage_dir, project)
-            project_storage.put_egg(eggf, version)
+            egg_file_path = project_storage.put_egg(eggf, version)
             session.refresh(project)
 
             for spider_name in spiders:
@@ -70,6 +70,19 @@ class ProjectManager:
                     session.add(spider)
                     session.commit()
                     session.refresh(spider)
+
+            package = Package()
+            package.project = project
+            package.type = 'scrapy'
+            package.spider_list = ','.join(spiders)
+            package.version = self._generate_project_package_version(project)
+            eggf.seek(0)
+            package.egg_version = find_package_version(eggf)
+            package.file_path = egg_file_path
+            package.create_date = datetime.now()
+            eggf.seek(0)
+            package.checksum = self._compute_checksum(eggf)
+            session.add(package)
 
             session.commit()
         raise Return(project)
@@ -136,7 +149,7 @@ class ProjectManager:
                     session.add(new_spider)
             session.commit()
 
-        session.refresh(project)
+        # session.refresh(project)
         package = Package()
         package.project = project
         package.type = 'scrapy'
