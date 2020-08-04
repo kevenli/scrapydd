@@ -631,7 +631,7 @@ class DockerRunner(object):
             yield gen.moment
             ret_code = self._wait_container(container)
 
-        # process_output = ensure_str(container.logs())
+        process_output = ensure_str(container.logs())
         if ret_code == 0:
             # with open(log_file_path, 'w') as f:
             #     f.write(process_output)
