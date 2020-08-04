@@ -30,7 +30,7 @@ class ProjectManager:
     async def upload_project(self, user, project_name, version, eggf):
         with session_scope() as session:
             project = session.query(Project)\
-                .filter_by(name=project_name).first()
+                .filter_by(name=project_name, owner=user).first()
 
             if project is None:
                 project = Project()
