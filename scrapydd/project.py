@@ -37,7 +37,8 @@ class ProjectManager:
             runner.clear()
 
         with session_scope() as session:
-            project = session.query(Project).filter_by(name=project_name).first()
+            project = session.query(Project)\
+                .filter_by(name=project_name).first()
 
             if project is None:
                 project = Project()
@@ -89,7 +90,8 @@ class ProjectManager:
         return project
 
 
-    async def upload_project_package(self, session, project, f_egg, version, auto_populate_spiders=False):
+    async def upload_project_package(self, session, project, f_egg, version,
+                                     auto_populate_spiders=False):
         """
         Upload a new package for an existing project.
         :param session: Session
@@ -119,7 +121,8 @@ class ProjectManager:
 
         if auto_populate_spiders:
             for spider_name in spiders:
-                existing_spider = session.query(Spider).filter_by(project=project, name=spider_name).first()
+                existing_spider = session.query(Spider)\
+                    .filter_by(project=project, name=spider_name).first()
                 if not existing_spider:
                     new_spider = Spider(project=project, name=spider_name)
                     session.add(new_spider)
