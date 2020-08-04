@@ -82,7 +82,7 @@ class ProjectUploadPackageTest(AsyncTestCase, ProjectManagerTest):
         user = self.user
         project_name = 'test_upload_project'
         projects = target.get_projects(session, user)
-        version = '1'
+        version = '1.1'
         try:
             existing_project = next(filter(lambda x: x.name == project_name, projects))
             target.delete_project(user.id, existing_project.id)
@@ -100,6 +100,14 @@ class ProjectUploadPackageTest(AsyncTestCase, ProjectManagerTest):
                                                                  'log_spider', 'sina_news', 'success_spider',
                           'warning_spider']))
 
-
-
-
+        self.assertEqual(len(project.packages), 1)
+        self.assertEqual(project.packages[0].project, project)
+        self.assertEqual(project.packages[0].type, 'scrapy')
+        self.assertEqual(project.packages[0].version, 1)
+        self.assertEqual(project.packages[0].egg_version, version)
+        #self.assertEqual(project.packages[0].checksum, checksum)
+        self.assertEqual(project.packages[0].spider_list, ','.join(['error_spider', 'fail_spider',
+                                                                 'log_spider', 'sina_news', 'success_spider',
+                          'warning_spider']))
+        self.assertIsNotNone(project.packages[0].file_path)
+        self.assertTrue(os.path.exists(project.packages[0].file_path))

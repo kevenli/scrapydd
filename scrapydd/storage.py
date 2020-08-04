@@ -39,6 +39,7 @@ class ProjectStorage:
             os.makedirs(egg_file_dir)
         with open(egg_file_path, 'wb+') as fdst:
             copyfileobj(eggf, fdst)
+        return egg_file_path
 
     def delete_egg(self, version=None):
         egg_file_dir = self.storage_provider.get_project_eggs_dir(self.project)

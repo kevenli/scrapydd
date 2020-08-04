@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import List
+import hashlib
 from tornado.gen import coroutine, Return
 from scrapydd.workspace import RunnerFactory
 from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trigger, SpiderExecutionQueue, \
@@ -8,6 +9,7 @@ from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trig
 from scrapydd.storage import ProjectStorage
 from scrapydd.exceptions import ProjectNotFound, SpiderNotFound, ProjectAlreadyExists
 from .workspace import SpiderSetting
+from .models import Package
 
 
 logger = logging.getLogger(__name__)
@@ -109,7 +111,7 @@ class ProjectManager:
         package.spider_list = ','.join(spiders)
         project_storage = ProjectStorage(self.project_storage_dir, project)
         f_egg.seek(0)
-        project_storage.put_egg(f_egg, version)
+        egg_file_path = project_storage.put_egg(f_egg, version)
         session.add(package)
         session.flush()
 
@@ -122,8 +124,33 @@ class ProjectManager:
             session.commit()
 
         session.refresh(project)
+        package = Package()
+        package.project = project
+        package.type = 'scrapy'
+        package.spider_list = ','.join(spiders)
+        package.version = self._generate_project_package_version(project)
+        package.egg_version = version
+        package.file_path = egg_file_path
+        f_egg.seek(0)
+
+        package.checksum = self._compute_checksum(f_egg)
+        session.add(package)
+        session.commit()
+        session.refresh(project)
         return project
 
+    def _generate_project_package_version(self, project):
+        try:
+            last_version = project.packages[0].version
+            return last_version + 1
+        except IndexError:
+            return 1
+
+    def _compute_checksum(self, f_egg):
+        f_egg.seek(0)
+        h = hashlib.sha1()
+        h.update(f_egg.read())
+        return h.hexdigest()
 
     def delete_project(self, user_id, project_id):
         with session_scope() as session:

@@ -15,6 +15,7 @@ from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy import UniqueConstraint
 from migrate.versioning.api import version_control, upgrade
 from migrate.exceptions import DatabaseAlreadyControlledError
 
@@ -75,6 +76,28 @@ class ProjectPackage(Base):
 
 
 Project.package = relationship("ProjectPackage", uselist=False)
+
+
+class Package(Base):
+    __tablename__ = 'packages'
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey('projects.id'))
+    type = Column(String(length=255), nullable=False)
+    spider_list = Column(String(length=255), nullable=False)
+    version = Column(Integer, nullable=False)
+    egg_version = Column(String(length=20))
+    checksum = Column(String(length=40), nullable=False)
+    file_path = Column(String(length=200), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('project_id', 'version',
+                         name='uk_packages_project_id_version'),
+    )
+
+
+Project.packages = relationship("Package", uselist=True)
+Package.project = relationship("Project")
 
 
 class Spider(Base):
