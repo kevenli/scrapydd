@@ -16,6 +16,7 @@ class Package(Base):
     egg_version = Column(String(length=20))
     checksum = Column(String(length=40), nullable=False)
     file_path = Column(String(length=200), nullable=False)
+    create_date = Column(DateTime, nullable=False)
 
     __table_args__ = (
         UniqueConstraint('project_id', 'version',

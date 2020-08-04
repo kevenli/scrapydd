@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 from typing import List
 import hashlib
 from tornado.gen import coroutine, Return
@@ -131,6 +132,7 @@ class ProjectManager:
         package.version = self._generate_project_package_version(project)
         package.egg_version = version
         package.file_path = egg_file_path
+        package.create_date = datetime.now()
         f_egg.seek(0)
 
         package.checksum = self._compute_checksum(f_egg)
