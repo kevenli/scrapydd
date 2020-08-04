@@ -109,9 +109,9 @@ class Spider(Base):
     project_id = Column(Integer, ForeignKey('projects.id'))
     project = relationship('Project')
     name = Column(String(length=50))
-    settings = relationship("SpiderSettings",
-                            collection_class=
-                            attribute_mapped_collection('setting_key'))
+    settings = relationship(
+        "SpiderSettings",
+        collection_class=attribute_mapped_collection('setting_key'))
 
 
 Project.spiders = relationship("Spider", order_by=Spider.id)
@@ -258,7 +258,6 @@ class SpiderFigure(Base):
 Spider.figure = relationship('SpiderFigure', uselist=False)
 
 
-
 class SysSpiderPlugin(Base):
     __tablename__ = 'sys_spiderplugins'
 
@@ -285,8 +284,9 @@ class SysSpiderPluginParameter(Base):
     default_value = Column(String(length=255))
 
 
-SysSpiderPlugin.parameters = relationship('SysSpiderPluginParameter',
-                                          order_by=SysSpiderPluginParameter.key)
+SysSpiderPlugin.parameters = relationship(
+    'SysSpiderPluginParameter',
+    order_by=SysSpiderPluginParameter.key)
 
 
 # pylint: disable=global-statement
@@ -328,7 +328,7 @@ def session_scope():
     try:
         yield session
         session.commit()
-    except:
+    except Exception:
         session.rollback()
         raise
     finally:
