@@ -115,6 +115,14 @@ class ProjectManager:
         package.spider_list = ','.join(spiders)
         project_storage = ProjectStorage(self.project_storage_dir, project)
         f_egg.seek(0)
+        # TODO: identifying egg by custom version should be removed.
+        #  we can extract version from egg metadata, and
+        #  the uploaded package should be versioned not only by the binary
+        #  version tag but also the uploaded time.
+        #  As the auto-generated package.id will not be available
+        #  before the data persisted, but file_path must be ready
+        #  before it, so the file_path cannot be related to the
+        #  package.id. Need another unique identifier here.
         egg_file_path = project_storage.put_egg(f_egg, version)
         session.add(package)
         session.flush()
