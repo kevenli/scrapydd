@@ -55,7 +55,8 @@ class ProjectManager:
             package.type = 'scrapy'
             package.spider_list = ','.join(spiders)
             session.add(package)
-            session.flush()
+            #session.flush()
+            session.commit()
             project_storage = ProjectStorage(self.project_storage_dir, project)
             egg_file_path = project_storage.put_egg(eggf, version)
             session.refresh(project)
@@ -137,8 +138,9 @@ class ProjectManager:
         #  before it, so the file_path cannot be related to the
         #  package.id. Need another unique identifier here.
         egg_file_path = project_storage.put_egg(f_egg, version)
-        session.add(package)
-        session.flush()
+        project.package = package
+        session.add(project)
+        session.commit()
 
         if auto_populate_spiders:
             for spider_name in spiders:
@@ -147,9 +149,8 @@ class ProjectManager:
                 if not existing_spider:
                     new_spider = Spider(project=project, name=spider_name)
                     session.add(new_spider)
-            session.commit()
+        session.commit()
 
-        # session.refresh(project)
         package = Package()
         package.project = project
         package.type = 'scrapy'
