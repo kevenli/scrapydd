@@ -1,8 +1,8 @@
-import logging
 from datetime import datetime
+import logging
 from typing import List
+import time
 import hashlib
-from tornado.gen import coroutine, Return
 from scrapydd.models import session_scope, ProjectPackage, Project, Spider, \
     Trigger, SpiderExecutionQueue, \
     SpiderParameter, Session, User
@@ -74,6 +74,7 @@ class ProjectManager:
         :param version: package version
         :return: the project
         """
+        version = str(int(time.time()))
         runner = self.runner_factory.build(f_egg)
         try:
             spiders = await runner.list()
