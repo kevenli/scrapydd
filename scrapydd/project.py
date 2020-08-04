@@ -1,14 +1,14 @@
-import json
 import logging
 from datetime import datetime
 from typing import List
 import hashlib
 from tornado.gen import coroutine, Return
-from scrapydd.workspace import RunnerFactory
-from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trigger, SpiderExecutionQueue, \
+from scrapydd.models import session_scope, ProjectPackage, Project, Spider, \
+    Trigger, SpiderExecutionQueue, \
     SpiderParameter, Session, User
 from scrapydd.storage import ProjectStorage
-from scrapydd.exceptions import ProjectNotFound, SpiderNotFound, ProjectAlreadyExists
+from scrapydd.exceptions import ProjectNotFound, SpiderNotFound, \
+    ProjectAlreadyExists
 from .workspace import SpiderSetting, find_package_version
 from .models import Package
 
@@ -60,7 +60,8 @@ class ProjectManager:
             session.refresh(project)
 
             for spider_name in spiders:
-                spider = session.query(Spider).filter_by(project_id=project.id, name=spider_name).first()
+                spider = session.query(Spider)\
+                    .filter_by(project_id=project.id, name=spider_name).first()
                 if spider is None:
                     spider = Spider()
                     spider.name = spider_name
@@ -158,16 +159,22 @@ class ProjectManager:
     def delete_project(self, user_id, project_id):
         with session_scope() as session:
             project = session.query(Project).get(project_id)
-            project_storage = ProjectStorage(self.project_storage_dir, project,
-                                             self.default_project_storage_version)
+            project_storage = ProjectStorage(
+                self.project_storage_dir, project,
+                self.default_project_storage_version)
             for spider in project.spiders:
-                triggers = session.query(Trigger).filter_by(spider_id=spider.id)
-                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
-                session.query(SpiderParameter).filter_by(spider_id=spider.id).delete()
+                triggers = session.query(Trigger)\
+                    .filter_by(spider_id=spider.id)
+                session.query(SpiderExecutionQueue)\
+                    .filter_by(spider_id=spider.id).delete()
+                session.query(SpiderParameter)\
+                    .filter_by(spider_id=spider.id).delete()
                 session.commit()
                 for trigger in triggers:
-                    self.scheduler_manager.remove_schedule(spider, trigger_id=trigger.id)
-                session.query(SpiderExecutionQueue).filter_by(spider_id=spider.id).delete()
+                    self.scheduler_manager\
+                        .remove_schedule(spider, trigger_id=trigger.id)
+                session.query(SpiderExecutionQueue)\
+                    .filter_by(spider_id=spider.id).delete()
                 for historical_job in spider.historical_jobs:
                     project_storage.delete_job_data(historical_job)
                     session.delete(historical_job)
@@ -187,30 +194,37 @@ class ProjectManager:
         projects = session.query(Project).filter_by(owner=user)
         return projects
 
-    def get_spider(self, session: Session, user: User, project_id, spider_id) -> Spider:
-        project = session.query(Project).filter_by(owner=user, id=project_id).first()
+    def get_spider(self, session: Session, user: User,
+                   project_id, spider_id) -> Spider:
+        project = session.query(Project).filter_by(owner=user,
+                                                   id=project_id).first()
         if not project:
             raise ProjectNotFound()
 
-        spider = session.query(Spider).filter_by(project_id=project.id, id=spider_id).first()
+        spider = session.query(Spider).filter_by(project_id=project.id,
+                                                 id=spider_id).first()
         if not spider:
-            return SpiderNotFound()
+            raise SpiderNotFound()
 
         return spider
 
     def get_project(self, session: Session, user: User, project_id) -> Project:
-        project = session.query(Project).filter_by(owner=user, id=project_id).first()
+        project = session.query(Project).filter_by(owner=user,
+                                                   id=project_id).first()
         if not project:
             raise ProjectNotFound()
         return project
 
-    def get_project_by_name(self, session: Session, user: User, project_name) -> Project:
-        project = session.query(Project).filter_by(owner=user, name=project_name).first()
+    def get_project_by_name(self, session: Session, user: User,
+                            project_name) -> Project:
+        project = session.query(Project).filter_by(owner=user,
+                                                   name=project_name).first()
         if not project:
             raise ProjectNotFound()
         return project
 
-    def get_job_figure(self, session: Session, job: SpiderExecutionQueue) -> dict:
+    def get_job_figure(self, session: Session,
+                       job: SpiderExecutionQueue) -> dict:
         job = session.query(SpiderExecutionQueue).get(job.id)
 
         if job.spider.figure and job.spider.figure.text:
@@ -229,7 +243,8 @@ class ProjectManager:
             package = project.packages[0]
             return open(package.file_path, 'rb')
         except IndexError:
-            logger.warning('get_job_egg IndexError when retrieving project packages.')
+            logger.warning('get_job_egg IndexError when retrieving project '
+                           'packages.')
             project_storage_dir = self.project_storage_dir
             project_storage = ProjectStorage(project_storage_dir, project)
             version, f_egg = project_storage.get_egg()
