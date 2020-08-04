@@ -191,11 +191,12 @@ class ProjectManager:
                     session.delete(historical_job)
                 session.delete(spider)
             project_storage.delete_egg()
-            if project.package:
-                session.delete(project.package)
-            session.commit()
             for package in project.packages:
                 self._delete_project_package(session, package)
+
+            if project.package:
+                session.delete(project.package)
+
             session.delete(project)
             session.commit()
 
