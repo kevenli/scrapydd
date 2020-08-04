@@ -27,15 +27,7 @@ class ProjectManager:
         self.default_project_storage_version = default_project_storage_version
         self.scheduler_manager = scheduler_manager
 
-    @coroutine
-    def upload_project(self, user, project_name, version, eggf):
-        runner = self.runner_factory.build(eggf)
-        try:
-            spiders = yield runner.list()
-            logger.debug('spiders: %s' % spiders)
-        finally:
-            runner.clear()
-
+    async def upload_project(self, user, project_name, version, eggf):
         with session_scope() as session:
             project = session.query(Project)\
                 .filter_by(name=project_name).first()
@@ -48,45 +40,13 @@ class ProjectManager:
                     project.owner_id = user.id
             project.version = version
             session.add(project)
-            package = project.package
-            if not package:
-                package = ProjectPackage()
-                package.project = project
-            package.type = 'scrapy'
-            package.spider_list = ','.join(spiders)
-            session.add(package)
-            #session.flush()
             session.commit()
-            project_storage = ProjectStorage(self.project_storage_dir, project)
-            egg_file_path = project_storage.put_egg(eggf, version)
-            session.refresh(project)
 
-            for spider_name in spiders:
-                spider = session.query(Spider)\
-                    .filter_by(project_id=project.id, name=spider_name).first()
-                if spider is None:
-                    spider = Spider()
-                    spider.name = spider_name
-                    spider.project_id = project.id
-                    session.add(spider)
-                    session.commit()
-                    session.refresh(spider)
-
-            package = Package()
-            package.project = project
-            package.type = 'scrapy'
-            package.spider_list = ','.join(spiders)
-            package.version = self._generate_project_package_version(project)
-            eggf.seek(0)
-            package.egg_version = find_package_version(eggf)
-            package.file_path = egg_file_path
-            package.create_date = datetime.now()
-            eggf.seek(0)
-            package.checksum = self._compute_checksum(eggf)
-            session.add(package)
-
-            session.commit()
-        raise Return(project)
+            ret = await self.upload_project_package(session, project,
+                                                    f_egg=eggf,
+                                                    version=version,
+                                                    auto_populate_spiders=True)
+            return ret
 
     def create_project(self, session, user, project_name):
         existing_project = session.query(Project)\
