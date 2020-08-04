@@ -24,3 +24,4 @@ tests/test_project/dist
 backup
 vagrantfile
 conf
+keys
