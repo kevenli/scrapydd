@@ -225,9 +225,14 @@ class ProjectManager:
 
     def get_job_egg(self, session: Session, job: SpiderExecutionQueue):
         project = job.spider.project
-        project_storage_dir = self.project_storage_dir
-        project_storage = ProjectStorage(project_storage_dir, project)
-        version, f_egg = project_storage.get_egg()
-        logger.debug('get project version, project id: %s version: %s',
-                     project.id, version)
-        return f_egg
+        try:
+            package = project.packages[0]
+            return open(package.file_path, 'rb')
+        except IndexError:
+            logger.warning('get_job_egg IndexError when retrieving project packages.')
+            project_storage_dir = self.project_storage_dir
+            project_storage = ProjectStorage(project_storage_dir, project)
+            version, f_egg = project_storage.get_egg()
+            logger.debug('get project version, project id: %s version: %s',
+                         project.id, version)
+            return f_egg
