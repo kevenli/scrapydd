@@ -97,7 +97,8 @@ class Package(Base):
     )
 
 
-Project.packages = relationship("Package", uselist=True)
+Project.packages = relationship("Package", uselist=True,
+                                order_by="-Package.version")
 Package.project = relationship("Project")
 
 

@@ -222,3 +222,12 @@ class ProjectManager:
         for parameter in job.spider.parameters:
             figure.spider_parameters[parameter.parameter_key] = parameter.value
         return figure
+
+    def get_job_egg(self, session: Session, job: SpiderExecutionQueue):
+        project = job.spider.project
+        project_storage_dir = self.project_storage_dir
+        project_storage = ProjectStorage(project_storage_dir, project)
+        version, f_egg = project_storage.get_egg()
+        logger.debug('get project version, project id: %s version: %s',
+                     project.id, version)
+        return f_egg
