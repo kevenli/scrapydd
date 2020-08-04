@@ -4,10 +4,11 @@ import os.path
 import asyncio
 import logging
 import tempfile
+import re
 import shutil
 import json
 from io import BytesIO
-from zipfile import ZipFile
+from zipfile import ZipFile, Path
 from typing import Union
 from shutil import copyfileobj
 from six import ensure_str, ensure_binary
@@ -120,6 +121,17 @@ class DictSpiderSettings(dict):
     @property
     def extra_requirements(self):
         return self.get('extra_requirements', [])
+
+
+def find_package_version(eggf):
+    with ZipFile(eggf) as egg_zip_file:
+        path = Path(egg_zip_file, 'EGG-INFO/PKG-INFO')
+        lines = path.read_text().splitlines()
+        for line in lines:
+            logger.debug(line)
+            m = re.match(r'Version:\s*(\S*)', line)
+            if m:
+                return m.group(1)
 
 
 class ProjectWorkspace(object):

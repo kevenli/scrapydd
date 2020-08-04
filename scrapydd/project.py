@@ -9,7 +9,7 @@ from scrapydd.models import session_scope, ProjectPackage, Project, Spider, Trig
     SpiderParameter, Session, User
 from scrapydd.storage import ProjectStorage
 from scrapydd.exceptions import ProjectNotFound, SpiderNotFound, ProjectAlreadyExists
-from .workspace import SpiderSetting
+from .workspace import SpiderSetting, find_package_version
 from .models import Package
 
 
@@ -130,7 +130,8 @@ class ProjectManager:
         package.type = 'scrapy'
         package.spider_list = ','.join(spiders)
         package.version = self._generate_project_package_version(project)
-        package.egg_version = version
+        f_egg.seek(0)
+        package.egg_version = find_package_version(f_egg)
         package.file_path = egg_file_path
         package.create_date = datetime.now()
         f_egg.seek(0)

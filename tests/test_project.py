@@ -104,7 +104,7 @@ class ProjectUploadPackageTest(AsyncTestCase, ProjectManagerTest):
         self.assertEqual(project.packages[0].project, project)
         self.assertEqual(project.packages[0].type, 'scrapy')
         self.assertEqual(project.packages[0].version, 1)
-        self.assertEqual(project.packages[0].egg_version, version)
+        self.assertEqual(project.packages[0].egg_version, '1.2')
         #self.assertEqual(project.packages[0].checksum, checksum)
         self.assertEqual(project.packages[0].spider_list, ','.join(['error_spider', 'fail_spider',
                                                                  'log_spider', 'sina_news', 'success_spider',
