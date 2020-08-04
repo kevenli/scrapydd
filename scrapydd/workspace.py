@@ -615,7 +615,9 @@ class DockerRunner(object):
                  '--output',
                  'items.jl',
                  '--package',
-                 'spider.egg'
+                 'spider.egg',
+                 '--logfile',
+                 'crawl.log'
                  ]
 
         container = self._client.containers.create(self.image, pargs,
@@ -629,10 +631,10 @@ class DockerRunner(object):
             yield gen.moment
             ret_code = self._wait_container(container)
 
-        process_output = ensure_str(container.logs())
+        # process_output = ensure_str(container.logs())
         if ret_code == 0:
-            with open(log_file_path, 'w') as f:
-                f.write(process_output)
+            # with open(log_file_path, 'w') as f:
+            #     f.write(process_output)
             self._collect_files(container)
             result = CrawlResult(0, items_file=items_file_path, crawl_logfile=log_file_path)
             self._remove_container(container)
