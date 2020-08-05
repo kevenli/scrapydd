@@ -97,9 +97,12 @@ class AppTest(AsyncHTTPTestCase):
     runner_factory = TestRunnerFactoryStub()
     project_storage_dir = './test_data'
     os.environ['SCRAPYDD_PROJECT_STORAGE_DIR'] = './test_data'
+    scheduler_manager = SchedulerManager()
     default_project_storage_version = 2
-    project_manager = ProjectManager(runner_factory, project_storage_dir, default_project_storage_version)
-    scheduler_manager = None
+    project_manager = ProjectManager(runner_factory, project_storage_dir,
+                                     scheduler_manager,
+                                     default_project_storage_version)
+
 
     def get_app(self):
         config = Config()

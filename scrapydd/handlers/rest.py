@@ -164,10 +164,12 @@ class DeleteProjectHandler(RestBaseHandler):
     @authenticated
     def post(self):
         project_name = self.get_argument('project')
+        project_manager = self.project_manager
         with session_scope() as session:
-            project = self.project_manager.get_project_by_name(session, self.current_user,
-                                                               project_name)
-            project_manager = self.project_manager
+            project = project_manager.get_project_by_name(
+                session, self.current_user,
+                project_name)
+
             project_manager.delete_project(self.current_user.id, project.id)
 
         LOGGER.info('project %s deleted', project_name)

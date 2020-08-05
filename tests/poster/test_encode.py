@@ -151,7 +151,8 @@ class TestEncodeAndQuote(TestCase):
 
 class TestMultiparam(TestCase):
     def test_from_params(self):
-        fp = open("tests/poster/test_encode.py")
+        file = __file__
+        fp = open(file)
         expected = [encode.MultipartParam("foo", "bar"),
                     encode.MultipartParam("baz", fileobj=fp,
                         filename=fp.name,
@@ -171,7 +172,7 @@ class TestMultiparam(TestCase):
 
     def test_from_params_dict(self):
 
-        p = encode.MultipartParam('file', fileobj=open("tests/poster/test_encode.py"))
+        p = encode.MultipartParam('file', fileobj=open(__file__))
         params = {"foo": "bar", "file": p}
 
         expected = [encode.MultipartParam("foo", "bar"), p]
@@ -183,7 +184,7 @@ class TestMultiparam(TestCase):
         self.assertEqual(retval, expected)
 
     def test_from_params_assertion(self):
-        p = encode.MultipartParam('file', fileobj=open("tests/poster/test_encode.py"))
+        p = encode.MultipartParam('file', fileobj=open(__file__))
         params = {"foo": "bar", "baz": p}
 
         self.assertRaises(AssertionError, encode.MultipartParam.from_params,
