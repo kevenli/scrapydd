@@ -9,7 +9,7 @@ class Package(Base):
     __tablename__ = 'packages'
 
     id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey('projects.id'))
+    project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
     type = Column(String(length=255), nullable=False)
     spider_list = Column(String(length=255), nullable=False)
     version = Column(Integer, nullable=False)
