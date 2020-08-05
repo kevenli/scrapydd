@@ -167,32 +167,8 @@ class DeleteProjectHandler(RestBaseHandler):
         with session_scope() as session:
             project = self.project_manager.get_project_by_name(session, self.current_user,
                                                                project_name)
-            project_storage = ProjectStorage(
-                self.settings.get('project_storage_dir'), project)
-            if not project:
-                return self.set_status(404, 'project not found.')
-            spiders = session.query(Spider).filter_by(project_id=project.id)
-            for spider in spiders:
-                triggers = session.query(Trigger)\
-                    .filter_by(spider_id=spider.id)
-                session.query(SpiderExecutionQueue)\
-                    .filter_by(spider_id=spider.id).delete()
-                session.query(SpiderParameter)\
-                    .filter_by(spider_id=spider.id).delete()
-                session.commit()
-                for trigger in triggers:
-                    self.scheduler_manager\
-                        .remove_schedule(spider, trigger_id=trigger.id)
-
-                for job in spider.historical_jobs:
-                    project_storage.delete_job_data(job)
-                    session.delete(job)
-                session.delete(spider)
-
-            project_storage.delete_egg()
-            if project.package:
-                session.delete(project.package)
-            session.delete(project)
+            project_manager = self.project_manager
+            project_manager.delete_project(self.current_user.id, project.id)
 
         LOGGER.info('project %s deleted', project_name)
         return self.write('Project deleted.')
