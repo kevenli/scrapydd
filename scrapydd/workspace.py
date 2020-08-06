@@ -680,7 +680,10 @@ class DockerRunner(object):
     def kill(self):
         logger.info('killing process')
         if self._container:
-            self._container.kill()
+            try:
+                self._container.kill()
+            except Exception as ex:
+                logger.warning('error when killing container, %s', ex)
 
     def clear(self):
         if self.debug:
