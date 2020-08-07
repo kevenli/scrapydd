@@ -56,8 +56,8 @@ class DeleteProjectHandler(AppBaseHandler):
         with session_scope() as session:
             project = self.project_manager.get_project(session, self.current_user, project_id)
 
-        project_manager = self.settings.get('project_manager')
-        project_manager.delete_project(self.current_user, project_id=project.id)
+        project_manager = self.project_manager
+        project_manager.delete_project(self.current_user.id, project_id=project.id)
 
 
 class ProjectSettingsHandler(AppBaseHandler):
@@ -88,7 +88,7 @@ class ProjectPackageHandler(AppBaseHandler):
             version = self.get_body_argument('version')
             eggfile = self.request.files['egg'][0]
             eggf = BytesIO(eggfile['body'])
-            project_manager = self.settings.get('project_manager')
+            project_manager = self.project_manager
             project = yield project_manager.upload_project_package(session, project, eggf, version, True)
             return self.render('projects/package.html', project=project)
 

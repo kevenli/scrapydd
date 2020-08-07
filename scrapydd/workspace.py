@@ -4,6 +4,7 @@ import os.path
 import asyncio
 import logging
 import tempfile
+import re
 import shutil
 import json
 from io import BytesIO
@@ -120,6 +121,20 @@ class DictSpiderSettings(dict):
     @property
     def extra_requirements(self):
         return self.get('extra_requirements', [])
+
+
+def find_package_version(eggf):
+    with ZipFile(eggf) as egg_zip_file:
+        info = egg_zip_file.getinfo('EGG-INFO/PKG-INFO')
+        if info is None:
+            return
+        with egg_zip_file.open(info, 'r') as f:
+            lines = f.read().decode().splitlines()
+        for line in lines:
+            logger.debug(line)
+            m = re.match(r'Version:\s*(\S*)', line)
+            if m:
+                return m.group(1)
 
 
 class ProjectWorkspace(object):
@@ -615,7 +630,9 @@ class DockerRunner(object):
                  '--output',
                  'items.jl',
                  '--package',
-                 'spider.egg'
+                 'spider.egg',
+                 '--logfile',
+                 'crawl.log'
                  ]
 
         container = self._client.containers.create(self.image, pargs,
@@ -631,8 +648,8 @@ class DockerRunner(object):
 
         process_output = ensure_str(container.logs())
         if ret_code == 0:
-            with open(log_file_path, 'w') as f:
-                f.write(process_output)
+            # with open(log_file_path, 'w') as f:
+            #     f.write(process_output)
             self._collect_files(container)
             result = CrawlResult(0, items_file=items_file_path, crawl_logfile=log_file_path)
             self._remove_container(container)
@@ -663,7 +680,10 @@ class DockerRunner(object):
     def kill(self):
         logger.info('killing process')
         if self._container:
-            self._container.kill()
+            try:
+                self._container.kill()
+            except Exception as ex:
+                logger.warning('error when killing container, %s', ex)
 
     def clear(self):
         if self.debug:

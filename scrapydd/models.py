@@ -15,6 +15,7 @@ from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy import UniqueConstraint
 from migrate.versioning.api import version_control, upgrade
 from migrate.exceptions import DatabaseAlreadyControlledError
 
@@ -77,6 +78,30 @@ class ProjectPackage(Base):
 Project.package = relationship("ProjectPackage", uselist=False)
 
 
+class Package(Base):
+    __tablename__ = 'packages'
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
+    type = Column(String(length=255), nullable=False)
+    spider_list = Column(String(length=255), nullable=False)
+    version = Column(Integer, nullable=False)
+    egg_version = Column(String(length=20))
+    checksum = Column(String(length=40), nullable=False)
+    file_path = Column(String(length=200), nullable=False)
+    create_date = Column(DateTime, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('project_id', 'version',
+                         name='uk_packages_project_id_version'),
+    )
+
+
+Project.packages = relationship("Package", uselist=True,
+                                order_by="-Package.version")
+Package.project = relationship("Project")
+
+
 class Spider(Base):
     __tablename__ = 'spiders'
 
@@ -84,9 +109,9 @@ class Spider(Base):
     project_id = Column(Integer, ForeignKey('projects.id'))
     project = relationship('Project')
     name = Column(String(length=50))
-    settings = relationship("SpiderSettings",
-                            collection_class=
-                            attribute_mapped_collection('setting_key'))
+    settings = relationship(
+        "SpiderSettings",
+        collection_class=attribute_mapped_collection('setting_key'))
 
 
 Project.spiders = relationship("Spider", order_by=Spider.id)
@@ -233,7 +258,6 @@ class SpiderFigure(Base):
 Spider.figure = relationship('SpiderFigure', uselist=False)
 
 
-
 class SysSpiderPlugin(Base):
     __tablename__ = 'sys_spiderplugins'
 
@@ -260,8 +284,9 @@ class SysSpiderPluginParameter(Base):
     default_value = Column(String(length=255))
 
 
-SysSpiderPlugin.parameters = relationship('SysSpiderPluginParameter',
-                                          order_by=SysSpiderPluginParameter.key)
+SysSpiderPlugin.parameters = relationship(
+    'SysSpiderPluginParameter',
+    order_by=SysSpiderPluginParameter.key)
 
 
 # pylint: disable=global-statement
@@ -303,7 +328,7 @@ def session_scope():
     try:
         yield session
         session.commit()
-    except:
+    except Exception:
         session.rollback()
         raise
     finally:

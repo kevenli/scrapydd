@@ -398,17 +398,10 @@ class JobEggHandler(NodeBaseHandler):
     # pylint: disable=arguments-differ
     @authenticated
     def get(self, jobid):
-        with session_scope() as session:
-            job = session.query(SpiderExecutionQueue)\
-                .filter_by(id=jobid)\
-                .first()
-            if not job:
-                raise tornado.web.HTTPError(404)
-            project = job.spider.project
-            project_storage_dir = self.settings.get('project_storage_dir')
-            project_storage = ProjectStorage(project_storage_dir, project)
-            version, f_egg = project_storage.get_egg()
-            LOGGER.debug('get project version, project id: %s version: %s',
-                         project.id, version)
-            self.write(f_egg.read())
-            session.close()
+        job = self.session.query(SpiderExecutionQueue) \
+            .filter_by(id=jobid) \
+            .first()
+        if not job:
+            raise tornado.web.HTTPError(404)
+        f_egg = self.project_manager.get_job_egg(self.session, job)
+        self.write(f_egg.read())

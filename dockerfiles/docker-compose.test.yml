@@ -4,18 +4,27 @@ services:
     image: pansihub/pancli
 
   sut:
-    image: scrapydd:develop
-    working_dir: /scrapydd_src
+    image: scrapydd:unittest
+    working_dir: /src
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
     command: python -m nose tests --exe
     depends_on:
-      - build_image
+      - build_unittest
       - pancli
 
-  build_image:
-    image: scrapydd:develop
+  build_unittest:
+    image: scrapydd:unittest
     build:
       context: ..
       dockerfile: dockerfiles/Dockerfile.develop.py3
+      network: host
+    depends_on:
+      - build
+
+  build:
+    image: scrapydd
+    build:
+      context: ..
+      dockerfile: Dockerfile
       network: host

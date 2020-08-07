@@ -18,4 +18,18 @@
           <input type="submit" />
       </div>
   </form>
+  <table class="table">
+    <tr>
+      <th>Version</th>
+      <th>Egg Version</th>
+      <th>Upload Date</th>
+    </tr>
+    {% for package in project.packages %}
+      <tr>
+        <td>{{ package.version }}</td>
+        <td>{{ package.egg_version }}</td>
+        <td>{{ package.create_date }}</td>
+      </tr>
+    {% end %}
+  </table>
 {% end %}

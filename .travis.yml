@@ -8,13 +8,13 @@ install:
   - pip install -r requirements.txt
   - python setup.py install
   - docker pull pansihub/pancli
-  - docker build -f dockerfiles/Dockerfile.develop.py3 -t scrapydd:develop.py3 .
-  - docker tag scrapydd:develop.py3 scrapydd:develop
+  - docker build -t scrapydd .
+  - docker build -f dockerfiles/Dockerfile.develop.py3 -t scrapydd:unittest .
   - pip install nose coverage
   - pip install -U codecov
 script: |
   nosetests tests --with-coverage --cover-package=scrapydd --cover-html && \
-  docker run -w /scrapydd_src -v /var/run/docker.sock:/var/run/docker.sock \
-                   scrapydd:develop nosetests tests --exe
+  docker run --rm -w /src -v /var/run/docker.sock:/var/run/docker.sock \
+                   scrapydd:unittest nosetests tests --exe
 after_success:
   - codecov

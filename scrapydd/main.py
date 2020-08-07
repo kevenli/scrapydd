@@ -51,6 +51,7 @@ from .handlers import webui
 from .storage import ProjectStorage
 from .scripts.upgrade_filestorage import upgrade as upgrade_project_storage
 from .scripts.upgrade_projectpackage import upgrade as upgrade_project_package
+from .handlers.api import apply as api_apply
 
 LOGGER = logging.getLogger(__name__)
 
@@ -527,7 +528,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         'spider_url': webui.spider_url
     }
 
-    return tornado.web.Application([
+    application = tornado.web.Application([
         (r"/", webui.MainHandler),
         (r'/signin', SigninHandler),
         (r'/logout', LogoutHandler),
@@ -606,6 +607,10 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'/static/(.*)', tornado.web.StaticFileHandler,
          {'path': os.path.join(os.path.dirname(__file__), 'static')}),
     ], **settings)
+
+    api_apply(application)
+
+    return application
 
 
 def check_and_gen_ssl_keys(config):

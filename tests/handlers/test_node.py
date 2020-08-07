@@ -344,3 +344,33 @@ class RegisterNodeHandlerSecureTest(NodeSecureTest):
 
             updated_node_key = session.query(NodeKey).get(node_key.id)
             self.assertEqual(updated_node_key.used_node_id, new_node_id)
+
+
+class JobEggHandlerTest(NodeSecureTest):
+    def test_get(self):
+        project_name = 'test_project'
+        spider_name = 'success_spider'
+
+        node_id = self.register_node()
+
+        # schedule a job
+        with session_scope() as session:
+            session.query(SpiderExecutionQueue).delete()
+            session.commit()
+        run_spider_post_data = {'project': project_name,
+                                'spider': spider_name}
+        res = self.fetch('/schedule.json', method='POST',
+                         body=urlencode(run_spider_post_data))
+        self.assertEqual(200, res.code)
+
+        # fetch a job
+        next_job_post_data = {'node_id': node_id}
+        headers = {'X-Dd-Nodeid': str(node_id)}
+        res = self.fetch_secure('/executing/next_task', method='POST',
+                                body=urlencode(next_job_post_data),
+                                headers=headers)
+        self.assertEqual(200, res.code)
+        task_id = json.loads(res.body)['data']['task']['task_id']
+        res = self.fetch_secure(f'/jobs/{task_id}/egg', method='GET',
+                                headers=headers)
+        self.assertEqual(200, res.code)
