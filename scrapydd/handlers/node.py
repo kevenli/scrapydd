@@ -22,6 +22,7 @@ from ..exceptions import NodeExpired
 from ..security import generate_digest
 from ..storage import ProjectStorage
 from ..workspace import SpiderSetting
+from ..nodes import NodeManager
 
 LOGGER = logging.getLogger(__name__)
 
@@ -81,6 +82,10 @@ class NodeBaseHandler(RestBaseHandler):
         for authentication_provider in self.authentication_providers:
             node_id = authentication_provider.get_user(self)
             return node_id
+
+    @property
+    def node_manager(self) -> NodeManager:
+        return self.settings.get('node_manager')
 
 
 class RegisterNodeHandler(NodeBaseHandler):

@@ -13,9 +13,10 @@ class NodeManager():
     interval = 10
     node_timeout = 60
 
-    def __init__(self, scheduler_manager):
+    def __init__(self, scheduler_manager, enable_temporary_node=True):
         self.scheduler_manager = scheduler_manager
         self.id_generator = generator(1, 1)
+        self._enable_temporary_node = enable_temporary_node
 
     def init(self):
         self.ioloop = IOLoop.current()
@@ -67,6 +68,16 @@ class NodeManager():
             session.refresh(node)
             return node
 
+    def node_online(self, session, node_id, remote_ip, tags):
+        if node_id is None and not self._enable_temporary_node:
+            raise Exception('Temporary node disabled.')
+
+        if node_id is None:
+            node = self.create_node(remote_ip, tags)
+        else:
+            node = self._get_node(node_id)
+        return node
+
     def create_node_key(self):
         with session_scope() as session:
             node_key = NodeKey()
@@ -78,9 +89,12 @@ class NodeManager():
             session.refresh(node_key)
             return node_key
 
+    def _get_node(self, session, node_id):
+        return session.query(Node).get(node_id)
+
     def get_node(self, node_id):
         with session_scope() as session:
-            return session.query(Node).get(node_id)
+            session.query(Node).get(node_id)
 
     def update_node_use_key(self, node_key, node_id):
         with session_scope() as session:

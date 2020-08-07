@@ -35,39 +35,19 @@ class NodesHandler(NodeBaseHandler):
     to be online.
     """
     def post(self):
-        enable_node_registration = self.settings.get('enable_node_registration'
-                                                     , False)
         node_id = self.current_user
-
-        # if node_registerion is enabled, node should be assigned
-        # node_id before use by
-        # invoke /nodes/register
-        logger.debug('enable_node_registration : %s', enable_node_registration)
-        if enable_node_registration and node_id is None:
-            return self.set_status(403, 'node registration is enabled, '
-                                        'no key provided.')
-
         tags = self.get_argument('tags', '').strip()
         tags = None if tags == '' else tags
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
-        node_manager = self.settings.get('node_manager')
-        if node_id:
-            node = node_manager.get_node(node_id)
-            session = self.session
-            node.tags = tags
-            node.isalive = True
-            node.client_ip = remote_ip
-            node.last_heartbeat = datetime.datetime.now()
-            session.add(node)
-            session.commit()
-        else:
-            node = node_manager.create_node(remote_ip, tags=tags)
+
+        node = self.node_manager.node_online(self.session, node_id, remote_ip,
+                                             tags)
         with open('keys/localhost.crt', 'r') as f:
             cert_text = f.read()
         return self.write(json.dumps({
             'id': node.id,
-            'cert': cert_text,
+            'serverCert': cert_text,
         }))
 
 
