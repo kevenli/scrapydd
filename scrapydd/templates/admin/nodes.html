@@ -19,17 +19,18 @@
   <table class="table">
     <thead>
       <tr>
-        <th>ID</th>
+        <th>Name</th>
         <th>IP Address</th>
         <th>Status</th>
         <th>Tags</th>
         <th>Last Heartbeat</th>
+        <th>Create Time</th>
       </tr>
     </thead>
     <tbody>
       {% for node in nodes %}
         <tr>
-          <td>{{node.id}}</td>
+          <td>{{node.name}}</td>
           <td>{{node.client_ip}}</td>
           {% if node.isalive %}
           <td class="bg-success text-white">Online</td>
@@ -38,6 +39,7 @@
           {% end %}
           <td>{{node.tags}}</td>
           <td>{{node.last_heartbeat}}</td>
+          <td>{{node.create_time}}</td>
         </tr>
       {% end %}
     </tbody>

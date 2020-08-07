@@ -159,6 +159,7 @@ class Node(Base):
     __tablename__ = 'nodes'
 
     id = Column(Integer, primary_key=True)
+    name = Column(String(length=30), nullable=True)
     client_ip = Column(String(length=50))
     create_time = Column(DateTime)
     last_heartbeat = Column(DateTime)

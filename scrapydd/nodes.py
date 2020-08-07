@@ -1,9 +1,10 @@
-from .models import Node, Session, session_scope, NodeKey
-from tornado.ioloop import IOLoop, PeriodicCallback
 import datetime
-import logging
-from .exceptions import *
 import uuid
+import logging
+import namegenerator
+from tornado.ioloop import IOLoop, PeriodicCallback
+from .exceptions import *
+from .models import Node, Session, session_scope, NodeKey
 from .security import generate_random_string
 from .utils.snowflake import generator
 
@@ -53,7 +54,7 @@ class NodeManager():
         finally:
             session.close()
 
-    def create_node(self, remote_ip, tags=None, key_id=None):
+    def create_node(self, remote_ip, tags=None, key_id=None, name=None):
         with session_scope() as session:
             node = Node()
             node.id = next(self.id_generator)
@@ -63,6 +64,9 @@ class NodeManager():
             node.isalive = True
             node.tags = tags
             node.node_key_id = key_id
+            if not name:
+                name = namegenerator.gen()
+            node.name = name
             session.add(node)
             session.commit()
             session.refresh(node)
@@ -76,6 +80,12 @@ class NodeManager():
             node = self.create_node(remote_ip, tags)
         else:
             node = self._get_node(node_id)
+            # version compatible, old version have no name
+            # create one for it
+            if not node.name:
+                node.name = namegenerator.gen()
+                session.add(node)
+                session.commit()
         return node
 
     def create_node_key(self):
