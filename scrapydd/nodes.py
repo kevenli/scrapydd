@@ -5,6 +5,7 @@ import logging
 from .exceptions import *
 import uuid
 from .security import generate_random_string
+from .utils.snowflake import generator
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ class NodeManager():
 
     def __init__(self, scheduler_manager):
         self.scheduler_manager = scheduler_manager
+        self.id_generator = generator(1, 1)
 
     def init(self):
         self.ioloop = IOLoop.current()
@@ -53,6 +55,7 @@ class NodeManager():
     def create_node(self, remote_ip, tags=None, key_id=None):
         with session_scope() as session:
             node = Node()
+            node.id = next(self.id_generator)
             node.client_ip = remote_ip
             node.create_time = datetime.datetime.now()
             node.last_heartbeat = datetime.datetime.now()
