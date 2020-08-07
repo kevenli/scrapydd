@@ -22,6 +22,5 @@ plugins
 test_data
 tests/test_project/dist
 backup
-vagrantfile
 conf
 keys
