@@ -74,7 +74,9 @@ class NodeBaseHandler(RestBaseHandler):
         # need register to work.
         # get node_id from request
         if not self.settings.get('enable_node_registration', False):
-            return int(self.request.headers.get('X-Dd-Nodeid'))
+            str_node_id = self.request.headers.get('X-Dd-Nodeid')
+            if str_node_id:
+                return int(str_node_id)
 
         for authentication_provider in self.authentication_providers:
             node_id = authentication_provider.get_user(self)

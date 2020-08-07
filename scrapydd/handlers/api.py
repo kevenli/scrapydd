@@ -2,14 +2,13 @@ import datetime
 import json
 import logging
 from tornado.web import Application
-from .base import RestBaseHandler
-from .node import NodeHmacAuthenticationProvider
+from .node import NodeHmacAuthenticationProvider, NodeBaseHandler
 
 
 logger = logging.getLogger(__name__)
 
 
-class NodesHandler(RestBaseHandler):
+class NodesHandler(NodeBaseHandler):
     """
     Online a node.
     A user (admin) can request a token from the server. (key, secret_key pair)
@@ -38,7 +37,7 @@ class NodesHandler(RestBaseHandler):
     def post(self):
         enable_node_registration = self.settings.get('enable_node_registration'
                                                      , False)
-        node_id = NodeHmacAuthenticationProvider().get_user(self)
+        node_id = self.current_user
 
         # if node_registerion is enabled, node should be assigned
         # node_id before use by
@@ -64,7 +63,12 @@ class NodesHandler(RestBaseHandler):
             session.commit()
         else:
             node = node_manager.create_node(remote_ip, tags=tags)
-        return self.write(json.dumps({'id': node.id}))
+        with open('keys/localhost.crt', 'r') as f:
+            cert_text = f.read()
+        return self.write(json.dumps({
+            'id': node.id,
+            'cert': cert_text,
+        }))
 
 
 def apply(app: Application):
