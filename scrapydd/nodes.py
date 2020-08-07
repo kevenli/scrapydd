@@ -94,7 +94,7 @@ class NodeManager():
 
     def get_node(self, node_id):
         with session_scope() as session:
-            session.query(Node).get(node_id)
+            return session.query(Node).get(node_id)
 
     def update_node_use_key(self, node_key, node_id):
         with session_scope() as session:

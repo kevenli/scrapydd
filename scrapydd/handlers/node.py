@@ -114,7 +114,6 @@ class NodesHandler(NodeBaseHandler):
     # pylint: disable=arguments-differ
     def initialize(self, node_manager):
         super(NodesHandler, self).initialize()
-        self.node_manager = node_manager
 
     # pylint: disable=arguments-differ
     def post(self):
