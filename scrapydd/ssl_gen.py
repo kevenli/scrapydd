@@ -19,6 +19,8 @@ class SSLCertificateGenerator:
         # Define key_dir
         if key_dir:
             key_dir = key_dir.replace('\\', '/')
+            if not os.path.exists(key_dir):
+                os.makedirs(key_dir)
             if not os.path.isdir(key_dir):
                 raise Exception("Key Directory does not exist or is not a directory:" + key_dir)
         else:
