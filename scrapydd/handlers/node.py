@@ -358,7 +358,6 @@ class NodeHeartbeatHandler(NodeBaseHandler):
     # pylint: disable=arguments-differ
     def initialize(self, node_manager, scheduler_manager):
         super(NodeHeartbeatHandler, self).initialize()
-        self.node_manager = node_manager
         self.scheduler_manager = scheduler_manager
 
     # pylint: disable=arguments-differ
