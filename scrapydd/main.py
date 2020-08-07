@@ -617,7 +617,7 @@ def check_and_gen_ssl_keys(config):
     server_name = config.get('server_name')
     if not server_name:
         raise Exception('Must specify a server name')
-    ssl_gen = SSLCertificateGenerator()
+    ssl_gen = SSLCertificateGenerator('keys')
     try:
         ssl_gen.get_ca_key()
         ssl_gen.get_ca_cert()
@@ -707,8 +707,8 @@ def start_server(argv=None):
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
 
+    check_and_gen_ssl_keys(config)
     if https_port:
-        check_and_gen_ssl_keys(config)
         if config.getboolean('client_validation'):
             ssl_ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         else:
