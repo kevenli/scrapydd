@@ -15,11 +15,11 @@ services:
       MYSQL_PASSWORD: scrapyddPwd
 
   server:
-    image: "scrapydd:develop"
+    image: "scrapydd"
     ports:
       - "6800:6800"
     volumes:
-      - "./server:/scrapydd"
+      - "./server:/app"
       - "/var/run/docker.sock:/var/run/docker.sock"
     command: scrapydd server
     environment:
@@ -29,9 +29,9 @@ services:
     network_mode: host
 
   agent:
-    image: "scrapydd:develop"
+    image: "scrapydd"
     volumes:
-      - "./agent:/scrapydd"
+      - "./agent:/app"
       - "/var/run/docker.sock:/var/run/docker.sock"
     environment:
       - SCRAPYDD_SERVER=http://localhost:6800
