@@ -110,7 +110,7 @@ class UploadProject(AppBaseHandler):
         version = self.get_body_argument('version')
         eggfile = self.request.files['egg'][0]
         eggf = BytesIO(eggfile['body'])
-        project_manager = self.settings.get('project_manager')
+        project_manager = self.project_manager
 
         try:
             project = yield project_manager.upload_project(self.current_user, project_name,
@@ -200,7 +200,7 @@ class NewProject(AppBaseHandler):
     @authenticated
     def post(self):
         project_name = self.get_body_argument('project_name')
-        project_manager = self.settings.get('project_manager')
+        project_manager = self.project_manager
         new_project = project_manager.create_project(self.session, self.current_user, project_name)
         return self.redirect(f'/projects/{new_project.id}/package')
 
@@ -209,7 +209,7 @@ class ProjectInfoHandler(AppBaseHandler):
     @authenticated
     def get(self, project_id):
         with session_scope() as session:
-            project_manager = self.settings.get('project_manager')
+            project_manager = self.project_manager
             project = project_manager.get_project(session, self.current_user,
                                                   project_id)
             return self.render('projects/info.html', project=project)
