@@ -10,6 +10,7 @@ import enum
 
 from sqlalchemy import create_engine, schema, Column, desc
 from sqlalchemy.types import Integer, String, DateTime, Text, Boolean, Enum
+from sqlalchemy.types import BigInteger
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.ext.declarative import declarative_base
@@ -158,7 +159,7 @@ class SpiderExecutionQueue(Base):
 class Node(Base):
     __tablename__ = 'nodes'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(length=30), nullable=True)
     client_ip = Column(String(length=50))
     create_time = Column(DateTime)
