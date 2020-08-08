@@ -33,8 +33,7 @@ class NodeSecureTest(NodeTest):
     def setUp(self):
         super(NodeSecureTest, self).setUp()
         with session_scope() as session:
-            node = Node()
-            session.add(node)
+            node = self.node_manager.node_online(session, None, None, None)
 
             nodekey = NodeKey()
             nodekey.key = str(uuid.uuid4())
