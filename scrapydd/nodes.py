@@ -10,6 +10,15 @@ from .utils.snowflake import generator
 
 logger = logging.getLogger(__name__)
 
+
+class AnonymousNodeDisabled(Exception):
+    """
+    If enable_authentication is set to true, anonymous node
+    is not allowed.
+    """
+    pass
+
+
 class NodeManager():
     interval = 10
     node_timeout = 60
@@ -74,7 +83,7 @@ class NodeManager():
 
     def node_online(self, session, node_id, remote_ip, tags):
         if node_id is None and self._enable_authentication:
-            raise Exception('Temporary node disabled.')
+            raise AnonymousNodeDisabled()
 
         if node_id is None:
             node = self.create_node(remote_ip, tags)

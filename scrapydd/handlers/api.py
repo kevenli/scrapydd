@@ -3,6 +3,7 @@ import json
 import logging
 from tornado.web import Application
 from .node import NodeHmacAuthenticationProvider, NodeBaseHandler
+from ..nodes import AnonymousNodeDisabled
 
 
 logger = logging.getLogger(__name__)
@@ -40,15 +41,17 @@ class NodesHandler(NodeBaseHandler):
         tags = None if tags == '' else tags
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
-
-        node = self.node_manager.node_online(self.session, node_id, remote_ip,
-                                             tags)
-        with open('keys/localhost.crt', 'r') as f:
-            cert_text = f.read()
-        return self.write(json.dumps({
-            'id': node.id,
-            'serverCert': cert_text,
-        }))
+        try:
+            node = self.node_manager.node_online(self.session, node_id, remote_ip,
+                                                 tags)
+            with open('keys/localhost.crt', 'r') as f:
+                cert_text = f.read()
+            return self.write(json.dumps({
+                'id': node.id,
+                'serverCert': cert_text,
+            }))
+        except AnonymousNodeDisabled:
+            return self.set_status(403, 'AnonymousNodeDisabled')
 
 
 def apply(app: Application):

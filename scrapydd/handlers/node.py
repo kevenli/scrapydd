@@ -20,9 +20,7 @@ from ..models import SpiderExecutionQueue, SpiderSettings, NodeKey
 from ..stream import PostDataStreamer
 from ..exceptions import NodeExpired
 from ..security import generate_digest
-from ..storage import ProjectStorage
-from ..workspace import SpiderSetting
-from ..nodes import NodeManager
+from ..nodes import NodeManager, AnonymousNodeDisabled
 
 LOGGER = logging.getLogger(__name__)
 
@@ -132,9 +130,12 @@ class NodesHandler(NodeBaseHandler):
         tags = None if tags == '' else tags
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
-        node = self.node_manager.node_online(self.session, node_id, remote_ip,
+        try:
+            node = self.node_manager.node_online(self.session, node_id, remote_ip,
                                              tags)
-        return self.write(json.dumps({'id': node.id}))
+            return self.write(json.dumps({'id': node.id}))
+        except AnonymousNodeDisabled:
+            return self.set_status(403, 'AnonymousNodeDisabled')
 
 
 class ExecuteNextHandler(NodeBaseHandler):
