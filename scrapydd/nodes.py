@@ -88,7 +88,7 @@ class NodeManager():
         if node_id is None:
             node = self.create_node(remote_ip, tags)
         else:
-            node = self._get_node(node_id)
+            node = self._get_node(session, node_id)
             # version compatible, old version have no name
             # create one for it
             if not node.name:
