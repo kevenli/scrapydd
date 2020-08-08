@@ -48,9 +48,14 @@ class ProjectManager:
                                                     auto_populate_spiders=True)
             return ret
 
-    def create_project(self, session, user, project_name):
+    def create_project(self, session, user, project_name,
+                       return_existing=False):
         existing_project = session.query(Project)\
             .filter_by(owner=user, name=project_name).first()
+
+        if existing_project and return_existing:
+            return existing_project
+
         if existing_project:
             raise ProjectAlreadyExists()
 
