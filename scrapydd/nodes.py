@@ -93,8 +93,9 @@ class NodeManager():
             # create one for it
             if not node.name:
                 node.name = namegenerator.gen()
-                session.add(node)
-                session.commit()
+            node.client_ip = remote_ip
+            session.add(node)
+            session.commit()
         return node
 
     def create_node_key(self):
