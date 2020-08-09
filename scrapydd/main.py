@@ -673,14 +673,15 @@ def start_server(argv=None):
     if task_id is not None and config.get('cluster_bind_address'):
         cluster_node = ClusterNode(task_id, config)
         cluster_sync_obj = cluster_node.sync_obj
-
+    enable_authentication = config.getboolean('enable_authentication')
     scheduler = build_scheduler()
     scheduler_manager = SchedulerManager(config=config,
                                          syncobj=cluster_sync_obj,
                                          scheduler=scheduler)
     scheduler_manager.init()
 
-    node_manager = NodeManager(scheduler_manager)
+    node_manager = NodeManager(scheduler_manager,
+                               enable_authentication=enable_authentication)
     node_manager.init()
 
     webhook_daemon = WebhookDaemon(config, SpiderSettingLoader(), scheduler_manager)
@@ -690,7 +691,7 @@ def start_server(argv=None):
 
     spider_plugin_manager = SpiderPluginManager()
 
-    enable_authentication = config.getboolean('enable_authentication')
+
     secret_key = config.get('secret_key')
     app = make_app(scheduler_manager, node_manager, webhook_daemon,
                    debug=is_debug,
