@@ -58,6 +58,7 @@ class ProjectsHandler(ApiTestBase):
                          body='')
         res_data = json.loads(res.body)
         self.assertEqual(400, res.code)
+        self.assertEqual(res_data['errmsg'], 'Parameter name required.')
 
     def test_post_querystring(self):
         name = 'ProjectsHandler.test_post_querystring'

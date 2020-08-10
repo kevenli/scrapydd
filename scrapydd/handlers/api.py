@@ -37,14 +37,19 @@ class ApiHandler(RestBaseHandler):
     def set_default_headers(self):
         self.set_header('Content-Type', 'application/json')
 
-    def write_error(self, status_code, **kwargs):
+    def write_error(self, status_code, errcode=None, errmsg=None, **kwargs):
         if 'message' not in kwargs:
             if status_code == 405:
-                kwargs['message'] = 'Invalid HTTP method.'
-            else:
-                kwargs['message'] = 'Unknown error.'
+                errmsg = 'Invalid HTTP method.'
+        if not errmsg:
+            errmsg = 'Unknown Error'
+        if not errcode:
+            errcode = 999
 
-        self.response = dict(kwargs)
+        self.response = dict({
+            'errmsg': errmsg,
+            'errcode': errcode
+        })
         self.set_status(status_code)
         self.write_json()
 
@@ -105,7 +110,7 @@ class ProjectsHandler(ApiHandler):
         try:
             project_name = self.get_argument('name')
         except MissingArgumentError:
-            return self.write_error(400)
+            return self.write_error(400, errmsg='Parameter name required.')
         project = self.project_manager.create_project(self.session,
                                                       self.current_user,
                                                       project_name,
