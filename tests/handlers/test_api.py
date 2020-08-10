@@ -1,3 +1,5 @@
+import sys
+import asyncio
 import unittest
 from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.web import Application
@@ -7,8 +9,12 @@ from scrapydd.models import init_database
 from scrapydd.config import Config
 
 
-@unittest.skip
 class NodesHandlerTest(AsyncHTTPTestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     def get_app(self) -> Application:
         config = Config(values={'database_url': 'sqlite:///test.db'})
         init_database(config)

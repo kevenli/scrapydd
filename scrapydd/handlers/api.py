@@ -1,4 +1,5 @@
 import datetime
+import os
 import json
 import logging
 from tornado.web import Application
@@ -87,8 +88,10 @@ class NodesHandler(NodeBaseHandler):
         try:
             node = self.node_manager.node_online(self.session, node_id, remote_ip,
                                                  tags)
-            with open('keys/localhost.crt', 'r') as f:
-                cert_text = f.read()
+            cert_text = None
+            if os.path.exists('keys/localhost.crt'):
+                with open('keys/localhost.crt', 'r') as f:
+                    cert_text = f.read()
             return self.write(json.dumps({
                 'id': node.id,
                 'serverCert': cert_text,
