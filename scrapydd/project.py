@@ -48,10 +48,12 @@ class ProjectManager:
                                                     auto_populate_spiders=True)
             return ret
 
-    def create_project(self, session, user, project_name,
+    def create_project(self, session, user_id, project_name,
                        return_existing=False):
+        if hasattr(user_id, 'id'):
+            user_id = user_id.id
         existing_project = session.query(Project)\
-            .filter_by(owner=user, name=project_name).first()
+            .filter_by(owner_id=user_id, name=project_name).first()
 
         if existing_project and return_existing:
             return existing_project
@@ -60,7 +62,7 @@ class ProjectManager:
             raise ProjectAlreadyExists()
 
         project = Project()
-        project.owner = user
+        project.owner_id = user_id
         project.name = project_name
         project.storage_version = self.default_project_storage_version
         session.add(project)
