@@ -2,7 +2,7 @@ import datetime
 import os
 import json
 import logging
-from tornado.web import Application, MissingArgumentError
+from tornado.web import Application, MissingArgumentError, authenticated
 from .node import NodeHmacAuthenticationProvider, NodeBaseHandler
 from .base import RestBaseHandler
 from ..nodes import AnonymousNodeDisabled
@@ -106,6 +106,7 @@ class NodesHandler(NodeBaseHandler):
 
 
 class ProjectsHandler(ApiHandler):
+    @authenticated
     def post(self):
         try:
             project_name = self.get_argument('name')
