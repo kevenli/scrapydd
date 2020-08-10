@@ -38,7 +38,7 @@ class NodesHandlerAuthenticationEanbleddTest(ApiTestBase):
 
     def test_post(self):
         res = self.fetch('/v1/nodes', method='POST', body='')
-        self.assertEqual(403, res.code)
+        self.assertEqual(401, res.code)
 
 
 class ProjectsHandler(ApiTestBase):

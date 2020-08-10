@@ -102,7 +102,7 @@ class NodesHandler(NodeBaseHandler):
                 'serverCert': cert_text,
             }))
         except AnonymousNodeDisabled:
-            return self.set_status(403, 'AnonymousNodeDisabled')
+            return self.set_status(401, 'AnonymousNodeDisabled')
 
 
 class ProjectsHandler(ApiHandler):
