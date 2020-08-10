@@ -56,6 +56,62 @@ class TestRunnerFactoryStub:
         return TestRunnerStub(eggf)
 
 
+class AppBuilder:
+    def __init__(self, *args):
+        super(AppBuilder, self).__init__(*args)
+        config = Config(values={'database_url': 'sqlite:///test.db'})
+        self.config = config
+        init_database(self.config)
+        self.secret_key = '123'
+
+        self.runner_factory = TestRunnerFactoryStub()
+        self.enable_authentication = False
+        self.project_storage_dir = './test_data'
+        self.default_project_storage_version = 2
+        self.project_manager = None
+        self.scheduler_manager = None
+        self.node_manager = None
+        self.webhook_daemon = None
+
+    def init_settings(self):
+        """
+        Entrypoint for derived class to modify settings variables
+        before building the app.
+        """
+        pass
+
+    def get_app(self):
+        self.init_settings()
+        self.project_manager = self.get_project_manager()
+        self.scheduler_manager = self.get_scheduler_manager()
+        self.node_manager = self.get_node_manager()
+        return make_app(self.scheduler_manager,
+                        self.node_manager,
+                        self.webhook_daemon,
+                 secret_key=self.secret_key,
+                 project_storage_dir=self.project_storage_dir,
+                 runner_factory=self.runner_factory,
+                 project_manager=self.project_manager)
+
+    def get_project_manager(self):
+        return ProjectManager(self.runner_factory,
+                       self.project_storage_dir,
+                       self.scheduler_manager,
+                       self.default_project_storage_version)
+
+    def get_scheduler_manager(self):
+        return SchedulerManager(config=self.config)
+
+    def get_node_manager(self):
+        return NodeManager(self.scheduler_manager, self.enable_authentication)
+
+    def get_webhook_deamon(self):
+        return WebhookDaemon(self.config,
+                                            SpiderSettingLoader(),
+                                            self.scheduler_manager)
+
+
+
 class AppTest(AsyncHTTPTestCase):
     @classmethod
     def setUpClass(cls):

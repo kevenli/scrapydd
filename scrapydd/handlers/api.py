@@ -27,7 +27,6 @@ class ApiHandler(RestBaseHandler):
                 json_data = json.loads(self.request.body)
                 for k, v in json_data.items():
                     self.request.arguments[k] = [v]
-                self.request.arguments.update(json_data)
             except ValueError:
                 message = 'Unable to parse JSON.'
                 self.send_error(400, message=message) # Bad Request
@@ -102,7 +101,7 @@ class NodesHandler(NodeBaseHandler):
 
 class ProjectsHandler(ApiHandler):
     def post(self):
-        project_name = self.get_argument('project_name')
+        project_name = self.get_argument('name')
         if not project_name:
             return self.write_error(400)
         project = self.project_manager.create_project(self.session,
