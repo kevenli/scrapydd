@@ -52,6 +52,23 @@ class ProjectsHandler(ApiTestBase):
         self.assertIsNotNone(res_data['id'])
         self.assertEqual(res_data['name'], name)
 
+    def test_post_no_name(self):
+        name = 'ProjectsHandler.test_post'
+        res = self.fetch('/v1/projects', method='POST',
+                         body='')
+        res_data = json.loads(res.body)
+        self.assertEqual(400, res.code)
+
+    def test_post_querystring(self):
+        name = 'ProjectsHandler.test_post_querystring'
+        post_data = {'name': name}
+        res = self.fetch('/v1/projects?name='+name, method='POST',
+                         body='')
+        res_data = json.loads(res.body)
+        self.assertEqual(200, res.code)
+        self.assertIsNotNone(res_data['id'])
+        self.assertEqual(res_data['name'], name)
+
     def test_post_json(self):
         name = 'ProjectsHandler.test_post_json'
         post_data = {'name': name}

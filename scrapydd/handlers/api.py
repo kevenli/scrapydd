@@ -2,7 +2,7 @@ import datetime
 import os
 import json
 import logging
-from tornado.web import Application
+from tornado.web import Application, MissingArgumentError
 from .node import NodeHmacAuthenticationProvider, NodeBaseHandler
 from .base import RestBaseHandler
 from ..nodes import AnonymousNodeDisabled
@@ -45,6 +45,7 @@ class ApiHandler(RestBaseHandler):
                 kwargs['message'] = 'Unknown error.'
 
         self.response = dict(kwargs)
+        self.set_status(status_code)
         self.write_json()
 
     def write_json(self):
@@ -101,8 +102,9 @@ class NodesHandler(NodeBaseHandler):
 
 class ProjectsHandler(ApiHandler):
     def post(self):
-        project_name = self.get_argument('name')
-        if not project_name:
+        try:
+            project_name = self.get_argument('name')
+        except MissingArgumentError:
             return self.write_error(400)
         project = self.project_manager.create_project(self.session,
                                                       self.current_user,
