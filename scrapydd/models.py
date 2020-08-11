@@ -147,7 +147,7 @@ class SpiderExecutionQueue(Base):
     spider_name = Column(String(length=50))
     fire_time = Column(DateTime)
     start_time = Column(DateTime)
-    node_id = Column(Integer)
+    node_id = Column(BigInteger)
     status = Column(Integer, ForeignKey('job_status.id'), default=0)
     status_obj = relationship('JobStatus')
     update_time = Column(DateTime)
@@ -177,7 +177,7 @@ class NodeKey(Base):
     key = Column(String(length=50), unique=True, nullable=False)
     secret_key = Column(String(length=50), nullable=False)
     is_deleted = Column(Boolean, default=False)
-    used_node_id = Column(Integer)
+    used_node_id = Column(BigInteger)
     create_at = Column(DateTime, nullable=False)
 
 
