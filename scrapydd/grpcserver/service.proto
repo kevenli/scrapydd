@@ -1,18 +1,20 @@
 syntax = "proto3";
 
 service NodeService {
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
-  rpc GetJob(GetJobRequest) returns (GetJobResponse);
-  rpc GetEgg(GetJobEggRequest) returns (GetJobEggRequest);
-  rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+    rpc GetJob(GetJobRequest) returns (GetJobResponse);
+    rpc GetEgg(GetJobEggRequest) returns (GetJobEggRequest);
+    rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
 }
 
 message HeartbeatRequest{
-
+    repeated string runningJobs = 1;
 }
 
 message HeartbeatResponse{
-
+    bool nodeExpired = 1;
+    repeated string killJobs = 2;
+    bool newJobAvailable = 3;
 }
 
 message GetJobRequest {
