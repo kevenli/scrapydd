@@ -52,6 +52,7 @@ from .storage import ProjectStorage
 from .scripts.upgrade_filestorage import upgrade as upgrade_project_storage
 from .scripts.upgrade_projectpackage import upgrade as upgrade_project_package
 from .handlers.api import apply as api_apply
+from .grpcserver.server import start as start_grpc_server
 
 LOGGER = logging.getLogger(__name__)
 
@@ -722,8 +723,11 @@ def start_server(argv=None):
         httpsserver = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
         httpsserver.add_sockets(https_sockets)
         LOGGER.info('starting https server on %s:%s', bind_address, https_port)
-
     ioloop = tornado.ioloop.IOLoop.current()
+
+    grpc_server = start_grpc_server()
+
+
     scheduler.start()
     ioloop.start()
 

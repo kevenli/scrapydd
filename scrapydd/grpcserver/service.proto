@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+service NodeService {
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  rpc GetEgg(GetJobEggRequest) returns (GetJobEggRequest);
+  rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
+}
+
+message HeartbeatRequest{
+
+}
+
+message HeartbeatResponse{
+
+}
+
+message GetJobRequest {
+
+}
+
+message GetJobResponse {
+
+}
+
+message GetJobEggRequest{
+
+}
+
+message GetJobEggResponse{
+
+}
+
+message CompleteJobRequest{
+
+}
+
+message CompleteJobResponse{
+
+}
