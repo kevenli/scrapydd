@@ -23,7 +23,9 @@ message GetNextJobRequest {
 }
 
 message GetNextJobResponse {
-
+    string jobId = 1;
+    string figure = 2;
+    bytes package = 3;
 }
 
 message GetJobRequest {

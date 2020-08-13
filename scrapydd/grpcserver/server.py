@@ -57,6 +57,12 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             response.killJobs.append(killing_job)
         return response
 
+    async def GetNextJob(self, request, context):
+        response = service_pb2.GetNextJobResponse
+
+        return response
+
+
 
 def start(node_manager=None, scheduler_manager=None):
     if sys.platform == 'win32':
