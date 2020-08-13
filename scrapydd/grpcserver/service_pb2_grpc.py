@@ -15,22 +15,22 @@ class NodeServiceStub(object):
             channel: A grpc.Channel.
         """
         self.Heartbeat = channel.unary_unary(
-                '/unary.NodeService/Heartbeat',
+                '/NodeService/Heartbeat',
                 request_serializer=service__pb2.HeartbeatRequest.SerializeToString,
                 response_deserializer=service__pb2.HeartbeatResponse.FromString,
                 )
         self.GetJob = channel.unary_unary(
-                '/unary.NodeService/GetJob',
+                '/NodeService/GetJob',
                 request_serializer=service__pb2.GetJobRequest.SerializeToString,
                 response_deserializer=service__pb2.GetJobResponse.FromString,
                 )
         self.GetEgg = channel.unary_unary(
-                '/unary.NodeService/GetEgg',
+                '/NodeService/GetEgg',
                 request_serializer=service__pb2.GetJobEggRequest.SerializeToString,
                 response_deserializer=service__pb2.GetJobEggRequest.FromString,
                 )
         self.CompleteJob = channel.unary_unary(
-                '/unary.NodeService/CompleteJob',
+                '/NodeService/CompleteJob',
                 request_serializer=service__pb2.CompleteJobRequest.SerializeToString,
                 response_deserializer=service__pb2.CompleteJobResponse.FromString,
                 )
@@ -88,7 +88,7 @@ def add_NodeServiceServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'unary.NodeService', rpc_method_handlers)
+            'NodeService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
@@ -107,7 +107,7 @@ class NodeService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/unary.NodeService/Heartbeat',
+        return grpc.experimental.unary_unary(request, target, '/NodeService/Heartbeat',
             service__pb2.HeartbeatRequest.SerializeToString,
             service__pb2.HeartbeatResponse.FromString,
             options, channel_credentials,
@@ -124,7 +124,7 @@ class NodeService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/unary.NodeService/GetJob',
+        return grpc.experimental.unary_unary(request, target, '/NodeService/GetJob',
             service__pb2.GetJobRequest.SerializeToString,
             service__pb2.GetJobResponse.FromString,
             options, channel_credentials,
@@ -141,7 +141,7 @@ class NodeService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/unary.NodeService/GetEgg',
+        return grpc.experimental.unary_unary(request, target, '/NodeService/GetEgg',
             service__pb2.GetJobEggRequest.SerializeToString,
             service__pb2.GetJobEggRequest.FromString,
             options, channel_credentials,
@@ -158,7 +158,7 @@ class NodeService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/unary.NodeService/CompleteJob',
+        return grpc.experimental.unary_unary(request, target, '/NodeService/CompleteJob',
             service__pb2.CompleteJobRequest.SerializeToString,
             service__pb2.CompleteJobResponse.FromString,
             options, channel_credentials,

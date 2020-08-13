@@ -725,7 +725,7 @@ def start_server(argv=None):
         LOGGER.info('starting https server on %s:%s', bind_address, https_port)
     ioloop = tornado.ioloop.IOLoop.current()
 
-    grpc_server = start_grpc_server(node_manager)
+    grpc_server = start_grpc_server(node_manager, scheduler_manager)
 
 
     scheduler.start()
