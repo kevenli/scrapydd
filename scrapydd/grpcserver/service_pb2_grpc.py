@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from . import service_pb2 as service__pb2
+from scrapydd.grpcserver import service_pb2 as scrapydd_dot_grpcserver_dot_service__pb2
 
 
 class NodeServiceStub(object):
@@ -16,23 +16,28 @@ class NodeServiceStub(object):
         """
         self.Heartbeat = channel.unary_unary(
                 '/NodeService/Heartbeat',
-                request_serializer=service__pb2.HeartbeatRequest.SerializeToString,
-                response_deserializer=service__pb2.HeartbeatResponse.FromString,
+                request_serializer=scrapydd_dot_grpcserver_dot_service__pb2.HeartbeatRequest.SerializeToString,
+                response_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.HeartbeatResponse.FromString,
+                )
+        self.GetNextJob = channel.unary_unary(
+                '/NodeService/GetNextJob',
+                request_serializer=scrapydd_dot_grpcserver_dot_service__pb2.GetNextJobRequest.SerializeToString,
+                response_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.GetNextJobResponse.FromString,
                 )
         self.GetJob = channel.unary_unary(
                 '/NodeService/GetJob',
-                request_serializer=service__pb2.GetJobRequest.SerializeToString,
-                response_deserializer=service__pb2.GetJobResponse.FromString,
+                request_serializer=scrapydd_dot_grpcserver_dot_service__pb2.GetJobRequest.SerializeToString,
+                response_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.GetJobResponse.FromString,
                 )
         self.GetEgg = channel.unary_unary(
                 '/NodeService/GetEgg',
-                request_serializer=service__pb2.GetJobEggRequest.SerializeToString,
-                response_deserializer=service__pb2.GetJobEggRequest.FromString,
+                request_serializer=scrapydd_dot_grpcserver_dot_service__pb2.GetJobEggRequest.SerializeToString,
+                response_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.GetJobEggRequest.FromString,
                 )
         self.CompleteJob = channel.unary_unary(
                 '/NodeService/CompleteJob',
-                request_serializer=service__pb2.CompleteJobRequest.SerializeToString,
-                response_deserializer=service__pb2.CompleteJobResponse.FromString,
+                request_serializer=scrapydd_dot_grpcserver_dot_service__pb2.CompleteJobRequest.SerializeToString,
+                response_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.CompleteJobResponse.FromString,
                 )
 
 
@@ -40,6 +45,12 @@ class NodeServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Heartbeat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetNextJob(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -68,23 +79,28 @@ def add_NodeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Heartbeat': grpc.unary_unary_rpc_method_handler(
                     servicer.Heartbeat,
-                    request_deserializer=service__pb2.HeartbeatRequest.FromString,
-                    response_serializer=service__pb2.HeartbeatResponse.SerializeToString,
+                    request_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.HeartbeatRequest.FromString,
+                    response_serializer=scrapydd_dot_grpcserver_dot_service__pb2.HeartbeatResponse.SerializeToString,
+            ),
+            'GetNextJob': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetNextJob,
+                    request_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.GetNextJobRequest.FromString,
+                    response_serializer=scrapydd_dot_grpcserver_dot_service__pb2.GetNextJobResponse.SerializeToString,
             ),
             'GetJob': grpc.unary_unary_rpc_method_handler(
                     servicer.GetJob,
-                    request_deserializer=service__pb2.GetJobRequest.FromString,
-                    response_serializer=service__pb2.GetJobResponse.SerializeToString,
+                    request_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.GetJobRequest.FromString,
+                    response_serializer=scrapydd_dot_grpcserver_dot_service__pb2.GetJobResponse.SerializeToString,
             ),
             'GetEgg': grpc.unary_unary_rpc_method_handler(
                     servicer.GetEgg,
-                    request_deserializer=service__pb2.GetJobEggRequest.FromString,
-                    response_serializer=service__pb2.GetJobEggRequest.SerializeToString,
+                    request_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.GetJobEggRequest.FromString,
+                    response_serializer=scrapydd_dot_grpcserver_dot_service__pb2.GetJobEggRequest.SerializeToString,
             ),
             'CompleteJob': grpc.unary_unary_rpc_method_handler(
                     servicer.CompleteJob,
-                    request_deserializer=service__pb2.CompleteJobRequest.FromString,
-                    response_serializer=service__pb2.CompleteJobResponse.SerializeToString,
+                    request_deserializer=scrapydd_dot_grpcserver_dot_service__pb2.CompleteJobRequest.FromString,
+                    response_serializer=scrapydd_dot_grpcserver_dot_service__pb2.CompleteJobResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -108,8 +124,25 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/NodeService/Heartbeat',
-            service__pb2.HeartbeatRequest.SerializeToString,
-            service__pb2.HeartbeatResponse.FromString,
+            scrapydd_dot_grpcserver_dot_service__pb2.HeartbeatRequest.SerializeToString,
+            scrapydd_dot_grpcserver_dot_service__pb2.HeartbeatResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetNextJob(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/NodeService/GetNextJob',
+            scrapydd_dot_grpcserver_dot_service__pb2.GetNextJobRequest.SerializeToString,
+            scrapydd_dot_grpcserver_dot_service__pb2.GetNextJobResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -125,8 +158,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/NodeService/GetJob',
-            service__pb2.GetJobRequest.SerializeToString,
-            service__pb2.GetJobResponse.FromString,
+            scrapydd_dot_grpcserver_dot_service__pb2.GetJobRequest.SerializeToString,
+            scrapydd_dot_grpcserver_dot_service__pb2.GetJobResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -142,8 +175,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/NodeService/GetEgg',
-            service__pb2.GetJobEggRequest.SerializeToString,
-            service__pb2.GetJobEggRequest.FromString,
+            scrapydd_dot_grpcserver_dot_service__pb2.GetJobEggRequest.SerializeToString,
+            scrapydd_dot_grpcserver_dot_service__pb2.GetJobEggRequest.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -159,7 +192,7 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/NodeService/CompleteJob',
-            service__pb2.CompleteJobRequest.SerializeToString,
-            service__pb2.CompleteJobResponse.FromString,
+            scrapydd_dot_grpcserver_dot_service__pb2.CompleteJobRequest.SerializeToString,
+            scrapydd_dot_grpcserver_dot_service__pb2.CompleteJobResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
