@@ -573,6 +573,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
 
         (r'/admin$', admin.AdminHomeHandler),
         (r'^/admin/nodes$', admin.AdminNodesHandler),
+        (r'^/admin/nodes/(\w+)/delete$', admin.AdminNodesDeleteHandler),
         (r'^/admin/spiderplugins$', admin.AdminPluginsHandler),
         (r'^/admin/users$', admin.AdminUsersHandler),
         (r'^/admin/users/disable$', admin.AdminDisableUserAjaxHandler),

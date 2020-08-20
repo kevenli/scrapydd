@@ -16,7 +16,7 @@
       </div>
     </div>
   </form>
-  <table class="table">
+  <table class="table" id="table-nodes">
     <thead>
       <tr>
         <th>Name</th>
@@ -25,11 +25,12 @@
         <th>Tags</th>
         <th>Last Heartbeat</th>
         <th>Create Time</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
       {% for node in nodes %}
-        <tr>
+        <tr data-node-id="{{ node.id }}">
           <td>{{node.name}}</td>
           <td>{{node.client_ip}}</td>
           {% if node.isalive %}
@@ -40,8 +41,12 @@
           <td>{{node.tags}}</td>
           <td>{{node.last_heartbeat}}</td>
           <td>{{node.create_time}}</td>
+          <td class="td-operations">
+            <a class="btn btn-primary btnDelete">Delete</a>
+          </td>
         </tr>
       {% end %}
     </tbody>
   </table>
+<script src="/static/js/nodes.js"></script>
 {% end %}

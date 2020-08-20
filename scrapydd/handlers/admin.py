@@ -44,6 +44,20 @@ class AdminNodesHandler(AppBaseHandler):
             return usable_key
 
 
+class AdminNodesDeleteHandler(AppBaseHandler):
+    def post(self, node_id):
+        if not self.current_user or not self.current_user.is_admin:
+            return self.set_status(403, "No permission")
+        session = self.session
+        node = session.query(Node).get(node_id)
+        if not node:
+            return HTTPError(404, 'node not found')
+
+        node.is_deleted = True
+        session.add(node)
+        session.commit()
+
+
 class AdminHomeHandler(AppBaseHandler):
     @authenticated
     def get(self):
