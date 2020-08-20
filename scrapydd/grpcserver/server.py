@@ -5,7 +5,7 @@ import sys
 from . import service_pb2
 from . import service_pb2_grpc
 from .grpc_asyncio import AsyncioExecutor
-from ..nodes import NodeManager
+from ..nodes import NodeManager, NodeExpired
 from ..schedule import SchedulerManager
 
 
@@ -47,14 +47,19 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         node_id = self.get_node_id(context)
         logger.debug('heartbeat, node: %s', node_id)
         has_task = self._scheduler_manager.has_task(node_id)
-        self._node_manager.heartbeat(node_id)
-        running_job_ids = request.runningJobs
-        killing_jobs = list(self._scheduler_manager.jobs_running(node_id,
-                                                                running_job_ids))
+
         response = service_pb2.HeartbeatResponse()
-        response.newJobAvailable = has_task
-        for killing_job in killing_jobs:
-            response.killJobs.append(killing_job)
+        try:
+            self._node_manager.heartbeat(node_id)
+            running_job_ids = request.runningJobs
+            killing_jobs = list(self._scheduler_manager.jobs_running(node_id,
+                                                                running_job_ids))
+
+            response.newJobAvailable = has_task
+            for killing_job in killing_jobs:
+                response.killJobs.append(killing_job)
+        except NodeExpired:
+            response.nodeExpired = True
         return response
 
     async def GetNextJob(self, request, context):

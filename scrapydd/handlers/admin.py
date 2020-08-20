@@ -54,6 +54,7 @@ class AdminNodesDeleteHandler(AppBaseHandler):
             return HTTPError(404, 'node not found')
 
         node.is_deleted = True
+        node.isalive = False
         session.add(node)
         session.commit()
 
