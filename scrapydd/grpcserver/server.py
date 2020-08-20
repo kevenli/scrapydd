@@ -7,6 +7,9 @@ from . import service_pb2_grpc
 from .grpc_asyncio import AsyncioExecutor
 from ..nodes import NodeManager, NodeExpired
 from ..schedule import SchedulerManager
+from ..models import session_scope, SpiderSettings, SpiderExecutionQueue
+from ..project import ProjectManager
+from ..workspace import DictSpiderSettings
 
 
 logger = logging.getLogger(__name__)
@@ -34,9 +37,11 @@ class SignatureValidationInterceptor(grpc.ServerInterceptor):
 
 class NodeServicer(service_pb2_grpc.NodeServiceServicer):
     def __init__(self, node_manager: NodeManager,
-                 scheduler_manager: SchedulerManager):
+                 scheduler_manager: SchedulerManager,
+                 project_manager: ProjectManager):
         self._node_manager = node_manager
         self._scheduler_manager = scheduler_manager
+        self._project_manager = project_manager
 
     def get_node_id(self, context):
         for key, value in context.invocation_metadata():
@@ -63,13 +68,26 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         return response
 
     async def GetNextJob(self, request, context):
-        response = service_pb2.GetNextJobResponse
+        node_id = self.get_node_id(context)
+        response = service_pb2.GetNextJobResponse()
+        with session_scope() as session:
+            next_task = self._scheduler_manager.get_next_task(node_id)
+            next_task = session.query(SpiderExecutionQueue).get(next_task.id)
 
-        return response
+            if not next_task:
+                return response
+
+            figure = self._project_manager.get_job_figure(session, next_task)
+            response.jobId = next_task.id
+            response.figure = figure.to_json()
+            f_egg = self._project_manager.get_job_egg(session=session,
+                                                      job=next_task)
+            response.package = f_egg.read()
+            f_egg.close()
+            return response
 
 
-
-def start(node_manager=None, scheduler_manager=None):
+def start(node_manager=None, scheduler_manager=None, project_manager=None):
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     port = '6801'
@@ -84,7 +102,7 @@ def start(node_manager=None, scheduler_manager=None):
     server = grpc.server(AsyncioExecutor(loop=asyncio.new_event_loop()))
     #server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
     #server = grpc.server(AsyncioExecutor())
-    node_service = NodeServicer(node_manager, scheduler_manager)
+    node_service = NodeServicer(node_manager, scheduler_manager, project_manager)
     service_pb2_grpc.add_NodeServiceServicer_to_server(node_service, server)
 
     address = '[::]:' + port

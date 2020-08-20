@@ -691,8 +691,13 @@ def start_server(argv=None):
 
     runner_factory = RunnerFactory(config)
 
+    project_storage_dir = config.get('project_storage_dir')
+    default_project_storage_version = config.getint(
+        'default_project_storage_version')
     spider_plugin_manager = SpiderPluginManager()
-
+    project_manager = ProjectManager(runner_factory, project_storage_dir,
+                                     scheduler_manager,
+                                     default_project_storage_version)
 
     secret_key = config.get('secret_key')
     app = make_app(scheduler_manager, node_manager, webhook_daemon,
@@ -701,11 +706,12 @@ def start_server(argv=None):
                    secret_key=secret_key,
                    enable_node_registration=config.getboolean(
                        'enable_node_registration', False),
-                   project_storage_dir=config.get('project_storage_dir'),
+                   project_storage_dir=project_storage_dir,
                    default_project_storage_version=config.getint(
                        'default_project_storage_version'),
                    runner_factory=runner_factory,
-                   spider_plugin_manager=spider_plugin_manager)
+                   spider_plugin_manager=spider_plugin_manager,
+                   project_manager=project_manager)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
@@ -726,11 +732,16 @@ def start_server(argv=None):
         LOGGER.info('starting https server on %s:%s', bind_address, https_port)
     ioloop = tornado.ioloop.IOLoop.current()
 
-    grpc_server = start_grpc_server(node_manager, scheduler_manager)
+    try:
+        grpc_server = start_grpc_server(node_manager,
+                                        scheduler_manager,
+                                        project_manager)
 
-
-    scheduler.start()
-    ioloop.start()
+        scheduler.start()
+        ioloop.start()
+    except KeyboardInterrupt:
+        grpc_server.stop(True)
+        ioloop.stop()
 
 
 def run(argv=None):
