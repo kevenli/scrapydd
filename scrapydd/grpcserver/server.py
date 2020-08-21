@@ -119,10 +119,12 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
 
             log_stream = None
             if request.logs:
+                logger.debug('logs file length %s', len(request.logs))
                 log_stream = BytesIO(request.logs)
 
             items_stream = None
             if request.items:
+                logger.debug('items file length %s', len(request.items))
                 items_stream = BytesIO(request.items)
 
             job.status = status_int
@@ -141,6 +143,7 @@ def start(node_manager=None, scheduler_manager=None, project_manager=None):
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     port = '6801'
+    grpc_port = 6802
     with open('keys/localhost.key', 'rb') as f:
         private_key = f.read()
     with open('keys/localhost.crt', 'rb') as f:
@@ -163,6 +166,9 @@ def start(node_manager=None, scheduler_manager=None, project_manager=None):
     address = '[::]:' + port
     logger.info('starting grpc server on %s', address)
     server.add_secure_port(address, server_credentials)
+
+    grpc_address = '[::]:%s' % grpc_port
+    server.add_insecure_port(grpc_address)
 
     server.start()
     return server
