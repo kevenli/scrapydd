@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='scrapydd/grpcserver/service.proto',
   package='',
   syntax='proto3',
-  serialized_pb=_b('\n!scrapydd/grpcserver/service.proto\"\'\n\x10HeartbeatRequest\x12\x13\n\x0brunningJobs\x18\x01 \x03(\t\"S\n\x11HeartbeatResponse\x12\x13\n\x0bnodeExpired\x18\x01 \x01(\x08\x12\x10\n\x08killJobs\x18\x02 \x03(\t\x12\x17\n\x0fnewJobAvailable\x18\x03 \x01(\x08\"\x13\n\x11GetNextJobRequest\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"\x14\n\x12\x43ompleteJobRequest\"\x15\n\x13\x43ompleteJobResponse2\x8d\x02\n\x0bNodeService\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponseb\x06proto3')
+  serialized_pb=_b('\n!scrapydd/grpcserver/service.proto\"\'\n\x10HeartbeatRequest\x12\x13\n\x0brunningJobs\x18\x01 \x03(\t\"S\n\x11HeartbeatResponse\x12\x13\n\x0bnodeExpired\x18\x01 \x01(\x08\x12\x10\n\x08killJobs\x18\x02 \x03(\t\x12\x17\n\x0fnewJobAvailable\x18\x03 \x01(\x08\"\x13\n\x11GetNextJobRequest\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse2\x8d\x02\n\x0bNodeService\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponseb\x06proto3')
 )
 
 
@@ -273,6 +273,34 @@ _COMPLETEJOBREQUEST = _descriptor.Descriptor(
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
+    _descriptor.FieldDescriptor(
+      name='jobId', full_name='CompleteJobRequest.jobId', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='status', full_name='CompleteJobRequest.status', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='logs', full_name='CompleteJobRequest.logs', index=2,
+      number=3, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b(""),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='items', full_name='CompleteJobRequest.items', index=3,
+      number=4, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b(""),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -286,7 +314,7 @@ _COMPLETEJOBREQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=330,
-  serialized_end=350,
+  serialized_end=410,
 )
 
 
@@ -309,8 +337,8 @@ _COMPLETEJOBRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=352,
-  serialized_end=373,
+  serialized_start=412,
+  serialized_end=433,
 )
 
 DESCRIPTOR.message_types_by_name['HeartbeatRequest'] = _HEARTBEATREQUEST
@@ -403,8 +431,8 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=376,
-  serialized_end=645,
+  serialized_start=436,
+  serialized_end=705,
   methods=[
   _descriptor.MethodDescriptor(
     name='Heartbeat',

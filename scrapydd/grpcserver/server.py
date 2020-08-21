@@ -1,7 +1,13 @@
 import asyncio
+import datetime
+from io import BytesIO
 import logging
-import grpc
+import os
 import sys
+
+
+import grpc
+
 from . import service_pb2
 from . import service_pb2_grpc
 from .grpc_asyncio import AsyncioExecutor
@@ -46,7 +52,7 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
     def get_node_id(self, context):
         for key, value in context.invocation_metadata():
             if key == 'x-node-id':
-                return value
+                return int(value)
 
     async def Heartbeat(self, request: service_pb2.HeartbeatRequest, context):
         node_id = self.get_node_id(context)
@@ -86,6 +92,50 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             f_egg.close()
             return response
 
+    async def CompleteJob(self, request, context):
+        node_id = self.get_node_id(context)
+        task_id = request.jobId
+        status = request.status
+
+        response = service_pb2.CompleteJobResponse()
+        if status == 'success':
+            status_int = 2
+        elif status == 'fail':
+            status_int = 3
+        else:
+            logger.warning('invalid job status %s %s', node_id, status)
+            return response
+
+        with session_scope() as session:
+            query = session.query(SpiderExecutionQueue) \
+                .filter(SpiderExecutionQueue.id == task_id,
+                        SpiderExecutionQueue.status.in_([1, 5]))
+
+            job = query.first()
+
+            if job is None:
+                logger.warning('job not found %s', task_id)
+                return response
+
+            log_stream = None
+            if request.logs:
+                log_stream = BytesIO(request.logs)
+
+            items_stream = None
+            if request.items:
+                items_stream = BytesIO(request.items)
+
+            job.status = status_int
+            job.update_time = datetime.datetime.now()
+            historical_job = self._scheduler_manager.job_finished(job,
+                                                                 log_stream,
+                                                                 items_stream)
+            session.close()
+            logger.info('Job %s completed.', task_id)
+            response_data = {'status': 'ok'}
+            return response
+
+
 
 def start(node_manager=None, scheduler_manager=None, project_manager=None):
     if sys.platform == 'win32':
@@ -99,7 +149,12 @@ def start(node_manager=None, scheduler_manager=None, project_manager=None):
     server_credentials = grpc.ssl_server_credentials(
         ((private_key, certificate_chain,),))
 
-    server = grpc.server(AsyncioExecutor(loop=asyncio.new_event_loop()))
+    options = [
+        ('grpc.max_send_message_length', 50 * 1024 * 1024),
+        ('grpc.max_receive_message_length', 50 * 1024 * 1024)
+    ]
+    server = grpc.server(AsyncioExecutor(loop=asyncio.new_event_loop()),
+                         options=options)
     #server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
     #server = grpc.server(AsyncioExecutor())
     node_service = NodeServicer(node_manager, scheduler_manager, project_manager)

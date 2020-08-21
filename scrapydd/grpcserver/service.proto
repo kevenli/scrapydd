@@ -45,7 +45,10 @@ message GetJobEggResponse{
 }
 
 message CompleteJobRequest{
-
+    string jobId = 1;
+    string status = 2;
+    bytes logs = 3;
+    bytes items = 4;
 }
 
 message CompleteJobResponse{
