@@ -11,7 +11,7 @@ import grpc
 from . import service_pb2
 from . import service_pb2_grpc
 from .grpc_asyncio import AsyncioExecutor
-from ..nodes import NodeManager, NodeExpired
+from ..nodes import NodeManager, NodeExpired, AnonymousNodeDisabled
 from ..schedule import SchedulerManager
 from ..models import session_scope, SpiderSettings, SpiderExecutionQueue
 from ..project import ProjectManager
@@ -53,6 +53,21 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         for key, value in context.invocation_metadata():
             if key == 'x-node-id':
                 return int(value)
+
+    async def Login(self, request, context):
+        response = service_pb2.LoginResponse()
+        with session_scope() as session:
+            node_id = self.get_node_id(context)
+            tags = None
+            remote_ip = context.peer()
+            try:
+                node = self._node_manager.node_online(session, node_id,
+                                                     remote_ip,
+                                                     tags)
+                response.nodeId = node.id
+            except AnonymousNodeDisabled:
+                response.nodeId = 0
+        return response
 
     async def Heartbeat(self, request: service_pb2.HeartbeatRequest, context):
         node_id = self.get_node_id(context)

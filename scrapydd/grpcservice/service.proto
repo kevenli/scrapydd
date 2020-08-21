@@ -1,11 +1,20 @@
 syntax = "proto3";
 
 service NodeService {
+    rpc Login(LoginRequest) returns (LoginResponse);
     rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
     rpc GetNextJob(GetNextJobRequest) returns (GetNextJobResponse);
     rpc GetJob(GetJobRequest) returns (GetJobResponse);
     rpc GetEgg(GetJobEggRequest) returns (GetJobEggRequest);
     rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
+}
+
+message LoginRequest {
+
+}
+
+message LoginResponse {
+    int64 nodeId = 1;
 }
 
 message HeartbeatRequest{
