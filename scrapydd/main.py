@@ -52,7 +52,7 @@ from .storage import ProjectStorage
 from .scripts.upgrade_filestorage import upgrade as upgrade_project_storage
 from .scripts.upgrade_projectpackage import upgrade as upgrade_project_package
 from .handlers.api import apply as api_apply
-from .grpcserver.server import start as start_grpc_server
+from .grpcservice.server import start as start_grpc_server
 
 LOGGER = logging.getLogger(__name__)
 
