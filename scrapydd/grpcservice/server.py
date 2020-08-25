@@ -66,7 +66,8 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
                                                      tags)
                 response.nodeId = node.id
             except AnonymousNodeDisabled:
-                response.nodeId = 0
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Anonymous node is not allowed.')
         return response
 
     async def Heartbeat(self, request: service_pb2.HeartbeatRequest, context):
