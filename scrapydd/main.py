@@ -48,6 +48,7 @@ from .handlers.node import NodesHandler, ExecuteNextHandler
 from .handlers.node import ExecuteCompleteHandler, NodeHeartbeatHandler
 from .handlers.node import JobStartHandler, RegisterNodeHandler, JobEggHandler
 from .handlers import webui
+from .handlers import node as node_handlers
 from .storage import ProjectStorage
 from .scripts.upgrade_filestorage import upgrade as upgrade_project_storage
 from .scripts.upgrade_projectpackage import upgrade as upgrade_project_package
@@ -595,7 +596,8 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
           'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
         (r'/nodes/register', RegisterNodeHandler),
-
+        (r'/api/nodeSessions', node_handlers.CreateNodeSessionHandler),
+        (r'/api/nodeSessions/(\w+):heartbeat', node_handlers.HeartbeatNodeSessionHandler),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler,
          {'node_manager': node_manager,
           'scheduler_manager': scheduler_manager}),

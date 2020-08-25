@@ -1,6 +1,6 @@
 import unittest
 from scrapydd.nodes import NodeManager, AnonymousNodeDisabled
-from scrapydd.models import init_database, session_scope
+from scrapydd.models import init_database, session_scope, Session
 from scrapydd.config import Config
 
 
@@ -33,3 +33,27 @@ class NodeManagerTest(unittest.TestCase):
             except AnonymousNodeDisabled:
                 pass
 
+    def test_create_node_session(self):
+        target = NodeManager(None)
+        session = Session()
+        node_session = target.create_node_session(session)
+        self.assertIsNotNone(node_session)
+
+
+class AuthenticatedNodeManager(unittest.TestCase):
+    def setUp(self) -> None:
+        config = Config(values={'database_url': 'sqlite:///test.db'})
+        init_database(config)
+
+    def get_target(self):
+        target = NodeManager(None, enable_authentication=True)
+        return target
+
+    def test_create_node_session(self):
+        target = self.get_target()
+        session = Session()
+        try:
+            node_session = target.create_node_session(session)
+            self.fail('Exception not caught')
+        except Exception:
+            pass

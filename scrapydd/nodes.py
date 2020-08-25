@@ -4,7 +4,7 @@ import logging
 import namegenerator
 from tornado.ioloop import IOLoop, PeriodicCallback
 from .exceptions import *
-from .models import Node, Session, session_scope, NodeKey
+from .models import Node, Session, session_scope, NodeKey, NodeSession
 from .security import generate_random_string
 from .utils.snowflake import generator
 
@@ -43,6 +43,8 @@ class NodeManager():
             if not node.node_key_id:
                 node.is_deleted = True
             session.add(node)
+
+        self._clean_expired_node_session(session)
         session.commit()
         session.close()
 
@@ -121,3 +123,77 @@ class NodeManager():
             node_key.used_node_id = node_id
             session.add(node_key)
             session.commit()
+
+    def _new_id(self):
+        return next(self.id_generator)
+
+    def create_node_session(self, session, node_id=None,
+                            client_ip=None, tags=None):
+        if node_id is None and self._enable_authentication:
+            raise AnonymousNodeDisabled()
+
+        if node_id is None:
+            node = self.create_node(client_ip, tags)
+        else:
+            node = session.query(Node).get(node_id)
+            if not node:
+                raise Exception('Node not found.')
+
+        existing_session = session.query(NodeSession)\
+            .filter_by(node_id=node.id).first()
+
+        # latest_existing_session_kickout_time
+        # A session cannot be kickout if just logged in in a minutes.
+        leskt = datetime.datetime.now() - datetime.timedelta(minutes=1)
+        if existing_session and existing_session.create_at > leskt:
+            return
+
+        # otherwise, remove that session.
+        if existing_session:
+            session.delete(existing_session)
+            session.flush()
+
+        new_session = NodeSession(id=self._new_id(),
+                                  node_id=node.id,
+                                  create_at=datetime.datetime.now(),
+                                  last_heartbeat=datetime.datetime.now())
+        session.add(new_session)
+        session.commit()
+        logger.info('NodeSession %s created.', new_session.id)
+        return new_session
+
+    def _clean_expired_node_session(self, session):
+        last_heartbeat_lessthan = datetime.datetime.now() \
+                              - datetime.timedelta(seconds=self.node_timeout)
+
+        for node_session in session.query(NodeSession).all():
+            if node_session.last_heartbeat < last_heartbeat_lessthan:
+                logger.info('NodeSession %s is timeout, deleting.', node_session.id)
+                session.delete(node_session)
+
+        session.commit()
+
+    def node_session_heartbeat(self, session, node_session_id):
+        node_session = session.query(NodeSession).get(node_session_id)
+        if node_session is None:
+            raise NodeExpired()
+
+        node = node_session.node
+        if not node:
+            raise NodeExpired()
+
+        if node.isalive == 0 and not node.node_key_id:
+            raise NodeExpired()
+
+        node.last_heartbeat = datetime.datetime.now()
+        node_session.last_heartbeat = datetime.datetime.now()
+        node.isalive = True
+        session.add(node_session)
+        session.add(node)
+        session.commit()
+
+    def node_has_task(self, session, node_id):
+        return self.scheduler_manager.has_task(node_id)
+
+    def jobs_running(self, session, node_id, running_job_ids):
+        return self.scheduler_manager.jobs_running(node_id, running_job_ids)

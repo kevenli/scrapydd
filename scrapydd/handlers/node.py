@@ -401,3 +401,51 @@ class JobEggHandler(NodeBaseHandler):
             raise tornado.web.HTTPError(404)
         f_egg = self.project_manager.get_job_egg(self.session, job)
         self.write(f_egg.read())
+
+
+class CreateNodeSessionHandler(NodeBaseHandler):
+    def post(self):
+        # provider = NodeHmacAuthenticationProvider()
+        # node_key = provider.validate_request(self)
+        # if not node_key:
+        #     return self.set_status(403, 'invalid key')
+
+        node_id = None
+        session = self.session
+        tags = self.get_argument('tags', '').strip()
+        tags = None if tags == '' else tags
+        remote_ip = self.request.headers.get('X-Real-IP',
+                                             self.request.remote_ip)
+        node_manager = self.node_manager
+        node_session = node_manager.create_node_session(session,
+                                                        node_id=node_id,
+                                                        client_ip=remote_ip,
+                                                        tags=tags)
+        res_data = {
+            'id': node_session.id,
+            'node': {
+                'id': node_session.node.id,
+            }
+        }
+        return self.send_json(res_data)
+
+
+class HeartbeatNodeSessionHandler(NodeBaseHandler):
+    @authenticated
+    def post(self, session_id):
+        node_id = int(self.current_user)
+        node_manager = self.node_manager
+        node_manager.node_session_heartbeat(self.session, session_id)
+
+        has_task = node_manager.node_has_task(self.session, node_id)
+        self.set_header('X-DD-New-Task', has_task)
+
+        running_jobs = self.request.headers.get('X-DD-RunningJobs', '')
+        running_job_ids = [x for x in running_jobs.split(',') if x]
+        if running_jobs:
+            killing_jobs = list(self.node_manager.jobs_running(self.session, node_id,
+                                                                    running_job_ids))
+            if killing_jobs:
+                LOGGER.info('killing %s', killing_jobs)
+                self.set_header('X-DD-KillJobs',
+                                json.dumps(list(killing_jobs)))

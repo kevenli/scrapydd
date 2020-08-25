@@ -13,6 +13,15 @@ message LoginRequest {
 
 }
 
+message Node {
+    string name = 1;
+}
+
+message NodeSession {
+    string name = 1;
+    message Node node = 2;
+}
+
 message LoginResponse {
     int64 nodeId = 1;
 }

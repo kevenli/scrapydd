@@ -181,6 +181,15 @@ class NodeKey(Base):
     create_at = Column(DateTime, nullable=False)
 
 
+class NodeSession(Base):
+    __tablename__ = 'nodesessions'
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    node_id = Column(BigInteger, ForeignKey('nodes.id'), nullable=False)
+    node = relationship('Node')
+    create_at = Column(DateTime, nullable=False)
+    last_heartbeat = Column(DateTime, nullable=False)
+
+
 class HistoricalJob(Base):
     __tablename__ = 'job_history'
 
