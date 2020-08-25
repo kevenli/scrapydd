@@ -25,6 +25,7 @@ from .exceptions import ProcessFailed
 from .security import generate_digest
 from .poster.encode import multipart_encode
 from .poster.streaminghttp import register_openers
+from .client import get_client
 
 LOGGER = logging.getLogger(__name__)
 
@@ -202,6 +203,7 @@ class Executor:
                                               key=node_key,
                                               secret_key=secret_key,
                                               defaults=httpclient_defaults)
+        self.client = get_client(config, node_key, secret_key)
         self.runner_factory = RunnerFactory(config)
 
     def start(self):
@@ -269,29 +271,33 @@ class Executor:
 
     @coroutine
     def register_node(self):
-        if self.custom_ssl_cert and \
-                self.service_base.startswith('https') and \
-                not os.path.exists('keys/ca.crt'):
-            httpclient = AsyncHTTPClient(force_instance=True)
-            cacertrequest = HTTPRequest(urljoin(self.service_base, 'ca.crt'),
-                                        validate_cert=False)
-            try:
-                cacertresponse = yield httpclient.fetch(cacertrequest)
-                if not os.path.exists('keys'):
-                    os.mkdir('keys')
-                open('keys/ca.crt', 'wb').write(cacertresponse.body)
-            except HTTPError:
-                LOGGER.info('Custom ca cert retrieve failed.')
-        try:
-
-            node_id = yield self.httpclient.node_online(self.tags)
-            self.status = EXECUTOR_STATUS_ONLINE
-            self.node_id = node_id
-            LOGGER.info('node %d registered', self.node_id)
-        except URLError as ex:
-            logging.warning('Cannot connect to server, %s', ex)
-        except socket.error as ex:
-            logging.warning('Cannot connect to server, %s', ex)
+        # if self.custom_ssl_cert and \
+        #         self.service_base.startswith('https') and \
+        #         not os.path.exists('keys/ca.crt'):
+        #     httpclient = AsyncHTTPClient(force_instance=True)
+        #     cacertrequest = HTTPRequest(urljoin(self.service_base, 'ca.crt'),
+        #                                 validate_cert=False)
+        #     try:
+        #         cacertresponse = yield httpclient.fetch(cacertrequest)
+        #         if not os.path.exists('keys'):
+        #             os.mkdir('keys')
+        #         open('keys/ca.crt', 'wb').write(cacertresponse.body)
+        #     except HTTPError:
+        #         LOGGER.info('Custom ca cert retrieve failed.')
+        # try:
+        #
+        #     node_id = yield self.httpclient.node_online(self.tags)
+        #     self.status = EXECUTOR_STATUS_ONLINE
+        #     self.node_id = node_id
+        #     LOGGER.info('node %d registered', self.node_id)
+        # except URLError as ex:
+        #     logging.warning('Cannot connect to server, %s', ex)
+        # except socket.error as ex:
+        #     logging.warning('Cannot connect to server, %s', ex)
+        self.client.login()
+        self.status = EXECUTOR_STATUS_ONLINE
+        self.node_id = self.client._node_id
+        self.httpclient.node_id = self.node_id
 
     def on_new_task_reach(self, task):
         if task is not None:
