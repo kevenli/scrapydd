@@ -242,32 +242,35 @@ class Executor:
         if self.status == EXECUTOR_STATUS_OFFLINE:
             self.register_node()
             return
-        url = urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
-        running_tasks = ','.join([task_executor.task.id for task_executor in
-                                  self.task_slots.tasks()])
-        request = HTTPRequest(url=url, method='POST', body='',
-                              headers={'X-DD-RunningJobs': running_tasks})
-        try:
-            res = yield self.httpclient.fetch(request)
-            if 'X-DD-KillJobs' in res.headers:
-                LOGGER.info('received kill signal %s',
-                            res.headers['X-DD-KillJobs'])
-                for job_id in json.loads(res.headers['X-DD-KillJobs']):
-                    task_to_kill = self.task_slots.get_task(job_id)
-                    if task_to_kill:
-                        LOGGER.info('%s', task_to_kill)
-                        task_to_kill.kill()
-                        self.task_slots.remove_task(task_to_kill)
-            self.check_header_new_task_on_server(res.headers)
-        except HTTPError as ex:
-            if ex.code == 400:
-                logging.warning('Node expired, register now.')
-                self.status = EXECUTOR_STATUS_OFFLINE
-                self.register_node()
-        except URLError as ex:
-            logging.warning('Cannot connect to server. %s', ex)
-        except Exception as ex:
-            logging.warning('Cannot connect to server. %s', ex)
+        # url = urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
+        # running_tasks = ','.join([task_executor.task.id for task_executor in
+        #                           self.task_slots.tasks()])
+        # request = HTTPRequest(url=url, method='POST', body='',
+        #                       headers={'X-DD-RunningJobs': running_tasks})
+        # try:
+        #     res = yield self.httpclient.fetch(request)
+        #     if 'X-DD-KillJobs' in res.headers:
+        #         LOGGER.info('received kill signal %s',
+        #                     res.headers['X-DD-KillJobs'])
+        #         for job_id in json.loads(res.headers['X-DD-KillJobs']):
+        #             task_to_kill = self.task_slots.get_task(job_id)
+        #             if task_to_kill:
+        #                 LOGGER.info('%s', task_to_kill)
+        #                 task_to_kill.kill()
+        #                 self.task_slots.remove_task(task_to_kill)
+        #     self.check_header_new_task_on_server(res.headers)
+        # except HTTPError as ex:
+        #     if ex.code == 400:
+        #         logging.warning('Node expired, register now.')
+        #         self.status = EXECUTOR_STATUS_OFFLINE
+        #         self.register_node()
+        # except URLError as ex:
+        #     logging.warning('Cannot connect to server. %s', ex)
+        # except Exception as ex:
+        #     logging.warning('Cannot connect to server. %s', ex)
+        running_job_ids = [task_executor.task.id for task_executor in
+                                   self.task_slots.tasks()]
+        self.client.heartbeat(running_job_ids=running_job_ids)
 
     @coroutine
     def register_node(self):
