@@ -93,17 +93,19 @@ class HmacAuth(requests.auth.AuthBase):
 
 
 class NodeRestClient:
-    def __init__(self, base_url, auth=None):
+    def __init__(self, base_url, auth=None, tags=None):
         self._session = requests.Session()
         self._auth = auth
         self._session.auth = auth
         self._base_url = base_url
         self._node_id = None
         self._session_id = None
+        self._tags = tags
 
     def register_node(self, node_key):
         url = urljoin(self._base_url, '/nodes/register')
         post_data = {'node_key': node_key}
+
         res = self._session.post(url, data=post_data)
         res.raise_for_status()
         res_data = res.json()
@@ -111,7 +113,8 @@ class NodeRestClient:
 
     def login(self):
         url = urljoin(self._base_url, '/api/nodeSessions')
-        res = self._session.post(url)
+        post_data = {'tags': self._tags or ''}
+        res = self._session.post(url, data=post_data)
         res.raise_for_status()
         res_data = res.json()
         self._session_id = res_data['id']
@@ -353,18 +356,19 @@ class NodeGrpcClient:
 def get_client(config, app_key=None, app_secret=None):
     server_url = config.get('server', 'http://localhost:6800')
     server_url_parts = urlparse(server_url)
+    tags = config.get('tags', '')
     if not server_url_parts.scheme:
         auth = None
         if app_key and app_secret:
             auth = HmacAuth(app_key, app_secret)
         client = NodeRestClient('http://%s:6800' % server_url,
-                                auth=auth)
+                                auth=auth, tags=tags)
         return client
     if server_url_parts.scheme in ('http', 'https'):
         auth = None
         if app_key and app_secret:
             auth = HmacAuth(app_key, app_secret)
-        client = NodeRestClient(server_url, auth=auth)
+        client = NodeRestClient(server_url, auth=auth, tags=tags)
         return client
 
     if server_url_parts.scheme in ('grpc', 'grpcs'):
