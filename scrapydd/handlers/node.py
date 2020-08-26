@@ -21,6 +21,7 @@ from ..stream import PostDataStreamer
 from ..exceptions import NodeExpired
 from ..security import generate_digest
 from ..nodes import NodeManager, AnonymousNodeDisabled
+from .. import nodes
 
 LOGGER = logging.getLogger(__name__)
 
@@ -427,6 +428,8 @@ class CreateNodeSessionHandler(NodeBaseHandler):
 
         except AnonymousNodeDisabled:
             return self.set_status(401, 'Anonymous node not allowed.')
+        except nodes.NodeNotFound:
+            return self.set_status(401, 'Node not found.')
 
         res_data = {
             'id': node_session.id,
@@ -441,8 +444,11 @@ class HeartbeatNodeSessionHandler(NodeBaseHandler):
     @authenticated
     def post(self, session_id):
         node_manager = self.node_manager
-        node_session = node_manager.node_session_heartbeat(self.session,
+        try:
+            node_session = node_manager.node_session_heartbeat(self.session,
                                                            session_id)
+        except nodes.NodeExpired:
+            return self.set_status(401, 'Node Expired')
         node = node_session.node
         node_id = node.id
         has_task = node_manager.node_has_task(self.session, node_id)
