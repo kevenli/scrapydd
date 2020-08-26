@@ -144,7 +144,7 @@ class NodeManager():
             node = self.create_node(client_ip, tags)
         else:
             node = session.query(Node).get(node_id)
-            if not node or not node.isalive:
+            if not node:
                 raise NodeNotFoundException()
 
         existing_session = session.query(NodeSession)\
@@ -208,7 +208,7 @@ class NodeManager():
         return self.scheduler_manager.jobs_running(node_id, running_job_ids)
 
     def get_node_by_token(self, session, token):
-        key = session.query(NodeKey).filter_by(token=token).first()
+        key = session.query(NodeKey).filter_by(key=token).first()
         if not key:
             raise NodeKeyNotFoundException()
 
