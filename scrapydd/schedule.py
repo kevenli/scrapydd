@@ -494,7 +494,7 @@ order by a.fire_time
 
         if items_file:
             items_file.seek(0)
-            project_storage.put_job_data(job, log_file, items_file)
+        project_storage.put_job_data(job, log_file, items_file)
 
         session.delete(job)
         session.add(historical_job)
