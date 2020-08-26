@@ -270,7 +270,17 @@ class Executor:
         #     logging.warning('Cannot connect to server. %s', ex)
         running_job_ids = [task_executor.task.id for task_executor in
                                    self.task_slots.tasks()]
-        self.client.heartbeat(running_job_ids=running_job_ids)
+        res = self.client.heartbeat(running_job_ids=running_job_ids)
+        if res['kill_job_ids']:
+            for job_id in res['kill_job_ids']:
+                task_to_kill = self.task_slots.get_task(job_id)
+                if task_to_kill:
+                    LOGGER.info('%s', task_to_kill)
+                    task_to_kill.kill()
+                    self.task_slots.remove_task(task_to_kill)
+
+        if res['new_job_available']:
+            self.ioloop.call_later(0, self.check_task)
 
     def register_node(self):
         # if self.custom_ssl_cert and \

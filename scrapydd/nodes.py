@@ -114,7 +114,7 @@ class NodeManager():
     def _get_node(self, session, node_id):
         return session.query(Node).get(node_id)
 
-    def get_node(self, node_id):
+    def get_node(self, node_id, session=None):
         with session_scope() as session:
             return session.query(Node).get(node_id)
 

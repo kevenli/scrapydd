@@ -133,17 +133,21 @@ class NodeRestClient:
     def heartbeat(self, running_job_ids=None):
         url = urljoin(self._base_url,
                       '/api/nodeSessions/%s:heartbeat' % self._session_id)
-        running_tasks = ''
-        if running_job_ids:
-            running_tasks = ','.join(running_job_ids)
+        if running_job_ids is None:
+            running_job_ids = []
+        post_data = {
+            'running_job_ids': ','.join(running_job_ids)
+        }
         response = self._session.post(url=url,
-                                      data='',
-                                      headers={
-                                          'X-DD-RunningJobs': running_tasks})
-        response.raise_for_status()
-        new_job = str2bool(response.headers.get('X-DD-New-Task', 'false'))
-        heartbeat_res = HearbeatResponse(has_new_job=new_job)
-        return heartbeat_res
+                                      data=post_data)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as ex:
+            if ex.response.status_code == 401:
+                raise NodeExpiredException()
+            raise
+        res_data = response.json()
+        return res_data
 
     def get_next_job(self):
         url = urljoin(self._base_url, '/executing/next_task')

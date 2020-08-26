@@ -31,9 +31,8 @@ message HeartbeatRequest{
 }
 
 message HeartbeatResponse{
-    bool nodeExpired = 1;
-    repeated string killJobs = 2;
-    bool newJobAvailable = 3;
+    repeated string kill_job_ids = 2;
+    bool new_job_available = 3;
 }
 
 message GetNextJobRequest {

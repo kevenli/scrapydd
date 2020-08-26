@@ -445,14 +445,31 @@ class HeartbeatNodeSessionHandler(NodeBaseHandler):
         node_manager.node_session_heartbeat(self.session, session_id)
 
         has_task = node_manager.node_has_task(self.session, node_id)
-        self.set_header('X-DD-New-Task', has_task)
+        running_job_ids = self.get_argument('running_job_ids', '')
+        if isinstance(running_job_ids, str):
+            running_job_ids = [x for x in running_job_ids.split(',') if x]
 
-        running_jobs = self.request.headers.get('X-DD-RunningJobs', '')
-        running_job_ids = [x for x in running_jobs.split(',') if x]
-        if running_jobs:
-            killing_jobs = list(self.node_manager.jobs_running(self.session, node_id,
-                                                                    running_job_ids))
-            if killing_jobs:
-                LOGGER.info('killing %s', killing_jobs)
-                self.set_header('X-DD-KillJobs',
-                                json.dumps(list(killing_jobs)))
+        killing_jobs = list(self.node_manager.jobs_running(self.session,
+                                                           node_id,
+                                                           running_job_ids))
+        if killing_jobs:
+            LOGGER.info('killing %s', killing_jobs)
+
+        res_data = {
+            'new_job_available': has_task,
+            'kill_job_ids': killing_jobs,
+        }
+
+        return self.send_json(res_data)
+
+
+class GetNodeHandler(NodeBaseHandler):
+    @authenticated
+    def get(self, node_id):
+        session = self.session
+        node = self.node_manager.get_node(session=session, node_id=node_id)
+        res_data = {
+            'id': node.id,
+            'tags': node.tags.split(',') if node.tags else []
+        }
+        return self.send_json(res_data)

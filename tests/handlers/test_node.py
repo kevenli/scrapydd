@@ -395,3 +395,45 @@ class CreateNodeSessionHandlerTest(NodeTest):
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
         self.assertEqual(res_data['tags'], ['a', 'b', 'c'])
+
+
+class HeartbeatNodeSessionHandlerTest(NodeTest):
+    def session_login(self):
+        post_data = {
+            'tags': ''
+        }
+        res = self.fetch('/api/nodeSessions', method='POST',
+                         body=urlencode(post_data))
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.node_id = res_data['node']['id']
+        self.session_id = res_data['id']
+
+    def test_post(self):
+        post_data = {}
+        self.session_login()
+        headers = {'X-Dd-Nodeid': str(self.node_id)}
+        res = self.fetch('/api/nodeSessions/%s:heartbeat' % self.session_id,
+                         method='POST', body=urlencode(post_data),
+                         headers=headers,
+                         allow_nonstandard_methods=True)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.assertEqual(res_data['kill_job_ids'], [])
+        self.assertEqual(res_data['new_job_available'], False)
+
+    def test_post_running_jobs(self):
+        job_ids = ['1', '2']
+        post_data = {
+            'running_job_ids': ','.join(job_ids)
+        }
+        self.session_login()
+        headers = {'X-Dd-Nodeid': str(self.node_id)}
+        res = self.fetch('/api/nodeSessions/%s:heartbeat' % self.session_id,
+                         method='POST', body=urlencode(post_data),
+                         headers=headers,
+                         allow_nonstandard_methods=True)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.assertEqual(res_data['kill_job_ids'], job_ids)
+        self.assertEqual(res_data['new_job_available'], False)
