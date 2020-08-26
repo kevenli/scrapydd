@@ -199,6 +199,7 @@ class NodeManager():
         session.add(node_session)
         session.add(node)
         session.commit()
+        return node_session
 
     def node_has_task(self, session, node_id):
         return self.scheduler_manager.has_task(node_id)

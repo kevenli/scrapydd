@@ -440,10 +440,11 @@ class CreateNodeSessionHandler(NodeBaseHandler):
 class HeartbeatNodeSessionHandler(NodeBaseHandler):
     @authenticated
     def post(self, session_id):
-        node_id = int(self.current_user)
         node_manager = self.node_manager
-        node_manager.node_session_heartbeat(self.session, session_id)
-
+        node_session = node_manager.node_session_heartbeat(self.session,
+                                                           session_id)
+        node = node_session.node
+        node_id = node.id
         has_task = node_manager.node_has_task(self.session, node_id)
         running_job_ids = self.get_argument('running_job_ids', '')
         if isinstance(running_job_ids, str):
