@@ -10,7 +10,8 @@ service NodeService {
 }
 
 message LoginRequest {
-
+    string token = 1;
+    repeated string tags = 2;
 }
 
 message Node {

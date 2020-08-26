@@ -23,6 +23,10 @@ class NodeNotFoundException(Exception):
     pass
 
 
+class NodeKeyNotFoundException(Exception):
+    pass
+
+
 class NodeManager():
     interval = 10
     node_timeout = 60
@@ -201,3 +205,14 @@ class NodeManager():
 
     def jobs_running(self, session, node_id, running_job_ids):
         return self.scheduler_manager.jobs_running(node_id, running_job_ids)
+
+    def get_node_by_token(self, session, token):
+        key = session.query(NodeKey).filter_by(token=token).first()
+        if not key:
+            raise NodeKeyNotFoundException()
+
+        if key.used_node_id is None:
+            return None
+
+        node = session.query(Node).get(key.used_node_id)
+        return node

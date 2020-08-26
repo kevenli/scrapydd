@@ -56,8 +56,17 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
     async def Login(self, request, context):
         response = service_pb2.LoginResponse()
         with session_scope() as session:
-            node_id = self.get_node_id(context)
-            tags = None
+            node_id = None
+            token = request.token
+            if token:
+                try:
+                    node = self._node_manager.get_node_by_token(session, token)
+                except nodes.NodeKeyNotFoundException:
+                    context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                    context.set_details('Anonymous node is not allowed.')
+                    return response
+                node_id = node.id
+            tags = ','.join(request.tags) if request.tags else None
             remote_ip = context.peer()
             node_manager = self._node_manager
             try:
