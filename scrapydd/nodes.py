@@ -19,6 +19,10 @@ class AnonymousNodeDisabled(Exception):
     pass
 
 
+class NodeNotFoundException(Exception):
+    pass
+
+
 class NodeManager():
     interval = 10
     node_timeout = 60
@@ -136,8 +140,8 @@ class NodeManager():
             node = self.create_node(client_ip, tags)
         else:
             node = session.query(Node).get(node_id)
-            if not node:
-                raise Exception('Node not found.')
+            if not node or not node.isalive:
+                raise NodeNotFoundException()
 
         existing_session = session.query(NodeSession)\
             .filter_by(node_id=node.id).first()

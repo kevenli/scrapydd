@@ -5,18 +5,17 @@ import logging
 import os
 import sys
 
-
 import grpc
 
 from . import service_pb2
 from . import service_pb2_grpc
 from .grpc_asyncio import AsyncioExecutor
 from ..nodes import NodeManager, NodeExpired, AnonymousNodeDisabled
+from .. import nodes
 from ..schedule import SchedulerManager
 from ..models import session_scope, SpiderSettings, SpiderExecutionQueue
 from ..project import ProjectManager
 from ..workspace import DictSpiderSettings
-
 
 logger = logging.getLogger(__name__)
 
@@ -60,15 +59,25 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             node_id = self.get_node_id(context)
             tags = None
             remote_ip = context.peer()
+            node_manager = self._node_manager
             try:
-                node = self._node_manager.node_online(session, node_id,
-                                                     remote_ip,
-                                                     tags)
-                response.nodeId = node.id
+                node_session = node_manager.create_node_session(
+                    session,
+                    node_id=node_id,
+                    client_ip=remote_ip,
+                    tags=tags)
             except AnonymousNodeDisabled:
                 context.set_code(grpc.StatusCode.UNAUTHENTICATED)
                 context.set_details('Anonymous node is not allowed.')
-        return response
+                return response
+            except nodes.NodeNotFoundException:
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Node not found.')
+                return response
+
+            response.node_session.id = node_session.id
+            response.node_session.node.id = node_session.node.id
+            return response
 
     async def Heartbeat(self, request: service_pb2.HeartbeatRequest, context):
         node_id = self.get_node_id(context)
@@ -78,15 +87,17 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         response = service_pb2.HeartbeatResponse()
         try:
             self._node_manager.heartbeat(node_id)
-            running_job_ids = request.runningJobs
+            running_job_ids = request.running_job_ids
             killing_jobs = list(self._scheduler_manager.jobs_running(node_id,
-                                                                running_job_ids))
+                 running_job_ids))
 
-            response.newJobAvailable = has_task
+            response.new_job_available = has_task
             for killing_job in killing_jobs:
-                response.killJobs.append(killing_job)
+                response.kill_job_ids.append(killing_job)
         except NodeExpired:
-            response.nodeExpired = True
+            context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+            context.set_details('Node expired.')
+            return response
         return response
 
     async def GetNextJob(self, request, context):
@@ -146,13 +157,12 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             job.status = status_int
             job.update_time = datetime.datetime.now()
             historical_job = self._scheduler_manager.job_finished(job,
-                                                                 log_stream,
-                                                                 items_stream)
+                                                                  log_stream,
+                                                                  items_stream)
             session.close()
             logger.info('Job %s completed.', task_id)
             response_data = {'status': 'ok'}
             return response
-
 
 
 def start(node_manager=None, scheduler_manager=None, project_manager=None):
@@ -174,9 +184,10 @@ def start(node_manager=None, scheduler_manager=None, project_manager=None):
     ]
     server = grpc.server(AsyncioExecutor(loop=asyncio.new_event_loop()),
                          options=options)
-    #server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
-    #server = grpc.server(AsyncioExecutor())
-    node_service = NodeServicer(node_manager, scheduler_manager, project_manager)
+    # server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
+    # server = grpc.server(AsyncioExecutor())
+    node_service = NodeServicer(node_manager, scheduler_manager,
+                                project_manager)
     service_pb2_grpc.add_NodeServiceServicer_to_server(node_service, server)
 
     address = '[::]:' + port

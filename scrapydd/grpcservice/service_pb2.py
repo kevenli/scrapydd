@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='scrapydd/grpcservice/service.proto',
   package='',
   syntax='proto3',
-  serialized_pb=_b('\n\"scrapydd/grpcservice/service.proto\"\x0e\n\x0cLoginRequest\"\x1f\n\rLoginResponse\x12\x0e\n\x06nodeId\x18\x01 \x01(\x03\"\'\n\x10HeartbeatRequest\x12\x13\n\x0brunningJobs\x18\x01 \x03(\t\"S\n\x11HeartbeatResponse\x12\x13\n\x0bnodeExpired\x18\x01 \x01(\x08\x12\x10\n\x08killJobs\x18\x02 \x03(\t\x12\x17\n\x0fnewJobAvailable\x18\x03 \x01(\x08\"\x13\n\x11GetNextJobRequest\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse2\xb5\x02\n\x0bNodeService\x12&\n\x05Login\x12\r.LoginRequest\x1a\x0e.LoginResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponseb\x06proto3')
+  serialized_pb=_b('\n\"scrapydd/grpcservice/service.proto\"\x0e\n\x0cLoginRequest\"\x12\n\x04Node\x12\n\n\x02id\x18\x01 \x01(\x03\".\n\x0bNodeSession\x12\n\n\x02id\x18\x01 \x01(\x03\x12\x13\n\x04node\x18\x02 \x01(\x0b\x32\x05.Node\"3\n\rLoginResponse\x12\"\n\x0cnode_session\x18\x01 \x01(\x0b\x32\x0c.NodeSession\"?\n\x10HeartbeatRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x17\n\x0frunning_job_ids\x18\x02 \x03(\t\"D\n\x11HeartbeatResponse\x12\x14\n\x0ckill_job_ids\x18\x01 \x03(\t\x12\x19\n\x11new_job_available\x18\x02 \x01(\x08\"\x13\n\x11GetNextJobRequest\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse2\xb5\x02\n\x0bNodeService\x12&\n\x05Login\x12\r.LoginRequest\x1a\x0e.LoginResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponseb\x06proto3')
 )
 
 
@@ -49,15 +49,15 @@ _LOGINREQUEST = _descriptor.Descriptor(
 )
 
 
-_LOGINRESPONSE = _descriptor.Descriptor(
-  name='LoginResponse',
-  full_name='LoginResponse',
+_NODE = _descriptor.Descriptor(
+  name='Node',
+  full_name='Node',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='nodeId', full_name='LoginResponse.nodeId', index=0,
+      name='id', full_name='Node.id', index=0,
       number=1, type=3, cpp_type=2, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -76,7 +76,76 @@ _LOGINRESPONSE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=54,
-  serialized_end=85,
+  serialized_end=72,
+)
+
+
+_NODESESSION = _descriptor.Descriptor(
+  name='NodeSession',
+  full_name='NodeSession',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='id', full_name='NodeSession.id', index=0,
+      number=1, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='node', full_name='NodeSession.node', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=74,
+  serialized_end=120,
+)
+
+
+_LOGINRESPONSE = _descriptor.Descriptor(
+  name='LoginResponse',
+  full_name='LoginResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='node_session', full_name='LoginResponse.node_session', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=122,
+  serialized_end=173,
 )
 
 
@@ -88,8 +157,15 @@ _HEARTBEATREQUEST = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='runningJobs', full_name='HeartbeatRequest.runningJobs', index=0,
-      number=1, type=9, cpp_type=9, label=3,
+      name='session_id', full_name='HeartbeatRequest.session_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='running_job_ids', full_name='HeartbeatRequest.running_job_ids', index=1,
+      number=2, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -106,8 +182,8 @@ _HEARTBEATREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=87,
-  serialized_end=126,
+  serialized_start=175,
+  serialized_end=238,
 )
 
 
@@ -119,22 +195,15 @@ _HEARTBEATRESPONSE = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='nodeExpired', full_name='HeartbeatResponse.nodeExpired', index=0,
-      number=1, type=8, cpp_type=7, label=1,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='killJobs', full_name='HeartbeatResponse.killJobs', index=1,
-      number=2, type=9, cpp_type=9, label=3,
+      name='kill_job_ids', full_name='HeartbeatResponse.kill_job_ids', index=0,
+      number=1, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='newJobAvailable', full_name='HeartbeatResponse.newJobAvailable', index=2,
-      number=3, type=8, cpp_type=7, label=1,
+      name='new_job_available', full_name='HeartbeatResponse.new_job_available', index=1,
+      number=2, type=8, cpp_type=7, label=1,
       has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -151,8 +220,8 @@ _HEARTBEATRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=128,
-  serialized_end=211,
+  serialized_start=240,
+  serialized_end=308,
 )
 
 
@@ -175,8 +244,8 @@ _GETNEXTJOBREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=213,
-  serialized_end=232,
+  serialized_start=310,
+  serialized_end=329,
 )
 
 
@@ -220,8 +289,8 @@ _GETNEXTJOBRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=234,
-  serialized_end=302,
+  serialized_start=331,
+  serialized_end=399,
 )
 
 
@@ -244,8 +313,8 @@ _GETJOBREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=304,
-  serialized_end=319,
+  serialized_start=401,
+  serialized_end=416,
 )
 
 
@@ -268,8 +337,8 @@ _GETJOBRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=321,
-  serialized_end=337,
+  serialized_start=418,
+  serialized_end=434,
 )
 
 
@@ -292,8 +361,8 @@ _GETJOBEGGREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=339,
-  serialized_end=357,
+  serialized_start=436,
+  serialized_end=454,
 )
 
 
@@ -316,8 +385,8 @@ _GETJOBEGGRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=359,
-  serialized_end=378,
+  serialized_start=456,
+  serialized_end=475,
 )
 
 
@@ -368,8 +437,8 @@ _COMPLETEJOBREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=380,
-  serialized_end=460,
+  serialized_start=477,
+  serialized_end=557,
 )
 
 
@@ -392,11 +461,15 @@ _COMPLETEJOBRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=462,
-  serialized_end=483,
+  serialized_start=559,
+  serialized_end=580,
 )
 
+_NODESESSION.fields_by_name['node'].message_type = _NODE
+_LOGINRESPONSE.fields_by_name['node_session'].message_type = _NODESESSION
 DESCRIPTOR.message_types_by_name['LoginRequest'] = _LOGINREQUEST
+DESCRIPTOR.message_types_by_name['Node'] = _NODE
+DESCRIPTOR.message_types_by_name['NodeSession'] = _NODESESSION
 DESCRIPTOR.message_types_by_name['LoginResponse'] = _LOGINRESPONSE
 DESCRIPTOR.message_types_by_name['HeartbeatRequest'] = _HEARTBEATREQUEST
 DESCRIPTOR.message_types_by_name['HeartbeatResponse'] = _HEARTBEATRESPONSE
@@ -416,6 +489,20 @@ LoginRequest = _reflection.GeneratedProtocolMessageType('LoginRequest', (_messag
   # @@protoc_insertion_point(class_scope:LoginRequest)
   ))
 _sym_db.RegisterMessage(LoginRequest)
+
+Node = _reflection.GeneratedProtocolMessageType('Node', (_message.Message,), dict(
+  DESCRIPTOR = _NODE,
+  __module__ = 'scrapydd.grpcservice.service_pb2'
+  # @@protoc_insertion_point(class_scope:Node)
+  ))
+_sym_db.RegisterMessage(Node)
+
+NodeSession = _reflection.GeneratedProtocolMessageType('NodeSession', (_message.Message,), dict(
+  DESCRIPTOR = _NODESESSION,
+  __module__ = 'scrapydd.grpcservice.service_pb2'
+  # @@protoc_insertion_point(class_scope:NodeSession)
+  ))
+_sym_db.RegisterMessage(NodeSession)
 
 LoginResponse = _reflection.GeneratedProtocolMessageType('LoginResponse', (_message.Message,), dict(
   DESCRIPTOR = _LOGINRESPONSE,
@@ -502,8 +589,8 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=486,
-  serialized_end=795,
+  serialized_start=583,
+  serialized_end=892,
   methods=[
   _descriptor.MethodDescriptor(
     name='Login',
