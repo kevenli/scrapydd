@@ -373,3 +373,19 @@ class JobEggHandlerTest(NodeSecureTest):
         res = self.fetch_secure(f'/jobs/{task_id}/egg', method='GET',
                                 headers=headers)
         self.assertEqual(200, res.code)
+
+
+class CreateNodeSessionHandlerTest(NodeSecureTest):
+    def test_post_body_tags(self):
+        post_data = {
+            'tags': 'a,b,c'
+        }
+        body = urlencode(post_data)
+        res = self.fetch_secure('/api/nodeSessions', method='POST', body=body)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        node_id = res_data['node']['id']
+        session_id = res_data['id']
+
+        self.assertTrue(node_id > 0)
+        self.assertTrue(session_id > 0)
