@@ -25,6 +25,12 @@ from ..nodes import NodeManager, AnonymousNodeDisabled
 LOGGER = logging.getLogger(__name__)
 
 
+class InvalidHmacCredentialError(tornado.web.HTTPError):
+    def __init__(self):
+        super(InvalidHmacCredentialError, self).__init__(401,
+                                                    'Invalid Hamc Credential')
+
+
 class NodeHmacAuthenticationProvider:
     def get_user(self, handler):
         node_key = self.validate_request(handler)
@@ -37,12 +43,12 @@ class NodeHmacAuthenticationProvider:
         authorization = handler.request.headers.get("Authorization", "") \
             .split(" ")
         if len(authorization) != 3:
-            LOGGER.info("Invalid Authorization header %s", authorization)
+            LOGGER.debug("No Authorization header %s", authorization)
             return None
 
         algorithm, key, provided_digest = authorization
         if algorithm != "HMAC":
-            LOGGER.info("Invalid algorithm %s", algorithm)
+            LOGGER.debug("Not HMAC Authorization %s", algorithm)
             return None
 
         with session_scope() as session:
@@ -50,7 +56,7 @@ class NodeHmacAuthenticationProvider:
 
             if node_key is None:
                 LOGGER.info("Invalid HMAC key %s", key)
-                return None
+                raise InvalidHmacCredentialError()
             secret = node_key.secret_key
             body = handler.request.body if isinstance(handler.request.body,
                                                       binary_type) else b''
@@ -61,7 +67,7 @@ class NodeHmacAuthenticationProvider:
 
             if not hmac.compare_digest(expected_digest, provided_digest):
                 LOGGER.info("Invalid HMAC digest %s", provided_digest)
-                return None
+                raise InvalidHmacCredentialError()
             return node_key
 
 
@@ -405,22 +411,23 @@ class JobEggHandler(NodeBaseHandler):
 
 class CreateNodeSessionHandler(NodeBaseHandler):
     def post(self):
-        # provider = NodeHmacAuthenticationProvider()
-        # node_key = provider.validate_request(self)
-        # if not node_key:
-        #     return self.set_status(403, 'invalid key')
-
-        node_id = None
+        node_id = self.current_user
         session = self.session
         tags = self.get_argument('tags', '').strip()
         tags = None if tags == '' else tags
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
         node_manager = self.node_manager
-        node_session = node_manager.create_node_session(session,
-                                                        node_id=node_id,
-                                                        client_ip=remote_ip,
-                                                        tags=tags)
+        try:
+            node_session = node_manager.create_node_session(
+                session,
+                node_id=node_id,
+                client_ip=remote_ip,
+                tags=tags)
+
+        except AnonymousNodeDisabled:
+            return self.set_status(401, 'Anonymous node not allowed.')
+
         res_data = {
             'id': node_session.id,
             'node': {

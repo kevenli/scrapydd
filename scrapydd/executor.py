@@ -272,7 +272,6 @@ class Executor:
                                    self.task_slots.tasks()]
         self.client.heartbeat(running_job_ids=running_job_ids)
 
-    @coroutine
     def register_node(self):
         # if self.custom_ssl_cert and \
         #         self.service_base.startswith('https') and \

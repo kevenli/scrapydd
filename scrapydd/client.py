@@ -114,8 +114,15 @@ class NodeRestClient:
     def login(self):
         url = urljoin(self._base_url, '/api/nodeSessions')
         post_data = {'tags': self._tags or ''}
-        res = self._session.post(url, data=post_data)
-        res.raise_for_status()
+        try:
+            res = self._session.post(url, data=post_data)
+            res.raise_for_status()
+        except requests.exceptions.ConnectionError as ex:
+            raise ConnectionError()
+        except requests.exceptions.HTTPError as ex:
+            if ex.response.status_code == 401:
+                raise LoginFailedException()
+            raise
         res_data = res.json()
         self._session_id = res_data['id']
         self._node_id = res_data['node']['id']
