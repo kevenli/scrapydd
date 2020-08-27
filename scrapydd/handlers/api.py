@@ -124,6 +124,5 @@ class ProjectsHandler(ApiHandler):
 
 def apply(app: Application):
     app.add_handlers(".*", [
-        ('/v1/nodes', NodesHandler),
         ('/v1/projects', ProjectsHandler),
     ])

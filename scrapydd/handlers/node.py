@@ -646,9 +646,38 @@ class NodeSessionJobInstanceHandler(NodeApiBaseHandler):
                                                         items_file)
 
 
+class NodeCollectionHandler(NodeApiBaseHandler):
+    @authenticated
+    def post(self):
+        node_key = self.get_argument('node_key')
+        session = self.session
+        key = session.query(NodeKey).filter_by(key=node_key).first()
+        if not key:
+            raise tornado.web.HTTPError(400)
+
+        if key.used_node_id:
+            raise tornado.web.HTTPError(400)
+
+        tags = self.get_argument('tags', '').strip()
+        tags = None if tags == '' else tags
+        remote_ip = self.request.headers.get('X-Real-IP',
+                                             self.request.remote_ip)
+        node = self.node_manager.create_node(remote_ip, tags=tags,
+                                             key_id=key.id)
+        key.used_node_id = node.id
+        session.add(key)
+        session.commit()
+        return self.send_json({
+            'id': node.id,
+            'name': node.name,
+        })
+
+
+
 url_patterns = [
     ('/v1/nodeSessions', NodeSessionListHandler),
     (r'/v1/nodeSessions/(\w+):heartbeat', NodeSessionInstanceHeartbeatHandler),
     (r'/v1/nodeSessions/(\w+):nextjob', NodeSessionInstanceNextjobHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
+    (r'/v1/nodes', NodeCollectionHandler),
 ]
