@@ -135,8 +135,30 @@ class NodeManager():
     def _new_id(self):
         return next(self.id_generator)
 
-    def create_node_session(self, session, node_id=None,
+    def _solve_node_id(self, node):
+        """
+            To provide compatibility that web handler layer
+            passed node context into actions can be either Node
+            or int value of node.id, use this method to convert
+            it first to get a actual node id.
+        :param node: [Node, int]
+        :return: [int] node id
+        """
+        if node is None:
+            return None
+
+        if isinstance(node, Node):
+            return node.id
+
+        if isinstance(node, int):
+            return node
+
+        raise Exception('Not supported type %s', type(node))
+
+    def create_node_session(self, session, node=None,
                             client_ip=None, tags=None):
+        node_id = self._solve_node_id(node)
+
         if node_id is None and self._enable_authentication:
             raise AnonymousNodeDisabled()
 

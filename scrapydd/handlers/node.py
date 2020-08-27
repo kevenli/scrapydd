@@ -15,7 +15,7 @@ import shutil
 from tornado.web import authenticated
 from six import ensure_str, binary_type
 from .base import RestBaseHandler
-from ..models import session_scope, Session, Spider, Project
+from ..models import session_scope, Session, Spider, Project, Node
 from ..models import SpiderExecutionQueue, SpiderSettings, NodeKey
 from ..stream import PostDataStreamer
 from ..exceptions import NodeExpired
@@ -410,9 +410,47 @@ class JobEggHandler(NodeBaseHandler):
         self.write(f_egg.read())
 
 
-class CreateNodeSessionHandler(NodeBaseHandler):
+ANONYMOUS_NODE = Node(id=None)
+
+
+class NodeApiBaseHandler(NodeBaseHandler):
+    """
+    This provides the base handler class for new rest apis.
+    These api handlers do not require the custom header x-dd-nodeid
+    as a context in request processing. The necessary context infomation
+    are all in the url segments.
+    These apis are all follow the google api guide and following
+    prefix "/v1" .
+    In these apis, if `eanble_authentication` is turned on, authentication
+    info should be provided on each request, including the login action.
+    For now, the auth mechanism is through a HMAC validation, this may
+    change in the future, but along with the authentication framework,
+    handlers should not beware of the change. Handler use `current_user`
+    is enough.
+    """
+    authentication_providers = [NodeHmacAuthenticationProvider()]
+
+    def get_current_user(self):
+        for authentication_provider in self.authentication_providers:
+            node_id = authentication_provider.get_user(self)
+            if node_id:
+                return node_id
+
+        if not self.settings.get('enable_authentication', False):
+            return ANONYMOUS_NODE
+
+
+def node_authenticated(method):
+    def wrapper(self, *args, **kwargs):
+        if not self.current_user:
+            raise tornado.web.HTTPError(401)
+        return method(self, *args, **kwargs)
+
+    return wrapper
+
+class NodeSessionListHandler(NodeApiBaseHandler):
     def post(self):
-        node_id = self.current_user
+        node = self.current_user
         session = self.session
         tags = self.get_argument('tags', '').strip()
         tags = None if tags == '' else tags
@@ -422,7 +460,7 @@ class CreateNodeSessionHandler(NodeBaseHandler):
         try:
             node_session = node_manager.create_node_session(
                 session,
-                node_id=node_id,
+                node=node,
                 client_ip=remote_ip,
                 tags=tags)
 
@@ -440,8 +478,8 @@ class CreateNodeSessionHandler(NodeBaseHandler):
         return self.send_json(res_data)
 
 
-class HeartbeatNodeSessionHandler(NodeBaseHandler):
-    @authenticated
+class NodeSessionInstanceHeartbeatHandler(NodeApiBaseHandler):
+    @node_authenticated
     def post(self, session_id):
         node_manager = self.node_manager
         try:
