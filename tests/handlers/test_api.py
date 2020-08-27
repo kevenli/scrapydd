@@ -26,21 +26,6 @@ class ApiTestBase(AppBuilder, AsyncHTTPTestCase):
         return self.fetch(path, **kwargs)
 
 
-class NodesHandlerTest(ApiTestBase):
-    def test_post(self):
-        res = self.fetch('/v1/nodes', method='POST', body='')
-        self.assertEqual(200, res.code)
-
-
-class NodesHandlerAuthenticationEanbleddTest(ApiTestBase):
-    def init_settings(self):
-        self.enable_authentication = True
-
-    def test_post(self):
-        res = self.fetch('/v1/nodes', method='POST', body='')
-        self.assertEqual(401, res.code)
-
-
 class ProjectsHandler(ApiTestBase):
     def test_post(self):
         name = 'ProjectsHandler.test_post'
