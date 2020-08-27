@@ -673,11 +673,28 @@ class NodeCollectionHandler(NodeApiBaseHandler):
         })
 
 
+class NodeSessionJobEggHandler(NodeApiBaseHandler):
+    @authenticated
+    def get(self, node_session_id, job_id):
+        node_session = self.get_node_session(node_session_id)
+        job = self.session.query(SpiderExecutionQueue) \
+            .filter_by(id=job_id) \
+            .first()
+        if not job:
+            raise tornado.web.HTTPError(404)
+
+        if job.node_id != node_session.node_id:
+            raise tornado.web.HTTPError(404)
+
+        f_egg = self.project_manager.get_job_egg(self.session, job)
+        self.write(f_egg.read())
+
 
 url_patterns = [
     ('/v1/nodeSessions', NodeSessionListHandler),
     (r'/v1/nodeSessions/(\w+):heartbeat', NodeSessionInstanceHeartbeatHandler),
     (r'/v1/nodeSessions/(\w+):nextjob', NodeSessionInstanceNextjobHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
+    (r'/v1/nodeSessions/(\w+)/jobs/(\w+)/egg', NodeSessionJobEggHandler),
     (r'/v1/nodes', NodeCollectionHandler),
 ]
