@@ -72,7 +72,7 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             try:
                 node_session = node_manager.create_node_session(
                     session,
-                    node_id=node_id,
+                    node=node_id,
                     client_ip=remote_ip,
                     tags=tags)
             except AnonymousNodeDisabled:
