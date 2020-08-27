@@ -540,7 +540,82 @@ class GetNodeHandler(NodeBaseHandler):
         return self.send_json(res_data)
 
 
+class NodeSessionInstanceNextjobHandler(NodeApiBaseHandler):
+    @authenticated
+    def post(self, node_session_id):
+        node_session = self.get_node_session(node_session_id)
+        session = self.session
+        next_task = self.node_manager.node_get_next_job(session,
+                                                        node_session.node)
+
+        response_data = {'data': None}
+
+        if not next_task:
+            return self.write(json.dumps(response_data))
+
+        spider = session.query(Spider) \
+            .filter_by(id=next_task.spider_id) \
+            .first()
+        if not spider:
+            LOGGER.error('Task %s has not spider, deleting.',
+                         next_task.id)
+            session.query(SpiderExecutionQueue) \
+                .filter_by(id=next_task.id) \
+                .delete()
+            return self.write({'data': None})
+
+        project = session.query(Project) \
+            .filter_by(id=spider.project_id) \
+            .first()
+        if not project:
+            LOGGER.error('Task %s has not project, deleting.',
+                         next_task.id)
+            session.query(SpiderExecutionQueue) \
+                .filter_by(id=next_task.id) \
+                .delete()
+            return self.write({'data': None})
+
+        extra_requirements_setting = session.query(SpiderSettings) \
+            .filter_by(spider_id=spider.id,
+                       setting_key='extra_requirements').first()
+
+        if extra_requirements_setting and extra_requirements_setting.value:
+            extra_requirements = [x for x
+                                  in
+                                  extra_requirements_setting.value.split(';')
+                                  if x]
+        else:
+            extra_requirements = []
+        task = {
+            'task_id': next_task.id,
+            'spider_id': next_task.spider_id,
+            'spider_name': next_task.spider_name,
+            'project_name': next_task.project_name,
+            'version': project.version,
+            'extra_requirements': extra_requirements,
+            'spider_parameters': {parameter.parameter_key: parameter.value
+                                  for parameter in spider.parameters},
+            'figure': self.project_manager.get_job_figure(session, next_task),
+        }
+
+        figure = self.project_manager.get_job_figure(session, next_task)
+        if figure:
+            task['figure'] = figure.to_dict()
+
+        LOGGER.debug('job_settings: %s', task)
+        LOGGER.debug('next_task.settings: %s', next_task.settings)
+        job_specific_settings = json.loads(next_task.settings) \
+            if next_task.settings else {}
+        if 'spider_parameters' in job_specific_settings:
+            task['spider_parameters'] \
+                .update(**job_specific_settings['spider_parameters'])
+        LOGGER.debug('job_settings: %s', task)
+        response_data['data'] = {'task': task}
+        return self.write(json.dumps(response_data))
+
+
 url_patterns = [
     ('/v1/nodeSessions', NodeSessionListHandler),
     (r'/v1/nodeSessions/(\w+):heartbeat', NodeSessionInstanceHeartbeatHandler),
+    (r'/v1/nodeSessions/(\w+):nextjob', NodeSessionInstanceNextjobHandler),
 ]

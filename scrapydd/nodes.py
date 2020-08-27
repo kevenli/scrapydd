@@ -250,3 +250,6 @@ class NodeManager():
 
         node = session.query(Node).get(key.used_node_id)
         return node
+
+    def node_get_next_job(self, session, node):
+        return self.scheduler_manager.get_next_task(node.id)
