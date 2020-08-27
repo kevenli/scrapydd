@@ -223,6 +223,17 @@ class NodeManager():
         session.commit()
         return node_session
 
+    def get_node_session(self, session, node_session_id, node):
+        node_id = self._solve_node_id(node)
+        node_session = session.query(NodeSession).get(node_session_id)
+        if not node_session:
+            return None
+
+        if node_id and node_session.node_id != node_id:
+            return None
+
+        return node_session
+
     def node_has_task(self, session, node_id):
         return self.scheduler_manager.has_task(node_id)
 

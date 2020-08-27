@@ -439,6 +439,24 @@ class NodeApiBaseHandler(NodeBaseHandler):
         if not self.settings.get('enable_authentication', False):
             return ANONYMOUS_NODE
 
+    def get_node_session(self, node_session_id):
+        """
+        NodeSession instance handler should call this first to validate
+        node_session and current context matching first.
+        :param node_session_id: node_session_id in url
+        :return:
+            NodeSession object if valid.
+            Fire 404 Error if context not match.
+        """
+        node_session = self.node_manager.get_node_session(self.session,
+                                                          node_session_id,
+                                                          self.current_user)
+
+        if node_session is None:
+            raise tornado.web.HTTPError(404, 'NodeSession not found.')
+
+        return node_session
+
 
 def node_authenticated(method):
     def wrapper(self, *args, **kwargs):
@@ -447,6 +465,7 @@ def node_authenticated(method):
         return method(self, *args, **kwargs)
 
     return wrapper
+
 
 class NodeSessionListHandler(NodeApiBaseHandler):
     def post(self):
@@ -481,6 +500,7 @@ class NodeSessionListHandler(NodeApiBaseHandler):
 class NodeSessionInstanceHeartbeatHandler(NodeApiBaseHandler):
     @node_authenticated
     def post(self, session_id):
+        node_session = self.get_node_session(session_id)
         node_manager = self.node_manager
         try:
             node_session = node_manager.node_session_heartbeat(self.session,
