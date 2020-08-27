@@ -15,7 +15,7 @@ import shutil
 from tornado.web import authenticated
 from six import ensure_str, binary_type
 from .base import RestBaseHandler
-from ..models import session_scope, Session, Spider, Project
+from ..models import session_scope, Session, Spider, Project, Node
 from ..models import SpiderExecutionQueue, SpiderSettings, NodeKey
 from ..stream import PostDataStreamer
 from ..exceptions import NodeExpired
@@ -410,9 +410,66 @@ class JobEggHandler(NodeBaseHandler):
         self.write(f_egg.read())
 
 
-class CreateNodeSessionHandler(NodeBaseHandler):
+ANONYMOUS_NODE = Node(id=None)
+
+
+class NodeApiBaseHandler(NodeBaseHandler):
+    """
+    This provides the base handler class for new rest apis.
+    These api handlers do not require the custom header x-dd-nodeid
+    as a context in request processing. The necessary context infomation
+    are all in the url segments.
+    These apis are all follow the google api guide and following
+    prefix "/v1" .
+    In these apis, if `eanble_authentication` is turned on, authentication
+    info should be provided on each request, including the login action.
+    For now, the auth mechanism is through a HMAC validation, this may
+    change in the future, but along with the authentication framework,
+    handlers should not beware of the change. Handler use `current_user`
+    is enough.
+    """
+    authentication_providers = [NodeHmacAuthenticationProvider()]
+
+    def get_current_user(self):
+        for authentication_provider in self.authentication_providers:
+            node_id = authentication_provider.get_user(self)
+            if node_id:
+                return node_id
+
+        if not self.settings.get('enable_authentication', False):
+            return ANONYMOUS_NODE
+
+    def get_node_session(self, node_session_id):
+        """
+        NodeSession instance handler should call this first to validate
+        node_session and current context matching first.
+        :param node_session_id: node_session_id in url
+        :return:
+            NodeSession object if valid.
+            Fire 404 Error if context not match.
+        """
+        node_session = self.node_manager.get_node_session(self.session,
+                                                          node_session_id,
+                                                          self.current_user)
+
+        if node_session is None:
+            raise tornado.web.HTTPError(404, 'NodeSession not found.')
+
+        return node_session
+
+
+def node_authenticated(method):
+    def wrapper(self, *args, **kwargs):
+        if not self.current_user:
+            raise tornado.web.HTTPError(401)
+        return method(self, *args, **kwargs)
+
+    return wrapper
+
+
+class NodeSessionListHandler(NodeApiBaseHandler):
     def post(self):
-        node_id = self.current_user
+        node = self.current_user
         session = self.session
         tags = self.get_argument('tags', '').strip()
         tags = None if tags == '' else tags
@@ -422,7 +479,7 @@ class CreateNodeSessionHandler(NodeBaseHandler):
         try:
             node_session = node_manager.create_node_session(
                 session,
-                node_id=node_id,
+                node=node,
                 client_ip=remote_ip,
                 tags=tags)
 
@@ -440,9 +497,10 @@ class CreateNodeSessionHandler(NodeBaseHandler):
         return self.send_json(res_data)
 
 
-class HeartbeatNodeSessionHandler(NodeBaseHandler):
-    @authenticated
+class NodeSessionInstanceHeartbeatHandler(NodeApiBaseHandler):
+    @node_authenticated
     def post(self, session_id):
+        node_session = self.get_node_session(session_id)
         node_manager = self.node_manager
         try:
             node_session = node_manager.node_session_heartbeat(self.session,
@@ -480,3 +538,163 @@ class GetNodeHandler(NodeBaseHandler):
             'tags': node.tags.split(',') if node.tags else []
         }
         return self.send_json(res_data)
+
+
+class NodeSessionInstanceNextjobHandler(NodeApiBaseHandler):
+    @authenticated
+    def post(self, node_session_id):
+        node_session = self.get_node_session(node_session_id)
+        session = self.session
+        next_task = self.node_manager.node_get_next_job(session,
+                                                        node_session.node)
+
+        response_data = {'data': None}
+
+        if not next_task:
+            return self.write(json.dumps(response_data))
+
+        spider = session.query(Spider) \
+            .filter_by(id=next_task.spider_id) \
+            .first()
+        if not spider:
+            LOGGER.error('Task %s has not spider, deleting.',
+                         next_task.id)
+            session.query(SpiderExecutionQueue) \
+                .filter_by(id=next_task.id) \
+                .delete()
+            return self.write({'data': None})
+
+        project = session.query(Project) \
+            .filter_by(id=spider.project_id) \
+            .first()
+        if not project:
+            LOGGER.error('Task %s has not project, deleting.',
+                         next_task.id)
+            session.query(SpiderExecutionQueue) \
+                .filter_by(id=next_task.id) \
+                .delete()
+            return self.write({'data': None})
+
+        extra_requirements_setting = session.query(SpiderSettings) \
+            .filter_by(spider_id=spider.id,
+                       setting_key='extra_requirements').first()
+
+        if extra_requirements_setting and extra_requirements_setting.value:
+            extra_requirements = [x for x
+                                  in
+                                  extra_requirements_setting.value.split(';')
+                                  if x]
+        else:
+            extra_requirements = []
+        task = {
+            'task_id': next_task.id,
+            'spider_id': next_task.spider_id,
+            'spider_name': next_task.spider_name,
+            'project_name': next_task.project_name,
+            'version': project.version,
+            'extra_requirements': extra_requirements,
+            'spider_parameters': {parameter.parameter_key: parameter.value
+                                  for parameter in spider.parameters},
+            'figure': self.project_manager.get_job_figure(session, next_task),
+        }
+
+        figure = self.project_manager.get_job_figure(session, next_task)
+        if figure:
+            task['figure'] = figure.to_dict()
+
+        LOGGER.debug('job_settings: %s', task)
+        LOGGER.debug('next_task.settings: %s', next_task.settings)
+        job_specific_settings = json.loads(next_task.settings) \
+            if next_task.settings else {}
+        if 'spider_parameters' in job_specific_settings:
+            task['spider_parameters'] \
+                .update(**job_specific_settings['spider_parameters'])
+        LOGGER.debug('job_settings: %s', task)
+        response_data['data'] = {'task': task}
+        return self.write(json.dumps(response_data))
+
+
+class NodeSessionJobInstanceHandler(NodeApiBaseHandler):
+    @authenticated
+    def patch(self, node_session_id, job_id):
+        node_session = self.get_node_session(node_session_id)
+        status = self.get_argument('status')
+
+        session = self.session
+        job = session.query(SpiderExecutionQueue).get(job_id)
+        if not job:
+            raise tornado.web.HTTPError(404, 'job not found.')
+        if node_session.node_id != job.node_id:
+            raise tornado.web.HTTPError(404, 'job not found.')
+
+        items_file = None
+        if 'items' in self.request.files:
+            items_file = BytesIO(self.request.files['items'][0].body)
+
+        log_file = None
+        if 'log' in self.request.files:
+            log_file = BytesIO(self.request.files['log'][0].body)
+
+        if status == 'success':
+            status_int = 2
+        elif status == 'fail':
+            status_int = 3
+
+        historical_job = self.node_manager.job_finish(session, job,
+                                                        status_int,
+                                                        log_file,
+                                                        items_file)
+
+
+class NodeCollectionHandler(NodeApiBaseHandler):
+    @authenticated
+    def post(self):
+        node_key = self.get_argument('node_key')
+        session = self.session
+        key = session.query(NodeKey).filter_by(key=node_key).first()
+        if not key:
+            raise tornado.web.HTTPError(400)
+
+        if key.used_node_id:
+            raise tornado.web.HTTPError(400)
+
+        tags = self.get_argument('tags', '').strip()
+        tags = None if tags == '' else tags
+        remote_ip = self.request.headers.get('X-Real-IP',
+                                             self.request.remote_ip)
+        node = self.node_manager.create_node(remote_ip, tags=tags,
+                                             key_id=key.id)
+        key.used_node_id = node.id
+        session.add(key)
+        session.commit()
+        return self.send_json({
+            'id': node.id,
+            'name': node.name,
+        })
+
+
+class NodeSessionJobEggHandler(NodeApiBaseHandler):
+    @authenticated
+    def get(self, node_session_id, job_id):
+        node_session = self.get_node_session(node_session_id)
+        job = self.session.query(SpiderExecutionQueue) \
+            .filter_by(id=job_id) \
+            .first()
+        if not job:
+            raise tornado.web.HTTPError(404)
+
+        if job.node_id != node_session.node_id:
+            raise tornado.web.HTTPError(404)
+
+        f_egg = self.project_manager.get_job_egg(self.session, job)
+        self.write(f_egg.read())
+
+
+url_patterns = [
+    ('/v1/nodeSessions', NodeSessionListHandler),
+    (r'/v1/nodeSessions/(\w+):heartbeat', NodeSessionInstanceHeartbeatHandler),
+    (r'/v1/nodeSessions/(\w+):nextjob', NodeSessionInstanceNextjobHandler),
+    (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
+    (r'/v1/nodeSessions/(\w+)/jobs/(\w+)/egg', NodeSessionJobEggHandler),
+    (r'/v1/nodes', NodeCollectionHandler),
+]

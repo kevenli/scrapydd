@@ -135,8 +135,30 @@ class NodeManager():
     def _new_id(self):
         return next(self.id_generator)
 
-    def create_node_session(self, session, node_id=None,
+    def _solve_node_id(self, node):
+        """
+            To provide compatibility that web handler layer
+            passed node context into actions can be either Node
+            or int value of node.id, use this method to convert
+            it first to get a actual node id.
+        :param node: [Node, int]
+        :return: [int] node id
+        """
+        if node is None:
+            return None
+
+        if isinstance(node, Node):
+            return node.id
+
+        if isinstance(node, int):
+            return node
+
+        raise Exception('Not supported type %s', type(node))
+
+    def create_node_session(self, session, node=None,
                             client_ip=None, tags=None):
+        node_id = self._solve_node_id(node)
+
         if node_id is None and self._enable_authentication:
             raise AnonymousNodeDisabled()
 
@@ -201,6 +223,17 @@ class NodeManager():
         session.commit()
         return node_session
 
+    def get_node_session(self, session, node_session_id, node):
+        node_id = self._solve_node_id(node)
+        node_session = session.query(NodeSession).get(node_session_id)
+        if not node_session:
+            return None
+
+        if node_id and node_session.node_id != node_id:
+            return None
+
+        return node_session
+
     def node_has_task(self, session, node_id):
         return self.scheduler_manager.has_task(node_id)
 
@@ -217,3 +250,11 @@ class NodeManager():
 
         node = session.query(Node).get(key.used_node_id)
         return node
+
+    def node_get_next_job(self, session, node):
+        return self.scheduler_manager.get_next_task(node.id)
+
+    def job_finish(self, session, job, status, log_file=None, items_file=None):
+        job.status = status
+        return self.scheduler_manager.job_finished(job, log_file=log_file,
+                                            items_file=items_file)
