@@ -596,8 +596,6 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
           'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
         (r'/nodes/register', RegisterNodeHandler),
-        (r'/api/nodeSessions', node_handlers.NodeSessionListHandler),
-        (r'/api/nodeSessions/(\w+):heartbeat', node_handlers.NodeSessionInstanceHeartbeatHandler),
         (r'/v1/nodes/(\w+)', node_handlers.GetNodeHandler),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler,
          {'node_manager': node_manager,
@@ -611,7 +609,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'/ca.crt', CACertHandler),
         (r'/static/(.*)', tornado.web.StaticFileHandler,
          {'path': os.path.join(os.path.dirname(__file__), 'static')}),
-    ], **settings)
+    ] + node_handlers.url_patterns, **settings)
 
     api_apply(application)
 

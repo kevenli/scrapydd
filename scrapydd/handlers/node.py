@@ -538,3 +538,9 @@ class GetNodeHandler(NodeBaseHandler):
             'tags': node.tags.split(',') if node.tags else []
         }
         return self.send_json(res_data)
+
+
+url_patterns = [
+    ('/v1/nodeSessions', NodeSessionListHandler),
+    (r'/v1/nodeSessions/(\w+):heartbeat', NodeSessionInstanceHeartbeatHandler),
+]
