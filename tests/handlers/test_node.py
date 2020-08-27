@@ -381,7 +381,7 @@ class CreateNodeSessionHandlerTest(NodeTest):
             'tags': 'a,b,c'
         }
         body = urlencode(post_data)
-        res = self.fetch('/api/nodeSessions', method='POST', body=body)
+        res = self.fetch('/v1/nodeSessions', method='POST', body=body)
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
         node_id = res_data['node']['id']
@@ -402,7 +402,7 @@ class HeartbeatNodeSessionHandlerTest(NodeTest):
         post_data = {
             'tags': ''
         }
-        res = self.fetch('/api/nodeSessions', method='POST',
+        res = self.fetch('/v1/nodeSessions', method='POST',
                          body=urlencode(post_data))
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
@@ -413,7 +413,7 @@ class HeartbeatNodeSessionHandlerTest(NodeTest):
         post_data = {}
         self.session_login()
         headers = {'X-Dd-Nodeid': str(self.node_id)}
-        res = self.fetch('/api/nodeSessions/%s:heartbeat' % self.session_id,
+        res = self.fetch('/v1/nodeSessions/%s:heartbeat' % self.session_id,
                          method='POST', body=urlencode(post_data),
                          headers=headers,
                          allow_nonstandard_methods=True)
@@ -429,7 +429,7 @@ class HeartbeatNodeSessionHandlerTest(NodeTest):
         }
         self.session_login()
         headers = {'X-Dd-Nodeid': str(self.node_id)}
-        res = self.fetch('/api/nodeSessions/%s:heartbeat' % self.session_id,
+        res = self.fetch('/v1/nodeSessions/%s:heartbeat' % self.session_id,
                          method='POST', body=urlencode(post_data),
                          headers=headers,
                          allow_nonstandard_methods=True)
