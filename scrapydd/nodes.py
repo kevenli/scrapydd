@@ -253,3 +253,8 @@ class NodeManager():
 
     def node_get_next_job(self, session, node):
         return self.scheduler_manager.get_next_task(node.id)
+
+    def job_finish(self, session, job, status, log_file=None, items_file=None):
+        job.status = status
+        return self.scheduler_manager.job_finished(job, log_file=log_file,
+                                            items_file=items_file)

@@ -614,8 +614,41 @@ class NodeSessionInstanceNextjobHandler(NodeApiBaseHandler):
         return self.write(json.dumps(response_data))
 
 
+class NodeSessionJobInstanceHandler(NodeApiBaseHandler):
+    @authenticated
+    def patch(self, node_session_id, job_id):
+        node_session = self.get_node_session(node_session_id)
+        status = self.get_argument('status')
+
+        session = self.session
+        job = session.query(SpiderExecutionQueue).get(job_id)
+        if not job:
+            raise tornado.web.HTTPError(404, 'job not found.')
+        if node_session.node_id != job.node_id:
+            raise tornado.web.HTTPError(404, 'job not found.')
+
+        items_file = None
+        if 'items' in self.request.files:
+            items_file = BytesIO(self.request.files['items'][0].body)
+
+        log_file = None
+        if 'log' in self.request.files:
+            log_file = BytesIO(self.request.files['log'][0].body)
+
+        if status == 'success':
+            status_int = 2
+        elif status == 'fail':
+            status_int = 3
+
+        historical_job = self.node_manager.job_finish(session, job,
+                                                        status_int,
+                                                        log_file,
+                                                        items_file)
+
+
 url_patterns = [
     ('/v1/nodeSessions', NodeSessionListHandler),
     (r'/v1/nodeSessions/(\w+):heartbeat', NodeSessionInstanceHeartbeatHandler),
     (r'/v1/nodeSessions/(\w+):nextjob', NodeSessionInstanceNextjobHandler),
+    (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
 ]
