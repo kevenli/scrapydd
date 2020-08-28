@@ -14,7 +14,7 @@ from ..nodes import NodeManager, NodeExpired, AnonymousNodeDisabled
 from .. import nodes
 from ..schedule import SchedulerManager
 from ..models import session_scope, SpiderSettings, SpiderExecutionQueue, Session
-from ..models import NodeKey
+from ..models import NodeKey, NodeSession
 from ..project import ProjectManager
 from ..workspace import DictSpiderSettings
 
@@ -90,25 +90,31 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             return response
 
     async def Heartbeat(self, request: service_pb2.HeartbeatRequest, context):
-        node_id = self.get_node_id(context)
-        logger.debug('heartbeat, node: %s', node_id)
-        has_task = self._scheduler_manager.has_task(node_id)
+        with session_scope() as session:
+            session_id = request.session_id
+            response = service_pb2.HeartbeatResponse()
+            node_session = session.query(NodeSession).get(session_id)
+            if node_session is None:
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Session not found.')
+                return response
+            node_id = node_session.node_id
+            logger.debug('heartbeat, node: %s, session: %s', node_id, session_id)
+            has_task = self._scheduler_manager.has_task(node_id)
+            try:
+                self._node_manager.heartbeat(node_id)
+                running_job_ids = request.running_job_ids
+                killing_jobs = list(self._scheduler_manager.jobs_running(node_id,
+                     running_job_ids))
 
-        response = service_pb2.HeartbeatResponse()
-        try:
-            self._node_manager.heartbeat(node_id)
-            running_job_ids = request.running_job_ids
-            killing_jobs = list(self._scheduler_manager.jobs_running(node_id,
-                 running_job_ids))
-
-            response.new_job_available = has_task
-            for killing_job in killing_jobs:
-                response.kill_job_ids.append(killing_job)
-        except NodeExpired:
-            context.set_code(grpc.StatusCode.UNAUTHENTICATED)
-            context.set_details('Node expired.')
+                response.new_job_available = has_task
+                for killing_job in killing_jobs:
+                    response.kill_job_ids.append(killing_job)
+            except NodeExpired:
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Node expired.')
+                return response
             return response
-        return response
 
     async def GetNextJob(self, request, context):
         node_id = self.get_node_id(context)
