@@ -7,6 +7,7 @@ service NodeService {
     rpc GetJob(GetJobRequest) returns (GetJobResponse);
     rpc GetEgg(GetJobEggRequest) returns (GetJobEggRequest);
     rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
+    rpc RegisterNode(RegisterNodeRequest) returns (Node);
 }
 
 message LoginRequest {
@@ -16,6 +17,7 @@ message LoginRequest {
 
 message Node {
     int64 id = 1;
+    string name = 2;
 }
 
 message NodeSession {
@@ -72,4 +74,9 @@ message CompleteJobRequest{
 
 message CompleteJobResponse{
 
+}
+
+message RegisterNodeRequest{
+    string token = 1;
+    repeated string tags = 2;
 }

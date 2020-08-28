@@ -13,7 +13,8 @@ from .grpc_asyncio import AsyncioExecutor
 from ..nodes import NodeManager, NodeExpired, AnonymousNodeDisabled
 from .. import nodes
 from ..schedule import SchedulerManager
-from ..models import session_scope, SpiderSettings, SpiderExecutionQueue
+from ..models import session_scope, SpiderSettings, SpiderExecutionQueue, Session
+from ..models import NodeKey
 from ..project import ProjectManager
 from ..workspace import DictSpiderSettings
 
@@ -172,6 +173,34 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             logger.info('Job %s completed.', task_id)
             response_data = {'status': 'ok'}
             return response
+
+    async def RegisterNode(self, request, context):
+        session = Session()
+        node_manager = self._node_manager
+        response = service_pb2.Node()
+        node_key = request.token
+        key = session.query(NodeKey).filter_by(key=node_key).first()
+        if not key:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details('Invalid Token')
+            return response
+
+        if key.used_node_id:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details('Invalid Token')
+            return response
+
+        tags = request.tags
+        tags = ','.join(tags) if tags else None
+        remote_ip = context.peer()
+        node = node_manager.create_node(remote_ip, tags=tags,
+                                             key_id=key.id)
+        key.used_node_id = node.id
+        session.add(key)
+        session.commit()
+        response.id = node.id
+        response.name = node.name
+        return response
 
 
 def start(node_manager=None, scheduler_manager=None, project_manager=None):
