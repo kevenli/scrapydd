@@ -482,7 +482,8 @@ class NodeSessionListHandler(NodeApiBaseHandler):
                 node=node,
                 client_ip=remote_ip,
                 tags=tags)
-
+            if node_session is None:
+                return self.set_status(401, 'Invalid token.')
         except AnonymousNodeDisabled:
             return self.set_status(401, 'Anonymous node not allowed.')
         except nodes.NodeNotFound:
