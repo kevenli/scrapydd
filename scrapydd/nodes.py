@@ -223,7 +223,7 @@ class NodeManager():
         session.commit()
         return node_session
 
-    def get_node_session(self, session, node_session_id, node):
+    def get_node_session(self, session, node_session_id, node=None):
         node_id = self._solve_node_id(node)
         node_session = session.query(NodeSession).get(node_session_id)
         if not node_session:

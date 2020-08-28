@@ -146,10 +146,12 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             return response
 
     async def GetNextJob(self, request, context):
-        node_id = self.get_node_id(context)
+        session_id = request.session_id
         response = service_pb2.GetNextJobResponse()
+        node_manager = self._node_manager
         with session_scope() as session:
-            next_task = self._scheduler_manager.get_next_task(node_id)
+            node_session = node_manager.get_node_session(session, session_id)
+            next_task = self._scheduler_manager.get_next_task(node_session.node_id)
             next_task = session.query(SpiderExecutionQueue).get(next_task.id)
 
             if not next_task:

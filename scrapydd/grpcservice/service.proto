@@ -40,7 +40,7 @@ message HeartbeatResponse{
 }
 
 message GetNextJobRequest {
-
+    string session_id = 1;
 }
 
 message GetNextJobResponse {

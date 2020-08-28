@@ -645,6 +645,7 @@ class NodeSessionJobInstanceHandler(NodeApiBaseHandler):
                                                         status_int,
                                                         log_file,
                                                         items_file)
+        session.close()
 
 
 class NodeCollectionHandler(NodeApiBaseHandler):
