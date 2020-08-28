@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='scrapydd/grpcservice/service.proto',
   package='',
   syntax='proto3',
-  serialized_pb=_b('\n\"scrapydd/grpcservice/service.proto\"+\n\x0cLoginRequest\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\" \n\x04Node\x12\n\n\x02id\x18\x01 \x01(\x03\x12\x0c\n\x04name\x18\x02 \x01(\t\".\n\x0bNodeSession\x12\n\n\x02id\x18\x01 \x01(\x03\x12\x13\n\x04node\x18\x02 \x01(\x0b\x32\x05.Node\"3\n\rLoginResponse\x12\"\n\x0cnode_session\x18\x01 \x01(\x0b\x32\x0c.NodeSession\"?\n\x10HeartbeatRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x17\n\x0frunning_job_ids\x18\x02 \x03(\t\"D\n\x11HeartbeatResponse\x12\x14\n\x0ckill_job_ids\x18\x01 \x03(\t\x12\x19\n\x11new_job_available\x18\x02 \x01(\x08\"\'\n\x11GetNextJobRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse\"2\n\x13RegisterNodeRequest\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t2\xe2\x02\n\x0bNodeService\x12&\n\x05Login\x12\r.LoginRequest\x1a\x0e.LoginResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponse\x12+\n\x0cRegisterNode\x12\x14.RegisterNodeRequest\x1a\x05.Nodeb\x06proto3')
+  serialized_pb=_b('\n\"scrapydd/grpcservice/service.proto\"+\n\x0cLoginRequest\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\" \n\x04Node\x12\n\n\x02id\x18\x01 \x01(\x03\x12\x0c\n\x04name\x18\x02 \x01(\t\".\n\x0bNodeSession\x12\n\n\x02id\x18\x01 \x01(\x03\x12\x13\n\x04node\x18\x02 \x01(\x0b\x32\x05.Node\"3\n\rLoginResponse\x12\"\n\x0cnode_session\x18\x01 \x01(\x0b\x32\x0c.NodeSession\"?\n\x10HeartbeatRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x17\n\x0frunning_job_ids\x18\x02 \x03(\t\"D\n\x11HeartbeatResponse\x12\x14\n\x0ckill_job_ids\x18\x01 \x03(\t\x12\x19\n\x11new_job_available\x18\x02 \x01(\x08\"\'\n\x11GetNextJobRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse\"2\n\x13RegisterNodeRequest\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\"M\n\x18\x43reateNodeSessionRequest\x12\"\n\x0cnode_session\x18\x01 \x01(\x0b\x32\x0c.NodeSession\x12\r\n\x05token\x18\x02 \x01(\t2\xa0\x03\n\x0bNodeService\x12&\n\x05Login\x12\r.LoginRequest\x1a\x0e.LoginResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponse\x12+\n\x0cRegisterNode\x12\x14.RegisterNodeRequest\x1a\x05.Node\x12<\n\x11\x43reateNodeSession\x12\x19.CreateNodeSessionRequest\x1a\x0c.NodeSessionb\x06proto3')
 )
 
 
@@ -531,8 +531,47 @@ _REGISTERNODEREQUEST = _descriptor.Descriptor(
   serialized_end=695,
 )
 
+
+_CREATENODESESSIONREQUEST = _descriptor.Descriptor(
+  name='CreateNodeSessionRequest',
+  full_name='CreateNodeSessionRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='node_session', full_name='CreateNodeSessionRequest.node_session', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='token', full_name='CreateNodeSessionRequest.token', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=697,
+  serialized_end=774,
+)
+
 _NODESESSION.fields_by_name['node'].message_type = _NODE
 _LOGINRESPONSE.fields_by_name['node_session'].message_type = _NODESESSION
+_CREATENODESESSIONREQUEST.fields_by_name['node_session'].message_type = _NODESESSION
 DESCRIPTOR.message_types_by_name['LoginRequest'] = _LOGINREQUEST
 DESCRIPTOR.message_types_by_name['Node'] = _NODE
 DESCRIPTOR.message_types_by_name['NodeSession'] = _NODESESSION
@@ -548,6 +587,7 @@ DESCRIPTOR.message_types_by_name['GetJobEggResponse'] = _GETJOBEGGRESPONSE
 DESCRIPTOR.message_types_by_name['CompleteJobRequest'] = _COMPLETEJOBREQUEST
 DESCRIPTOR.message_types_by_name['CompleteJobResponse'] = _COMPLETEJOBRESPONSE
 DESCRIPTOR.message_types_by_name['RegisterNodeRequest'] = _REGISTERNODEREQUEST
+DESCRIPTOR.message_types_by_name['CreateNodeSessionRequest'] = _CREATENODESESSIONREQUEST
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 LoginRequest = _reflection.GeneratedProtocolMessageType('LoginRequest', (_message.Message,), dict(
@@ -655,6 +695,13 @@ RegisterNodeRequest = _reflection.GeneratedProtocolMessageType('RegisterNodeRequ
   ))
 _sym_db.RegisterMessage(RegisterNodeRequest)
 
+CreateNodeSessionRequest = _reflection.GeneratedProtocolMessageType('CreateNodeSessionRequest', (_message.Message,), dict(
+  DESCRIPTOR = _CREATENODESESSIONREQUEST,
+  __module__ = 'scrapydd.grpcservice.service_pb2'
+  # @@protoc_insertion_point(class_scope:CreateNodeSessionRequest)
+  ))
+_sym_db.RegisterMessage(CreateNodeSessionRequest)
+
 
 
 _NODESERVICE = _descriptor.ServiceDescriptor(
@@ -663,8 +710,8 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=698,
-  serialized_end=1052,
+  serialized_start=777,
+  serialized_end=1193,
   methods=[
   _descriptor.MethodDescriptor(
     name='Login',
@@ -727,6 +774,15 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_REGISTERNODEREQUEST,
     output_type=_NODE,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='CreateNodeSession',
+    full_name='NodeService.CreateNodeSession',
+    index=7,
+    containing_service=None,
+    input_type=_CREATENODESESSIONREQUEST,
+    output_type=_NODESESSION,
     options=None,
   ),
 ])

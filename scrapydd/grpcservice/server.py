@@ -239,6 +239,50 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         response.name = node.name
         return response
 
+    async def CreateNodeSession(self, request, context):
+        response = service_pb2.NodeSession()
+        with session_scope() as session:
+            node_id = None
+            token = request.token
+            if token:
+                try:
+                    node = self._node_manager.get_node_by_token(session, token)
+                except nodes.NodeKeyNotFoundException:
+                    context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                    context.set_details('Anonymous node is not allowed.')
+                    return response
+
+                if node is None:
+                    context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                    context.set_details('Invalid token')
+                    return response
+
+                node_id = node.id
+            tags = ','.join(request.tags) if request.tags else None
+            remote_ip = context.peer()
+            node_manager = self._node_manager
+            try:
+                node_session = node_manager.create_node_session(
+                    session,
+                    node=node_id,
+                    client_ip=remote_ip,
+                    tags=tags)
+            except AnonymousNodeDisabled:
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Anonymous node is not allowed.')
+                return response
+            except nodes.NodeNotFoundException:
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Node not found.')
+                return response
+
+            response.node_session.id = node_session.id
+            response.node_session.node.id = node_session.node.id
+            logger.info('Node %s logged in, session_id: %s',
+                        node_session.node_id, node_session.id)
+            return response
+
+
 
 def start(node_manager=None, scheduler_manager=None, project_manager=None):
     if sys.platform == 'win32':

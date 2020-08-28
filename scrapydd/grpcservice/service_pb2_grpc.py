@@ -49,6 +49,11 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.RegisterNodeRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.FromString,
         )
+    self.CreateNodeSession = channel.unary_unary(
+        '/NodeService/CreateNodeSession',
+        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.SerializeToString,
+        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSession.FromString,
+        )
 
 
 class NodeServiceServicer(object):
@@ -104,6 +109,13 @@ class NodeServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def CreateNodeSession(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServiceServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -141,6 +153,11 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.RegisterNode,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.RegisterNodeRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.SerializeToString,
+      ),
+      'CreateNodeSession': grpc.unary_unary_rpc_method_handler(
+          servicer.CreateNodeSession,
+          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.FromString,
+          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSession.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
