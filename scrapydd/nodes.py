@@ -249,6 +249,8 @@ class NodeManager():
             return None
 
         node = session.query(Node).get(key.used_node_id)
+        if node.is_deleted:
+            return None
         return node
 
     def node_get_next_job(self, session, node):
