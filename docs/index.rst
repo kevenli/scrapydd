@@ -15,6 +15,7 @@ Contents:
    :maxdepth: 2
 
    install
+   node_registration
    webhook
    config
    tags
