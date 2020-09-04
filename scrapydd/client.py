@@ -48,15 +48,6 @@ class HearbeatResponse:
         return f'HearbeatResponse {{newJobAvailable: {self.newJobAvailable}}}'
 
 
-class InsecureHeaderAuth(requests.auth.AuthBase):
-    def __init__(self, node_id):
-        self._node_id = str(node_id)
-
-    def __call__(self, r):
-        r.headers['X-Dd-Nodeid'] = self._node_id
-        return r
-
-
 def generate_digest(secret, method, path, query, body):
     parsed_query = parse_qs(query, keep_blank_values=True)
 
@@ -93,18 +84,24 @@ class HmacAuth(requests.auth.AuthBase):
 
 
 class NodeRestClient:
-    def __init__(self, base_url, auth=None, tags=None):
+    def __init__(self, base_url, tags=None,
+                 app_key=None, app_secret=None):
         self._session = requests.Session()
-        self._auth = auth
-        self._session.auth = auth
         self._base_url = base_url
         self._node_id = None
         self._session_id = None
         self._tags = tags
+        self._auth = None
+        if app_key and app_secret:
+            self._auth = HmacAuth(app_key, app_secret)
+            self._session.auth = self._auth
 
     def register_node(self, node_key):
-        url = urljoin(self._base_url, '/nodes/register')
-        post_data = {'node_key': node_key}
+        url = urljoin(self._base_url, '/v1/nodes')
+        post_data = {
+            'node_key': node_key,
+            'tags': self._tags
+        }
 
         res = self._session.post(url, data=post_data)
         res.raise_for_status()
@@ -112,7 +109,7 @@ class NodeRestClient:
         return res_data['id']
 
     def login(self):
-        url = urljoin(self._base_url, '/api/nodeSessions')
+        url = urljoin(self._base_url, '/v1/nodeSessions')
         post_data = {'tags': self._tags or ''}
         try:
             res = self._session.post(url, data=post_data)
@@ -126,13 +123,10 @@ class NodeRestClient:
         res_data = res.json()
         self._session_id = res_data['id']
         self._node_id = res_data['node']['id']
-        if self._auth is None:
-            self._auth = InsecureHeaderAuth(self._node_id)
-            self._session.auth = self._auth
 
     def heartbeat(self, running_job_ids=None):
         url = urljoin(self._base_url,
-                      '/api/nodeSessions/%s:heartbeat' % self._session_id)
+                      '/v1/nodeSessions/%s:heartbeat' % self._session_id)
         if running_job_ids is None:
             running_job_ids = []
         post_data = {
@@ -150,7 +144,8 @@ class NodeRestClient:
         return res_data
 
     def get_next_job(self):
-        url = urljoin(self._base_url, '/executing/next_task')
+        url = urljoin(self._base_url,
+                      '/v1/nodeSessions/%s:nextjob' % self._session_id)
         response = self._session.post(url, data={'node_id': self._node_id})
         response.raise_for_status()
         response_data = response.json()
@@ -175,17 +170,21 @@ class NodeRestClient:
         return task
 
     def get_job_egg(self, job_id):
-        egg_request_url = urljoin(self._base_url, '/jobs/%s/egg' % job_id)
+        egg_request_url = urljoin(self._base_url,
+                                  '/v1/nodeSessions/%s/jobs/%s/egg' % (
+                                  self._session_id, job_id))
         response = self._session.get(egg_request_url)
         response.raise_for_status()
         return BytesIO(response.content)
 
     def complete_job(self, job_id, status='success', items_file=None,
                      logs_file=None):
-        url = urljoin(self._base_url, '/executing/complete')
+        url = urljoin(self._base_url, '/v1/nodeSessions/%s/jobs/%s' % (
+        self._session_id, job_id))
         post_data = {
             'task_id': job_id,
             'status': status,
+
         }
         post_files = {}
         f_items = None
@@ -197,14 +196,17 @@ class NodeRestClient:
             f_logs = open(logs_file, 'rb')
             post_files['log'] = f_logs
         try:
-            response = self._session.post(url, data=post_data,
-                                          files=post_files)
+            response = self._session.patch(url, data=post_data,
+                                           files=post_files)
             response.raise_for_status()
         finally:
             if f_items:
                 f_items.close()
             if f_logs:
                 f_logs.close()
+
+    def close(self):
+        pass
 
 
 class UsernamePasswordCallCredentials(grpc.AuthMetadataPlugin):
@@ -231,7 +233,12 @@ class NodeExpiredException(Exception):
 
 
 class LoginFailedException(Exception):
-    pass
+    def __init__(self):
+        # super(LoginFailedException, self).__init__(message=)
+        self.message = 'Login failed'
+
+    def __str__(self):
+        return 'LoginFailedException: %s' % self.message
 
 
 class _ClientCallDetails(
@@ -261,19 +268,43 @@ def header_adder_interceptor(header, value):
     return generic_client_interceptor.create(intercept_call)
 
 
+class ClientCredentialInterceptor(
+    generic_client_interceptor._GenericClientInterceptor):
+    def __init__(self, client):
+        super(ClientCredentialInterceptor, self).__init__(self.call)
+        self.client = client
+
+    def call(self, client_call_details, request_iterator,
+             request_streaming,
+             response_streaming):
+        metadata = []
+        if client_call_details.metadata is not None:
+            metadata = list(client_call_details.metadata)
+
+        if client_call_details.method != '/NodeService/Login' and self.client.node_id:
+            metadata.append((
+                'x-node-id', str(self.client.node_id),
+            ))
+        client_call_details = _ClientCallDetails(
+            client_call_details.method, client_call_details.timeout, metadata,
+            client_call_details.credentials)
+        return client_call_details, request_iterator, None
+
+
 class NodeGrpcClient:
-    def __init__(self, base_url, server_cert=None, ca_cert=None, node_id=None):
+    def __init__(self, base_url, server_cert=None, ca_cert=None, node_id=None,
+                 app_key=None, app_secret=None, tags=None):
         urlparts = urlparse(base_url)
         if urlparts.scheme == 'grpcs':
             use_tls = True
         else:
             use_tls = False
+        self._app_key = app_key
+        self._app_secret = app_secret
+        self._tags = tags
         host = urlparts.hostname
         port = urlparts.port
         logger.debug('node_id: %s', node_id)
-        # logger.debug('token: %s', token)
-        # with open('server.crt', 'rb') as f:
-        #     server_cert = f.read()
         max_message_length = 100 * 1024 * 1024
         channel_opt = [('grpc.max_send_message_length', max_message_length),
                        ('grpc.max_receive_message_length', max_message_length)]
@@ -292,45 +323,64 @@ class NodeGrpcClient:
             channel = grpc.insecure_channel('{}:{}'.format(host, port),
                                             options=channel_opt)
 
+        self.interceptor = ClientCredentialInterceptor(self)
+        channel = grpc.intercept_channel(channel, self.interceptor)
         self._channel = channel
         self._node_stub = service_pb2_grpc.NodeServiceStub(channel)
+        self._node_id = None
+
+    @property
+    def node_id(self):
+        return self._node_id
 
     def connect(self):
         pass
 
     def login(self):
         request = service_pb2.LoginRequest()
+        if self._app_key:
+            request.token = self._app_key
+        if self._tags:
+            for tag in self._tags.split(','):
+                request.tags.append(tag)
         try:
             response = self._node_stub.Login(request)
         except grpc.RpcError as ex:
             if ex.code() == grpc.StatusCode.UNAUTHENTICATED:
                 raise LoginFailedException()
             raise
-        if response.nodeId == 0:
-            raise LoginFailedException()
 
-        node_id = response.nodeId
+        node_id = response.node_session.node.id
+        session_id = response.node_session.id
         logger.info('node_id %s logged in.', node_id)
 
         self._node_id = node_id
-        interceptor = header_adder_interceptor('x-node-id', str(node_id))
-        self._channel = grpc.intercept_channel(self._channel, interceptor)
-        self._node_stub = service_pb2_grpc.NodeServiceStub(self._channel)
+        self._session_id = session_id
 
     def heartbeat(self, running_job_ids: None):
         request = service_pb2.HeartbeatRequest()
+        request.session_id = str(self._session_id)
         if running_job_ids:
             for running_job_id in running_job_ids:
-                request.runningJobs.append(running_job_id)
-        response = self._node_stub.Heartbeat(request)
-        if response.nodeExpired:
-            raise NodeExpiredException()
-        logger.debug(f'HeartbeatResponse, nodeExpired:{response.nodeExpired}, '
-                     f'killJobs:{response.killJobs}, newJobAvailable:{response.newJobAvailable}')
-        return response
+                request.running_job_ids.append(running_job_id)
+        try:
+            response = self._node_stub.Heartbeat(request)
+        except grpc.RpcError as ex:
+            if ex.code() in (grpc.StatusCode.UNAUTHENTICATED,
+                             grpc.StatusCode.NOT_FOUND):
+                self._node_id = None
+                raise NodeExpiredException()
+            raise
+
+        res_data = {
+            'kill_job_ids': response.kill_job_ids,
+            'new_job_available': response.new_job_available,
+        }
+        return res_data
 
     def get_next_job(self):
         request = service_pb2.GetNextJobRequest()
+        request.session_id = str(self._session_id)
         response = self._node_stub.GetNextJob(request)
         if not response.jobId:
             return None
@@ -357,7 +407,24 @@ class NodeGrpcClient:
         response = self._node_stub.CompleteJob(request)
         return response
 
+    def register_node(self, node_key):
+        request = service_pb2.RegisterNodeRequest()
+        request.token = node_key
+        if self._tags:
+            for tag in self._tags.split(','):
+                request.tags.append(tag)
+
+        res = self._node_stub.RegisterNode(request)
+        ret = {
+            'id': res.id,
+            'name': res.name
+        }
+        return ret
+
     def close(self):
+        self._node_stub = None
+        if hasattr(self._channel, '_channel'):
+            self._channel._channel = None
         self._channel = None
 
     def __del__(self):
@@ -369,21 +436,18 @@ def get_client(config, app_key=None, app_secret=None):
     server_url_parts = urlparse(server_url)
     tags = config.get('tags', '')
     if not server_url_parts.scheme:
-        auth = None
-        if app_key and app_secret:
-            auth = HmacAuth(app_key, app_secret)
         client = NodeRestClient('http://%s:6800' % server_url,
-                                auth=auth, tags=tags)
+                                tags=tags, app_key=app_key,
+                                app_secret=app_secret)
         return client
     if server_url_parts.scheme in ('http', 'https'):
-        auth = None
-        if app_key and app_secret:
-            auth = HmacAuth(app_key, app_secret)
-        client = NodeRestClient(server_url, auth=auth, tags=tags)
+        client = NodeRestClient(server_url, tags=tags, app_key=app_key,
+                                app_secret=app_secret)
         return client
 
     if server_url_parts.scheme in ('grpc', 'grpcs'):
-        client = NodeGrpcClient(server_url)
+        client = NodeGrpcClient(server_url, tags=tags, app_key=app_key,
+                                app_secret=app_secret)
         return client
 
     raise Exception('Unsupported scheme: %s' % server_url_parts.scheme)
