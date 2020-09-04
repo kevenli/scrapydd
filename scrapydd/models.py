@@ -17,6 +17,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy import UniqueConstraint
+from sqlalchemy_utils import ScalarListType
 from migrate.versioning.api import version_control, upgrade
 from migrate.exceptions import DatabaseAlreadyControlledError
 
@@ -165,7 +166,7 @@ class Node(Base):
     create_time = Column(DateTime)
     last_heartbeat = Column(DateTime)
     isalive = Column(Integer)
-    tags = Column(String(length=200))
+    tags = Column(ScalarListType())
     is_deleted = Column(Boolean, default=False)
     node_key_id = Column(Integer, ForeignKey('node_keys.id'))
 

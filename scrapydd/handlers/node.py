@@ -661,7 +661,8 @@ class NodeCollectionHandler(NodeApiBaseHandler):
             raise tornado.web.HTTPError(400)
 
         tags = self.get_argument('tags', '').strip()
-        tags = None if tags == '' else tags
+        #tags = None if tags == '' else tags
+        tags = [tag for tag in tags.split(',') if tag]
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
         node = self.node_manager.create_node(remote_ip, tags=tags,
@@ -670,8 +671,10 @@ class NodeCollectionHandler(NodeApiBaseHandler):
         session.add(key)
         session.commit()
         return self.send_json({
+            'name': 'nodes/%s' % node.id,
             'id': node.id,
-            'name': node.name,
+            'display_name': node.name,
+            'tags': node.tags,
         })
 
 
