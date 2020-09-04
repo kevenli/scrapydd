@@ -675,6 +675,8 @@ class NodeCollectionHandler(NodeApiBaseHandler):
             'id': node.id,
             'display_name': node.name,
             'tags': node.tags,
+            'is_online': node.isalive > 0,
+            'client_ip': node.client_ip
         })
 
 
