@@ -66,3 +66,20 @@ Exceptions:
 * 400: Invalid Parameter.
 * 401: Unauthenticated request.
 * 401: Permission denied.
+
+NodeSession Resource
+---------------------
+Each online node need a session to keep track its state.
+
+Fields:
+
+- name (string):
+    ``nodeSessions/*``, Readonly. A restful resource name ResourceName_.
+
+- id (int64):
+    A unique 64-bit integer generated with Snowflake algorithm.
+
+GetNodeSession Node
+~~~~~~~~~~~~~~~~~~~
+** GET nodeSession/*/node **
+
