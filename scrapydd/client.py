@@ -408,16 +408,20 @@ class NodeGrpcClient:
         return response
 
     def register_node(self, node_key):
-        request = service_pb2.RegisterNodeRequest()
-        request.token = node_key
+        request = service_pb2.CreateNodeRequest()
+        request.node.node_key = node_key
         if self._tags:
             for tag in self._tags.split(','):
-                request.tags.append(tag)
+                request.node.tags.append(tag)
 
-        res = self._node_stub.RegisterNode(request)
+        res = self._node_stub.CreateNode(request)
         ret = {
             'id': res.id,
-            'name': res.name
+            'name': res.name,
+            'display_name': res.display_name,
+            'tags': res.tags,
+            'is_online': res.is_online,
+            'client_ip': res.client_ip
         }
         return ret
 

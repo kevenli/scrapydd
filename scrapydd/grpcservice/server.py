@@ -239,6 +239,40 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         response.name = node.name
         return response
 
+    async def CreateNode(self, request, context):
+        session = Session()
+        node_manager = self._node_manager
+        response = service_pb2.Node()
+        node_key = request.node.node_key
+        key = session.query(NodeKey).filter_by(key=node_key).first()
+        if not key:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details('Invalid Token')
+            return response
+
+        if key.used_node_id:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details('Invalid Token')
+            return response
+
+        tags = request.node.tags
+        #tags = ','.join(tags) if tags else None
+
+        remote_ip = context.peer()
+        node = node_manager.create_node(remote_ip, tags=tags,
+                                        key_id=key.id)
+        key.used_node_id = node.id
+        session.add(key)
+        session.commit()
+        response.name = 'nodes/%s' % node.id
+        response.id = node.id
+        response.display_name = node.name
+        for tag in node.tags:
+            response.tags.append(tag)
+        response.is_online = node.isalive > 0
+        response.client_ip = node.client_ip
+        return response
+
     async def CreateNodeSession(self, request, context):
         response = service_pb2.NodeSession()
         with session_scope() as session:

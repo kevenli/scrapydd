@@ -5,8 +5,9 @@ from scrapydd.grpcservice import service_pb2 as scrapydd_dot_grpcservice_dot_ser
 
 
 class NodeServiceStub(object):
-  # missing associated documentation comment in .proto file
-  pass
+  """import "google/api/annotations.proto";
+
+  """
 
   def __init__(self, channel):
     """Constructor.
@@ -54,11 +55,17 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSession.FromString,
         )
+    self.CreateNode = channel.unary_unary(
+        '/NodeService/CreateNode',
+        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeRequest.SerializeToString,
+        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.FromString,
+        )
 
 
 class NodeServiceServicer(object):
-  # missing associated documentation comment in .proto file
-  pass
+  """import "google/api/annotations.proto";
+
+  """
 
   def Login(self, request, context):
     # missing associated documentation comment in .proto file
@@ -116,6 +123,13 @@ class NodeServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def CreateNode(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServiceServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -158,6 +172,11 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.CreateNodeSession,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSession.SerializeToString,
+      ),
+      'CreateNode': grpc.unary_unary_rpc_method_handler(
+          servicer.CreateNode,
+          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeRequest.FromString,
+          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

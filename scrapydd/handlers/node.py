@@ -472,7 +472,8 @@ class NodeSessionListHandler(NodeApiBaseHandler):
         node = self.current_user
         session = self.session
         tags = self.get_argument('tags', '').strip()
-        tags = None if tags == '' else tags
+        #tags = None if tags == '' else tags
+        tags = [tag for tag in tags.split(',') if tag]
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
         node_manager = self.node_manager

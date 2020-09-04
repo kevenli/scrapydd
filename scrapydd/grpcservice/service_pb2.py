@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='scrapydd/grpcservice/service.proto',
   package='',
   syntax='proto3',
-  serialized_pb=_b('\n\"scrapydd/grpcservice/service.proto\"+\n\x0cLoginRequest\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\" \n\x04Node\x12\n\n\x02id\x18\x01 \x01(\x03\x12\x0c\n\x04name\x18\x02 \x01(\t\".\n\x0bNodeSession\x12\n\n\x02id\x18\x01 \x01(\x03\x12\x13\n\x04node\x18\x02 \x01(\x0b\x32\x05.Node\"3\n\rLoginResponse\x12\"\n\x0cnode_session\x18\x01 \x01(\x0b\x32\x0c.NodeSession\"?\n\x10HeartbeatRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x17\n\x0frunning_job_ids\x18\x02 \x03(\t\"D\n\x11HeartbeatResponse\x12\x14\n\x0ckill_job_ids\x18\x01 \x03(\t\x12\x19\n\x11new_job_available\x18\x02 \x01(\x08\"\'\n\x11GetNextJobRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse\"2\n\x13RegisterNodeRequest\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\"M\n\x18\x43reateNodeSessionRequest\x12\"\n\x0cnode_session\x18\x01 \x01(\x0b\x32\x0c.NodeSession\x12\r\n\x05token\x18\x02 \x01(\t2\xa0\x03\n\x0bNodeService\x12&\n\x05Login\x12\r.LoginRequest\x1a\x0e.LoginResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponse\x12+\n\x0cRegisterNode\x12\x14.RegisterNodeRequest\x1a\x05.Node\x12<\n\x11\x43reateNodeSession\x12\x19.CreateNodeSessionRequest\x1a\x0c.NodeSessionb\x06proto3')
+  serialized_pb=_b('\n\"scrapydd/grpcservice/service.proto\"+\n\x0cLoginRequest\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\"|\n\x04Node\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\x03\x12\x14\n\x0c\x64isplay_name\x18\x03 \x01(\t\x12\x0c\n\x04tags\x18\x04 \x03(\t\x12\x10\n\x08node_key\x18\x05 \x01(\t\x12\x11\n\tis_online\x18\x06 \x01(\x08\x12\x11\n\tclient_ip\x18\x07 \x01(\t\"<\n\x0bNodeSession\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\x03\x12\x13\n\x04node\x18\x03 \x01(\x0b\x32\x05.Node\"3\n\rLoginResponse\x12\"\n\x0cnode_session\x18\x01 \x01(\x0b\x32\x0c.NodeSession\"?\n\x10HeartbeatRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x17\n\x0frunning_job_ids\x18\x02 \x03(\t\"D\n\x11HeartbeatResponse\x12\x14\n\x0ckill_job_ids\x18\x01 \x03(\t\x12\x19\n\x11new_job_available\x18\x02 \x01(\x08\"\'\n\x11GetNextJobRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse\"2\n\x13RegisterNodeRequest\x12\r\n\x05token\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\"[\n\x18\x43reateNodeSessionRequest\x12\"\n\x0cnode_session\x18\x01 \x01(\x0b\x32\x0c.NodeSession\x12\r\n\x05token\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x03(\t\"8\n\x11\x43reateNodeRequest\x12\x0e\n\x06parent\x18\x01 \x01(\t\x12\x13\n\x04node\x18\x02 \x01(\x0b\x32\x05.Node2\xc9\x03\n\x0bNodeService\x12&\n\x05Login\x12\r.LoginRequest\x1a\x0e.LoginResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponse\x12+\n\x0cRegisterNode\x12\x14.RegisterNodeRequest\x1a\x05.Node\x12<\n\x11\x43reateNodeSession\x12\x19.CreateNodeSessionRequest\x1a\x0c.NodeSession\x12\'\n\nCreateNode\x12\x12.CreateNodeRequest\x1a\x05.Nodeb\x06proto3')
 )
 
 
@@ -71,15 +71,50 @@ _NODE = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='id', full_name='Node.id', index=0,
-      number=1, type=3, cpp_type=2, label=1,
+      name='name', full_name='Node.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='id', full_name='Node.id', index=1,
+      number=2, type=3, cpp_type=2, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='name', full_name='Node.name', index=1,
-      number=2, type=9, cpp_type=9, label=1,
+      name='display_name', full_name='Node.display_name', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='tags', full_name='Node.tags', index=3,
+      number=4, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='node_key', full_name='Node.node_key', index=4,
+      number=5, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='is_online', full_name='Node.is_online', index=5,
+      number=6, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='client_ip', full_name='Node.client_ip', index=6,
+      number=7, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -97,7 +132,7 @@ _NODE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=83,
-  serialized_end=115,
+  serialized_end=207,
 )
 
 
@@ -109,15 +144,22 @@ _NODESESSION = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='id', full_name='NodeSession.id', index=0,
-      number=1, type=3, cpp_type=2, label=1,
+      name='name', full_name='NodeSession.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='id', full_name='NodeSession.id', index=1,
+      number=2, type=3, cpp_type=2, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='node', full_name='NodeSession.node', index=1,
-      number=2, type=11, cpp_type=10, label=1,
+      name='node', full_name='NodeSession.node', index=2,
+      number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -134,8 +176,8 @@ _NODESESSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=117,
-  serialized_end=163,
+  serialized_start=209,
+  serialized_end=269,
 )
 
 
@@ -165,8 +207,8 @@ _LOGINRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=165,
-  serialized_end=216,
+  serialized_start=271,
+  serialized_end=322,
 )
 
 
@@ -203,8 +245,8 @@ _HEARTBEATREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=218,
-  serialized_end=281,
+  serialized_start=324,
+  serialized_end=387,
 )
 
 
@@ -241,8 +283,8 @@ _HEARTBEATRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=283,
-  serialized_end=351,
+  serialized_start=389,
+  serialized_end=457,
 )
 
 
@@ -272,8 +314,8 @@ _GETNEXTJOBREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=353,
-  serialized_end=392,
+  serialized_start=459,
+  serialized_end=498,
 )
 
 
@@ -317,8 +359,8 @@ _GETNEXTJOBRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=394,
-  serialized_end=462,
+  serialized_start=500,
+  serialized_end=568,
 )
 
 
@@ -341,8 +383,8 @@ _GETJOBREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=464,
-  serialized_end=479,
+  serialized_start=570,
+  serialized_end=585,
 )
 
 
@@ -365,8 +407,8 @@ _GETJOBRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=481,
-  serialized_end=497,
+  serialized_start=587,
+  serialized_end=603,
 )
 
 
@@ -389,8 +431,8 @@ _GETJOBEGGREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=499,
-  serialized_end=517,
+  serialized_start=605,
+  serialized_end=623,
 )
 
 
@@ -413,8 +455,8 @@ _GETJOBEGGRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=519,
-  serialized_end=538,
+  serialized_start=625,
+  serialized_end=644,
 )
 
 
@@ -465,8 +507,8 @@ _COMPLETEJOBREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=540,
-  serialized_end=620,
+  serialized_start=646,
+  serialized_end=726,
 )
 
 
@@ -489,8 +531,8 @@ _COMPLETEJOBRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=622,
-  serialized_end=643,
+  serialized_start=728,
+  serialized_end=749,
 )
 
 
@@ -527,8 +569,8 @@ _REGISTERNODEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=645,
-  serialized_end=695,
+  serialized_start=751,
+  serialized_end=801,
 )
 
 
@@ -553,6 +595,13 @@ _CREATENODESESSIONREQUEST = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='tags', full_name='CreateNodeSessionRequest.tags', index=2,
+      number=3, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -565,13 +614,52 @@ _CREATENODESESSIONREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=697,
-  serialized_end=774,
+  serialized_start=803,
+  serialized_end=894,
+)
+
+
+_CREATENODEREQUEST = _descriptor.Descriptor(
+  name='CreateNodeRequest',
+  full_name='CreateNodeRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='parent', full_name='CreateNodeRequest.parent', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='node', full_name='CreateNodeRequest.node', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=896,
+  serialized_end=952,
 )
 
 _NODESESSION.fields_by_name['node'].message_type = _NODE
 _LOGINRESPONSE.fields_by_name['node_session'].message_type = _NODESESSION
 _CREATENODESESSIONREQUEST.fields_by_name['node_session'].message_type = _NODESESSION
+_CREATENODEREQUEST.fields_by_name['node'].message_type = _NODE
 DESCRIPTOR.message_types_by_name['LoginRequest'] = _LOGINREQUEST
 DESCRIPTOR.message_types_by_name['Node'] = _NODE
 DESCRIPTOR.message_types_by_name['NodeSession'] = _NODESESSION
@@ -588,6 +676,7 @@ DESCRIPTOR.message_types_by_name['CompleteJobRequest'] = _COMPLETEJOBREQUEST
 DESCRIPTOR.message_types_by_name['CompleteJobResponse'] = _COMPLETEJOBRESPONSE
 DESCRIPTOR.message_types_by_name['RegisterNodeRequest'] = _REGISTERNODEREQUEST
 DESCRIPTOR.message_types_by_name['CreateNodeSessionRequest'] = _CREATENODESESSIONREQUEST
+DESCRIPTOR.message_types_by_name['CreateNodeRequest'] = _CREATENODEREQUEST
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 LoginRequest = _reflection.GeneratedProtocolMessageType('LoginRequest', (_message.Message,), dict(
@@ -702,6 +791,13 @@ CreateNodeSessionRequest = _reflection.GeneratedProtocolMessageType('CreateNodeS
   ))
 _sym_db.RegisterMessage(CreateNodeSessionRequest)
 
+CreateNodeRequest = _reflection.GeneratedProtocolMessageType('CreateNodeRequest', (_message.Message,), dict(
+  DESCRIPTOR = _CREATENODEREQUEST,
+  __module__ = 'scrapydd.grpcservice.service_pb2'
+  # @@protoc_insertion_point(class_scope:CreateNodeRequest)
+  ))
+_sym_db.RegisterMessage(CreateNodeRequest)
+
 
 
 _NODESERVICE = _descriptor.ServiceDescriptor(
@@ -710,8 +806,8 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=777,
-  serialized_end=1193,
+  serialized_start=955,
+  serialized_end=1412,
   methods=[
   _descriptor.MethodDescriptor(
     name='Login',
@@ -783,6 +879,15 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_CREATENODESESSIONREQUEST,
     output_type=_NODESESSION,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='CreateNode',
+    full_name='NodeService.CreateNode',
+    index=8,
+    containing_service=None,
+    input_type=_CREATENODEREQUEST,
+    output_type=_NODE,
     options=None,
   ),
 ])
