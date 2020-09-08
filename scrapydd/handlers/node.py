@@ -537,7 +537,7 @@ class GetNodeHandler(NodeBaseHandler):
         node = self.node_manager.get_node(session=session, node_id=node_id)
         res_data = {
             'id': node.id,
-            'tags': node.tags.split(',') if node.tags else []
+            'tags': node.tags if node.tags else []
         }
         return self.send_json(res_data)
 
@@ -704,5 +704,5 @@ url_patterns = [
     (r'/v1/nodeSessions/(\w+):nextjob', NodeSessionInstanceNextjobHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)/egg', NodeSessionJobEggHandler),
-    (r'/v1/nodes', NodeCollectionHandler),
+    (r'/v1/nodes$', NodeCollectionHandler),
 ]
