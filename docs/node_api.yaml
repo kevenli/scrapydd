@@ -43,6 +43,23 @@ paths:
           description: Invalid parameter.
         401:
           description: Unauthenticated request.
+  /nodes/{nodeId}:
+    get:
+      tags:
+      - node
+      parameters:
+      - in: query
+        name: nodeId
+        schema:
+          type: integer
+          format: int64
+      responses:
+        200:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
   /nodeSessions:
     post:
       tags:
@@ -101,9 +118,11 @@ components:
         name:
           type: string
           example: 'nodeSessions/*'
+          readOnly: true
         id:
           type: integer
           format: int64
+          readOnly: true
         tags:
           type: array
           items:

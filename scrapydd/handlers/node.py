@@ -12,7 +12,7 @@ import hmac
 import tornado
 from io import BytesIO
 import shutil
-from tornado.web import authenticated
+from tornado.web import authenticated, HTTPError
 from six import ensure_str, binary_type
 from .base import RestBaseHandler
 from ..models import session_scope, Session, Spider, Project, Node
@@ -429,6 +429,7 @@ class NodeApiBaseHandler(NodeBaseHandler):
     is enough.
     """
     authentication_providers = [NodeHmacAuthenticationProvider()]
+    json_data = None
 
     def get_current_user(self):
         for authentication_provider in self.authentication_providers:
@@ -457,6 +458,26 @@ class NodeApiBaseHandler(NodeBaseHandler):
 
         return node_session
 
+    def request_is_json(self):
+        content_type_header = self.request.headers.get('content-type', 'form')
+        return content_type_header.lower() == 'application/json'
+
+    def get_argument(self, name: str, default=None, strip: bool = True):
+        if self.request_is_json():
+            self.json_data = json.loads(self.request.body)
+            return self.json_data.get(name, default)
+
+        return super(NodeApiBaseHandler, self).get_argument(
+                name, default, strip)
+
+    def get_arguments(self, name, strip: bool = True):
+        if self.request_is_json():
+            self.json_data = json.loads(self.request.body)
+            return self.json_data.get(name)
+
+        return super(NodeApiBaseHandler, self)\
+                .get_arguments(name, strip)
+
 
 def node_authenticated(method):
     def wrapper(self, *args, **kwargs):
@@ -471,9 +492,7 @@ class NodeSessionListHandler(NodeApiBaseHandler):
     def post(self):
         node = self.current_user
         session = self.session
-        tags = self.get_argument('tags', '').strip()
-        #tags = None if tags == '' else tags
-        tags = [tag for tag in tags.split(',') if tag]
+        tags = self.get_arguments('tags') or []
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
         node_manager = self.node_manager
@@ -650,28 +669,6 @@ class NodeSessionJobInstanceHandler(NodeApiBaseHandler):
 
 
 class NodeCollectionHandler(NodeApiBaseHandler):
-    json_data = None
-
-    def request_is_json(self):
-        content_type_header = self.request.headers.get('content-type', 'form')
-        return content_type_header.lower() == 'application/json'
-
-    def get_argument(self, name: str, default=None, strip: bool = True):
-        if self.request_is_json():
-            self.json_data = json.loads(self.request.body)
-            return self.json_data.get(name, default)
-        else:
-            return super(NodeCollectionHandler, self).get_argument(
-                name, default, strip)
-
-    def get_arguments(self, name, strip: bool = True):
-        if self.request_is_json():
-            self.json_data = json.loads(self.request.body)
-            return self.json_data.get(name)
-        else:
-            return super(NodeCollectionHandler, self)\
-                .get_arguments(name, strip)
-
     @authenticated
     def post(self):
         node_key = self.get_argument('node_key')
@@ -693,6 +690,24 @@ class NodeCollectionHandler(NodeApiBaseHandler):
         key.used_node_id = node.id
         session.add(key)
         session.commit()
+        return self.send_json({
+            'name': 'nodes/%s' % node.id,
+            'id': node.id,
+            'display_name': node.name,
+            'tags': node.tags,
+            'is_online': node.isalive > 0,
+            'client_ip': node.client_ip
+        })
+
+
+class NodeInstanceHandler(NodeApiBaseHandler):
+    @authenticated
+    def get(self, node_id):
+        node = self.node_manager.get_node(node_id, self.session)
+
+        if not node:
+            raise HTTPError(404, 'Object not found.')
+
         return self.send_json({
             'name': 'nodes/%s' % node.id,
             'id': node.id,
@@ -727,4 +742,5 @@ url_patterns = [
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)/egg', NodeSessionJobEggHandler),
     (r'/v1/nodes$', NodeCollectionHandler),
+    (r'/v1/nodes/(\w+)$', NodeInstanceHandler),
 ]

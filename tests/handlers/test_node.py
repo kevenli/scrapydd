@@ -378,9 +378,9 @@ class JobEggHandlerTest(NodeSecureTest):
 class CreateNodeSessionHandlerTest(NodeTest):
     def test_post_body_tags(self):
         post_data = {
-            'tags': 'a,b,c'
+            'tags': ['a', 'b', 'c']
         }
-        body = urlencode(post_data)
+        body = urlencode(post_data, doseq=True)
         res = self.fetch('/v1/nodeSessions', method='POST', body=body)
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
@@ -390,8 +390,9 @@ class CreateNodeSessionHandlerTest(NodeTest):
         self.assertTrue(node_id > 0)
         self.assertTrue(session_id > 0)
 
-        headers = {'X-Dd-Nodeid': str(node_id)}
-        res = self.fetch('/v1/nodes/%s' % node_id, headers=headers)
+        #headers = {'X-Dd-Nodeid': str(node_id)}
+        #res = self.fetch('/v1/nodes/%s' % node_id, headers=headers)
+        res = self.fetch('/v1/nodes/%s' % node_id)
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
         self.assertEqual(res_data['tags'], ['a', 'b', 'c'])
@@ -523,5 +524,32 @@ class NodeCollectionHandlerTest(NodeTest):
         self.assertIsNotNone(res_data['tags'])
         self.assertEqual(len(res_data['tags']), 3)
         self.assertEqual(res_data['tags'], ['a', 'bb', 'ccc'])
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
+
+class NodeInstanceHandlerTest(NodeTest):
+    def test_get(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'node_key': new_key.key
+        }
+
+        res = self.fetch('/v1/nodes', method='POST',
+                         body=urlencode(post_data))
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        node_id = res_data['id']
+
+        res = self.fetch('/v1/nodes/%s' % node_id)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 0)
         self.assertIsNotNone(res_data['is_online'])
         self.assertIsNotNone(res_data['client_ip'])

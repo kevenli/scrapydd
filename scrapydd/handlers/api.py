@@ -58,7 +58,7 @@ class ApiHandler(RestBaseHandler):
         self.write(output)
 
 
-class NodesHandler(NodeBaseHandler):
+class  NodesHandler(NodeBaseHandler):
     """
     Online a node.
     A user (admin) can request a token from the server. (key, secret_key pair)
