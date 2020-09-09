@@ -437,3 +437,46 @@ class HeartbeatNodeSessionHandlerTest(NodeTest):
         res_data = json.loads(res.body)
         self.assertEqual(res_data['kill_job_ids'], job_ids)
         self.assertEqual(res_data['new_job_available'], False)
+
+
+class NodeCollectionHandlerTest(NodeTest):
+    def test_post(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'node_key': new_key.key
+        }
+
+        res = self.fetch('/v1/nodes', method='POST',
+                         body=urlencode(post_data))
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 0)
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
+    def test_post_json(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'node_key': new_key.key
+        }
+
+        res = self.fetch('/v1/nodes', method='POST',
+                         body=json.dumps(post_data),
+                         headers={'Content-Type': 'application/json'})
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 0)
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])

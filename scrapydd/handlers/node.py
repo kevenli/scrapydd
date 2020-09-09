@@ -650,6 +650,28 @@ class NodeSessionJobInstanceHandler(NodeApiBaseHandler):
 
 
 class NodeCollectionHandler(NodeApiBaseHandler):
+    json_data = None
+
+    def request_is_json(self):
+        content_type_header = self.request.headers.get('content-type', 'form')
+        return content_type_header.lower() == 'application/json'
+
+    def get_argument(self, name: str, default=None, strip: bool = True):
+        if self.request_is_json():
+            self.json_data = json.loads(self.request.body)
+            return self.json_data.get(name, default)
+        else:
+            return super(NodeCollectionHandler, self).get_argument(
+                name, default, strip)
+
+    def get_arguments(self, name, strip: bool = True):
+        if self.request_is_json():
+            self.json_data = json.loads(self.request.body)
+            return self.json_data.get(name)
+        else:
+            return super(NodeCollectionHandler, self)\
+                .get_arguments(name, strip)
+
     @authenticated
     def post(self):
         node_key = self.get_argument('node_key')

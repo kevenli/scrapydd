@@ -7,20 +7,6 @@ info:
 tags:
 - name: node
 - name: NodeSession
-- name: pet
-  description: Everything about your Pets
-  externalDocs:
-    description: Find out more
-    url: http://swagger.io
-- name: store
-  description: Access to Petstore orders
-- name: user
-  description: Operations about user
-  externalDocs:
-    description: Find out more about our store
-    url: http://swagger.io
-# schemes:
-# - http
 paths:
   /nodes:
     post:
@@ -33,6 +19,19 @@ paths:
           application/json:
             schema: 
               $ref: "#/components/schemas/Node"
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - "node_key"
+              properties:
+                node_key:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+          
       responses:
         200:
           description: Success
@@ -40,7 +39,6 @@ paths:
             application/json:
               schema:
                 $ref:  "#/components/schemas/Node"
-
         401:
           description: Unauthenticated request.
   /nodeSessions:
@@ -51,7 +49,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schema/NodeSession'
+              $ref: '#/components/schemas/NodeSession'
       responses:
         200:
           description: Sucessful Result
@@ -70,9 +68,11 @@ components:
       properties:
         name:
           type: string
+          readOnly: true
         id:
           type: integer
           format: int64
+          readOnly: true
         display_name:
           type: string
         tags:
@@ -85,6 +85,11 @@ components:
           type: boolean
         client_ip:
           type: string
+    CreateNodeRequest:
+      type: object
+      properties:
+        node:
+          $ref: "#/components/schemas/Node"
     NodeSession:
       type: object
       properties:
