@@ -460,6 +460,28 @@ class NodeCollectionHandlerTest(NodeTest):
         self.assertIsNotNone(res_data['is_online'])
         self.assertIsNotNone(res_data['client_ip'])
 
+    def test_post_full(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'node_key': new_key.key,
+            'tags': ['a', 'bb', 'ccc']
+        }
+
+        res = self.fetch('/v1/nodes', method='POST',
+                         body=urlencode(post_data, doseq=True))
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 3)
+        self.assertEqual(res_data['tags'], ['a', 'bb', 'ccc'])
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
     def test_post_json(self):
         new_key = self._app.settings.get('node_manager').create_node_key()
         post_data = {
@@ -478,5 +500,28 @@ class NodeCollectionHandlerTest(NodeTest):
         self.assertIsNotNone(res_data['display_name'])
         self.assertIsNotNone(res_data['tags'])
         self.assertEqual(len(res_data['tags']), 0)
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
+    def test_post_json_full(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'node_key': new_key.key,
+            'tags': ['a', 'bb', 'ccc']
+        }
+
+        res = self.fetch('/v1/nodes', method='POST',
+                         body=json.dumps(post_data),
+                         headers={'Content-Type': 'application/json'})
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 3)
+        self.assertEqual(res_data['tags'], ['a', 'bb', 'ccc'])
         self.assertIsNotNone(res_data['is_online'])
         self.assertIsNotNone(res_data['client_ip'])

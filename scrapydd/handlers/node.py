@@ -683,9 +683,9 @@ class NodeCollectionHandler(NodeApiBaseHandler):
         if key.used_node_id:
             raise tornado.web.HTTPError(400)
 
-        tags = self.get_argument('tags', '').strip()
+        tags = self.get_arguments('tags') or []
         #tags = None if tags == '' else tags
-        tags = [tag for tag in tags.split(',') if tag]
+        #tags = [tag for tag in tags.split(',') if tag]
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
         node = self.node_manager.create_node(remote_ip, tags=tags,
