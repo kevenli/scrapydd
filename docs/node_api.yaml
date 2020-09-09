@@ -1,0 +1,100 @@
+openapi: '3.0.0'
+info:
+  description: |
+    Node API for communication between worker and server .
+  version: 1.0.0
+  title: Node API
+tags:
+- name: node
+- name: NodeSession
+- name: pet
+  description: Everything about your Pets
+  externalDocs:
+    description: Find out more
+    url: http://swagger.io
+- name: store
+  description: Access to Petstore orders
+- name: user
+  description: Operations about user
+  externalDocs:
+    description: Find out more about our store
+    url: http://swagger.io
+# schemes:
+# - http
+paths:
+  /nodes:
+    post:
+      summary: Register a new permanent node.
+      operationId: CreateNode
+      tags:
+      - node
+      requestBody:
+        content:
+          application/json:
+            schema: 
+              $ref: "#/components/schemas/Node"
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref:  "#/components/schemas/Node"
+
+        401:
+          description: Unauthenticated request.
+  /nodeSessions:
+    post:
+      tags:
+      - node
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schema/NodeSession'
+      responses:
+        200:
+          description: Sucessful Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeSession"
+        401: 
+          description: Unauthenticated request.
+components:
+  schemas:
+    Node:
+      type: object
+      required:
+      - node_key
+      properties:
+        name:
+          type: string
+        id:
+          type: integer
+          format: int64
+        display_name:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        node_key:
+          type: string
+        is_online: 
+          type: boolean
+        client_ip:
+          type: string
+    NodeSession:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'nodeSessions/*'
+        id:
+          type: integer
+          format: int64
+        tags:
+          type: array
+          items:
+            type: string
