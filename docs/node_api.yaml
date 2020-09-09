@@ -75,6 +75,7 @@ components:
           readOnly: true
         display_name:
           type: string
+          readOnly: true
         tags:
           type: array
           items:
@@ -83,8 +84,10 @@ components:
           type: string
         is_online: 
           type: boolean
+          readOnly: true
         client_ip:
           type: string
+          readOnly: true
     CreateNodeRequest:
       type: object
       properties:
