@@ -39,6 +39,8 @@ paths:
             application/json:
               schema:
                 $ref:  "#/components/schemas/Node"
+        400:
+          description: Invalid parameter.
         401:
           description: Unauthenticated request.
   /nodeSessions:
