@@ -151,3 +151,5 @@ components:
         node_id:
           type: integer
           format: int64
+servers:
+  - url: http://localhost:6800/v1
