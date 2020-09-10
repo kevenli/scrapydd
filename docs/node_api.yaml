@@ -14,6 +14,11 @@ paths:
       operationId: CreateNode
       tags:
       - node
+      parameters:
+        - in: query
+          name: node_key
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
@@ -48,7 +53,7 @@ paths:
       tags:
       - node
       parameters:
-      - in: query
+      - in: path
         name: nodeId
         schema:
           type: integer
@@ -78,6 +83,29 @@ paths:
                 $ref: "#/components/schemas/NodeSession"
         401: 
           description: Unauthenticated request.
+  /nodeSessions/{nodeSessionId}:hearbeat:
+    post:
+      tags:
+        - node
+      parameters:
+        - in: path
+          name: nodeSessionId
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                running_job_ids:
+                  type: string
+      responses:
+        200:
+          description: Successful Result
+        401:
+          description: Unauthenticated request
 components:
   schemas:
     Node:
@@ -99,19 +127,12 @@ components:
           type: array
           items:
             type: string
-        node_key:
-          type: string
-        is_online: 
+        is_online:
           type: boolean
           readOnly: true
         client_ip:
           type: string
           readOnly: true
-    CreateNodeRequest:
-      type: object
-      properties:
-        node:
-          $ref: "#/components/schemas/Node"
     NodeSession:
       type: object
       properties:
@@ -127,3 +148,6 @@ components:
           type: array
           items:
             type: string
+        node_id:
+          type: integer
+          format: int64
