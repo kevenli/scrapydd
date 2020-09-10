@@ -443,12 +443,13 @@ class HeartbeatNodeSessionHandlerTest(NodeTest):
 class NodeCollectionHandlerTest(NodeTest):
     def test_post(self):
         new_key = self._app.settings.get('node_manager').create_node_key()
-        post_data = {
-            'node_key': new_key.key
-        }
 
-        res = self.fetch('/v1/nodes', method='POST',
-                         body=urlencode(post_data))
+        # pass parameters other than body by query parameter
+        # according to api design guide
+        # https://cloud.google.com/apis/design/standard_methods#create
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
+                         body='')
         self.assertEqual(200, res.code)
 
         res_data = json.loads(res.body)
@@ -464,11 +465,11 @@ class NodeCollectionHandlerTest(NodeTest):
     def test_post_full(self):
         new_key = self._app.settings.get('node_manager').create_node_key()
         post_data = {
-            'node_key': new_key.key,
             'tags': ['a', 'bb', 'ccc']
         }
 
-        res = self.fetch('/v1/nodes', method='POST',
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
                          body=urlencode(post_data, doseq=True))
         self.assertEqual(200, res.code)
 
@@ -485,11 +486,10 @@ class NodeCollectionHandlerTest(NodeTest):
 
     def test_post_json(self):
         new_key = self._app.settings.get('node_manager').create_node_key()
-        post_data = {
-            'node_key': new_key.key
-        }
+        post_data = {}
 
-        res = self.fetch('/v1/nodes', method='POST',
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
                          body=json.dumps(post_data),
                          headers={'Content-Type': 'application/json'})
         self.assertEqual(200, res.code)
@@ -507,11 +507,11 @@ class NodeCollectionHandlerTest(NodeTest):
     def test_post_json_full(self):
         new_key = self._app.settings.get('node_manager').create_node_key()
         post_data = {
-            'node_key': new_key.key,
             'tags': ['a', 'bb', 'ccc']
         }
 
-        res = self.fetch('/v1/nodes', method='POST',
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
                          body=json.dumps(post_data),
                          headers={'Content-Type': 'application/json'})
         self.assertEqual(200, res.code)
@@ -526,6 +526,33 @@ class NodeCollectionHandlerTest(NodeTest):
         self.assertEqual(res_data['tags'], ['a', 'bb', 'ccc'])
         self.assertIsNotNone(res_data['is_online'])
         self.assertIsNotNone(res_data['client_ip'])
+
+    def test_post_no_node_key(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'tags': ['a', 'bb', 'ccc']
+        }
+
+        res = self.fetch('/v1/nodes',
+                         method='POST',
+                         body=json.dumps(post_data),
+                         headers={'Content-Type': 'application/json'})
+        # no NodeKey provided, should return 400
+        self.assertEqual(400, res.code)
+
+    def test_post_invalid_node_key(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'tags': ['a', 'bb', 'ccc']
+        }
+
+        # invalid node_key
+        res = self.fetch('/v1/nodes?node_key=1',
+                         method='POST',
+                         body=json.dumps(post_data),
+                         headers={'Content-Type': 'application/json'})
+        # invalid NodeKey provided, should return 400
+        self.assertEqual(400, res.code)
 
 
 class NodeInstanceHandlerTest(NodeTest):

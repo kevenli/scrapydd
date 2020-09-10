@@ -671,7 +671,7 @@ class NodeSessionJobInstanceHandler(NodeApiBaseHandler):
 class NodeCollectionHandler(NodeApiBaseHandler):
     @authenticated
     def post(self):
-        node_key = self.get_argument('node_key')
+        node_key = self.get_query_argument('node_key')
         session = self.session
         key = session.query(NodeKey).filter_by(key=node_key).first()
         if not key:
