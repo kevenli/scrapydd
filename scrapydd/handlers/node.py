@@ -435,6 +435,8 @@ class NodeApiBaseHandler(NodeBaseHandler):
         for authentication_provider in self.authentication_providers:
             node_id = authentication_provider.get_user(self)
             if node_id:
+                if isinstance(node_id, int):
+                    return self.session.query(Node).get(node_id)
                 return node_id
 
         if not self.settings.get('enable_authentication', False):
@@ -489,10 +491,13 @@ def node_authenticated(method):
 
 
 class NodeSessionListHandler(NodeApiBaseHandler):
+    @node_authenticated
     def post(self):
         node = self.current_user
+        node_id = int(self.get_argument('node_id', 0))
+        if node.id and node.id != node_id:
+            raise HTTPError(400, 'invalid node_id')
         session = self.session
-        tags = self.get_arguments('tags') or []
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
         node_manager = self.node_manager
@@ -500,8 +505,7 @@ class NodeSessionListHandler(NodeApiBaseHandler):
             node_session = node_manager.create_node_session(
                 session,
                 node=node,
-                client_ip=remote_ip,
-                tags=tags)
+                client_ip=remote_ip)
             if node_session is None:
                 return self.set_status(401, 'Invalid token.')
         except AnonymousNodeDisabled:
@@ -511,9 +515,7 @@ class NodeSessionListHandler(NodeApiBaseHandler):
 
         res_data = {
             'id': node_session.id,
-            'node': {
-                'id': node_session.node.id,
-            }
+            'node_id': node_session.node.id
         }
         return self.send_json(res_data)
 
@@ -719,7 +721,7 @@ class NodeInstanceHandler(NodeApiBaseHandler):
             'name': 'nodes/%s' % node.id,
             'id': node.id,
             'display_name': node.name,
-            'tags': node.tags,
+            'tags': node.tags or [],
             'is_online': node.isalive > 0,
             'client_ip': node.client_ip
         })

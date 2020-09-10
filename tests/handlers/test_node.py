@@ -376,15 +376,21 @@ class JobEggHandlerTest(NodeSecureTest):
 
 
 class CreateNodeSessionHandlerTest(NodeTest):
+    def test_post(self):
+        res = self.fetch('/v1/nodeSessions', method='POST', body='')
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['node_id'])
+
     def test_post_body_tags(self):
         post_data = {
-            'tags': ['a', 'b', 'c']
         }
         body = urlencode(post_data, doseq=True)
         res = self.fetch('/v1/nodeSessions', method='POST', body=body)
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
-        node_id = res_data['node']['id']
+        node_id = res_data['node_id']
         session_id = res_data['id']
 
         self.assertTrue(node_id > 0)
@@ -395,7 +401,6 @@ class CreateNodeSessionHandlerTest(NodeTest):
         res = self.fetch('/v1/nodes/%s' % node_id)
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
-        self.assertEqual(res_data['tags'], ['a', 'b', 'c'])
 
 
 class HeartbeatNodeSessionHandlerTest(NodeTest):
@@ -558,12 +563,10 @@ class NodeCollectionHandlerTest(NodeTest):
 class NodeInstanceHandlerTest(NodeTest):
     def test_get(self):
         new_key = self._app.settings.get('node_manager').create_node_key()
-        post_data = {
-            'node_key': new_key.key
-        }
 
-        res = self.fetch('/v1/nodes', method='POST',
-                         body=urlencode(post_data))
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
+                         body='')
         self.assertEqual(200, res.code)
 
         res_data = json.loads(res.body)
