@@ -1,7 +1,7 @@
-openapi: '3.0.0'
+openapi: 3.0.0
 info:
   description: |
-    Node API for communication between worker and server .
+    Node API for communication between worker and server.
   version: 1.0.0
   title: Node API
 tags:
@@ -17,26 +17,23 @@ paths:
       parameters:
         - in: query
           name: node_key
+          required: true
           schema:
             type: string
       requestBody:
         content:
           application/json:
-            schema: 
+            schema:
               $ref: "#/components/schemas/Node"
           application/x-www-form-urlencoded:
             schema:
               type: object
-              required:
-                - "node_key"
               properties:
-                node_key:
-                  type: string
                 tags:
                   type: array
                   items:
                     type: string
-          
+
       responses:
         200:
           description: Success
@@ -55,6 +52,7 @@ paths:
       parameters:
       - in: path
         name: nodeId
+        required: true
         schema:
           type: integer
           format: int64
@@ -81,7 +79,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NodeSession"
-        401: 
+        401:
           description: Unauthenticated request.
   /nodeSessions/{nodeSessionId}:hearbeat:
     post:
@@ -90,6 +88,7 @@ paths:
       parameters:
         - in: path
           name: nodeSessionId
+          required: true
           schema:
             type: integer
             format: int64
@@ -144,10 +143,6 @@ components:
           type: integer
           format: int64
           readOnly: true
-        tags:
-          type: array
-          items:
-            type: string
         node_id:
           type: integer
           format: int64
