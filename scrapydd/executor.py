@@ -193,17 +193,22 @@ class Executor:
 
         node_key = None
         secret_key = None
+        node_id = None
         if os.path.exists('conf/node.conf'):
             parser = ConfigParser()
             parser.read('conf/node.conf')
             node_key = parser.get('agent', 'node_key')
             secret_key = parser.get('agent', 'secret_key')
+            node_id = int(parser.get('agent', 'node_id'))
 
         self.httpclient = NodeAsyncHTTPClient(self.service_base,
                                               key=node_key,
                                               secret_key=secret_key,
                                               defaults=httpclient_defaults)
-        self.client = get_client(config, node_key, secret_key)
+        self.client = get_client(config,
+                                 app_key=node_key,
+                                 app_secret=secret_key,
+                                 node_id=node_id)
         self.runner_factory = RunnerFactory(config)
 
     def start(self):

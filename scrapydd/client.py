@@ -85,13 +85,15 @@ class HmacAuth(requests.auth.AuthBase):
 
 class NodeRestClient:
     def __init__(self, base_url, tags=None,
-                 app_key=None, app_secret=None):
+                 app_key=None, app_secret=None,
+                 node_id=None):
         self._session = requests.Session()
         self._base_url = base_url
-        self._node_id = None
+        self._node_id = node_id
         self._session_id = None
         self._tags = tags
         self._auth = None
+        self._app_key = app_key
         if app_key and app_secret:
             self._auth = HmacAuth(app_key, app_secret)
             self._session.auth = self._auth
@@ -99,20 +101,24 @@ class NodeRestClient:
     def register_node(self, node_key):
         url = urljoin(self._base_url, '/v1/nodes')
         post_data = {
-            'node_key': node_key,
             'tags': self._tags
         }
 
-        res = self._session.post(url, data=post_data)
+        res = self._session.post(url,
+                                 params={'node_key': node_key},
+                                 json=post_data)
         res.raise_for_status()
         res_data = res.json()
         return res_data['id']
 
     def login(self):
         url = urljoin(self._base_url, '/v1/nodeSessions')
-        post_data = {'tags': self._tags or ''}
+        post_data = {
+            'tags': self._tags or [],
+            'node_id': self._node_id
+        }
         try:
-            res = self._session.post(url, data=post_data)
+            res = self._session.post(url, json=post_data)
             res.raise_for_status()
         except requests.exceptions.ConnectionError as ex:
             raise ConnectionError()
@@ -122,18 +128,16 @@ class NodeRestClient:
             raise
         res_data = res.json()
         self._session_id = res_data['id']
-        self._node_id = res_data['node']['id']
+        self._node_id = res_data['node_id']
 
     def heartbeat(self, running_job_ids=None):
         url = urljoin(self._base_url,
                       '/v1/nodeSessions/%s:heartbeat' % self._session_id)
-        if running_job_ids is None:
-            running_job_ids = []
         post_data = {
-            'running_job_ids': ','.join(running_job_ids)
+            'running_job_ids': running_job_ids or []
         }
         response = self._session.post(url=url,
-                                      data=post_data)
+                                      json=post_data)
         try:
             response.raise_for_status()
         except requests.HTTPError as ex:
@@ -435,18 +439,19 @@ class NodeGrpcClient:
         self._channel = None
 
 
-def get_client(config, app_key=None, app_secret=None):
+def get_client(config, app_key=None, app_secret=None, node_id=None):
     server_url = config.get('server', 'http://localhost:6800')
     server_url_parts = urlparse(server_url)
     tags = config.get('tags', '')
+    tags = [x for x in tags.split(',') if x]
     if not server_url_parts.scheme:
         client = NodeRestClient('http://%s:6800' % server_url,
                                 tags=tags, app_key=app_key,
-                                app_secret=app_secret)
+                                app_secret=app_secret, node_id=node_id)
         return client
     if server_url_parts.scheme in ('http', 'https'):
         client = NodeRestClient(server_url, tags=tags, app_key=app_key,
-                                app_secret=app_secret)
+                                app_secret=app_secret, node_id=node_id)
         return client
 
     if server_url_parts.scheme in ('grpc', 'grpcs'):
