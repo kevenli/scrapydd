@@ -680,9 +680,16 @@ class NodeCollectionHandler(NodeApiBaseHandler):
         if key.used_node_id:
             raise tornado.web.HTTPError(400)
 
+        # supported array tags in formats of
+        # 1 json :
+        #    { "tags" : ["a", "b", "c"] }
+        # 2 multi tags in urlencoded-from
+        #    tags=a&tags=b&tags=c
+        # 3 multi tags combined into one
+        #    tags=a%2cb%2cc
         tags = self.get_arguments('tags') or []
-        #tags = None if tags == '' else tags
-        #tags = [tag for tag in tags.split(',') if tag]
+        if len(tags) == 1 and ',' in tags[0]:
+            tags = [tag for tag in tags[0].split(',') if tag]
         remote_ip = self.request.headers.get('X-Real-IP',
                                              self.request.remote_ip)
         node = self.node_manager.create_node(remote_ip, tags=tags,
