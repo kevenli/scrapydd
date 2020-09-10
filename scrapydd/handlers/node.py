@@ -480,6 +480,13 @@ class NodeApiBaseHandler(NodeBaseHandler):
         return super(NodeApiBaseHandler, self)\
                 .get_arguments(name, strip)
 
+    def get_body_arguments(self, name: str, strip: bool = True):
+        if self.request_is_json():
+            self.json_data = json.loads(self.request.body)
+            return self.json_data.get(name, [])
+        return super(NodeApiBaseHandler, self)\
+                .get_body_arguments(name, strip)
+
 
 def node_authenticated(method):
     def wrapper(self, *args, **kwargs):
@@ -533,9 +540,10 @@ class NodeSessionInstanceHeartbeatHandler(NodeApiBaseHandler):
         node = node_session.node
         node_id = node.id
         has_task = node_manager.node_has_task(self.session, node_id)
-        running_job_ids = self.get_argument('running_job_ids', '')
-        if isinstance(running_job_ids, str):
-            running_job_ids = [x for x in running_job_ids.split(',') if x]
+
+        running_job_ids = self.get_body_arguments('running_job_ids')
+        # if isinstance(running_job_ids, str):
+        #     running_job_ids = [x for x in running_job_ids.split(',') if x]
 
         killing_jobs = list(self.node_manager.jobs_running(self.session,
                                                            node_id,

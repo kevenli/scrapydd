@@ -81,7 +81,7 @@ paths:
                 $ref: "#/components/schemas/NodeSession"
         401:
           description: Unauthenticated request.
-  /nodeSessions/{nodeSessionId}:hearbeat:
+  /nodeSessions/{nodeSessionId}:heartbeat:
     post:
       tags:
         - node
@@ -99,10 +99,23 @@ paths:
               type: object
               properties:
                 running_job_ids:
-                  type: string
+                  type: array
+                  items:
+                    type: string
       responses:
         200:
           description: Successful Result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  new_job_available:
+                    type: boolean
+                  kill_job_ids:
+                    type: array
+                    items:
+                      type: string
         401:
           description: Unauthenticated request
 components:

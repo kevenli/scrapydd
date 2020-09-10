@@ -403,7 +403,7 @@ class CreateNodeSessionHandlerTest(NodeTest):
         res_data = json.loads(res.body)
 
 
-class HeartbeatNodeSessionHandlerTest(NodeTest):
+class NodeSessionInstanceHeartbeatHandlerTest(NodeTest):
     def session_login(self):
         post_data = {
             'tags': ''
@@ -412,7 +412,7 @@ class HeartbeatNodeSessionHandlerTest(NodeTest):
                          body=urlencode(post_data))
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
-        self.node_id = res_data['node']['id']
+        self.node_id = res_data['node_id']
         self.session_id = res_data['id']
 
     def test_post(self):
@@ -431,13 +431,11 @@ class HeartbeatNodeSessionHandlerTest(NodeTest):
     def test_post_running_jobs(self):
         job_ids = ['1', '2']
         post_data = {
-            'running_job_ids': ','.join(job_ids)
+            'running_job_ids': job_ids
         }
         self.session_login()
-        headers = {'X-Dd-Nodeid': str(self.node_id)}
         res = self.fetch('/v1/nodeSessions/%s:heartbeat' % self.session_id,
-                         method='POST', body=urlencode(post_data),
-                         headers=headers,
+                         method='POST', body=urlencode(post_data, doseq=True),
                          allow_nonstandard_methods=True)
         self.assertEqual(200, res.code)
         res_data = json.loads(res.body)
