@@ -519,8 +519,12 @@ class NodeSessionListHandler(NodeApiBaseHandler):
             return self.set_status(401, 'Anonymous node not allowed.')
         except nodes.NodeNotFound:
             return self.set_status(401, 'Node not found.')
+        except nodes.LivingNodeSessionExistException:
+            return self.set_status(409, 'There are some NodeSession living'
+                                        ' already relates to the target Node.')
 
         res_data = {
+            'name': 'nodeSessions/%s' % node_session.id,
             'id': node_session.id,
             'node_id': node_session.node.id
         }

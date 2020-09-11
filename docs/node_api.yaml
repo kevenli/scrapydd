@@ -81,6 +81,12 @@ paths:
                 $ref: "#/components/schemas/NodeSession"
         401:
           description: Unauthenticated request.
+        409:
+          description: |
+            There are some NodeSession living already relates to the
+            target Node.
+
+
   /nodeSessions/{nodeSessionId}:heartbeat:
     post:
       tags:

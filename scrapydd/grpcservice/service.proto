@@ -32,7 +32,7 @@ message Node {
 message NodeSession {
     string name = 1;
     int64 id = 2;
-    Node node = 3;
+    int64 node_id = 3;
 }
 
 message LoginResponse {
@@ -87,9 +87,7 @@ message CompleteJobResponse{
 }
 
 message CreateNodeSessionRequest{
-    NodeSession node_session = 1;
-    string token = 2;
-    repeated string tags = 3;
+    NodeSession node_session = 2;
 }
 
 message CreateNodeRequest {

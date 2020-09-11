@@ -27,6 +27,14 @@ class NodeKeyNotFoundException(Exception):
     pass
 
 
+class LivingNodeSessionExistException(Exception):
+    """
+    Raise there is another existing NodeSession
+    relates to the target Node.
+    """
+    pass
+
+
 class NodeManager():
     interval = 10
     node_timeout = 60
@@ -176,7 +184,7 @@ class NodeManager():
         # A session cannot be kickout if just logged in in a minutes.
         leskt = datetime.datetime.now() - datetime.timedelta(minutes=1)
         if existing_session and existing_session.create_at > leskt:
-            return
+            raise LivingNodeSessionExistException()
 
         # otherwise, remove that session.
         if existing_session:
