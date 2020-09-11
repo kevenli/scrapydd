@@ -25,7 +25,6 @@ message Node {
     int64 id = 2;
     string display_name = 3;
     repeated string tags = 4;
-    string node_key = 5;
     bool is_online = 6;
     string client_ip = 7;
 }
@@ -94,6 +93,7 @@ message CreateNodeSessionRequest{
 }
 
 message CreateNodeRequest {
-    string parent = 1;
+//    string parent = 1;
     Node node = 2;
+    string node_key = 3;
 }

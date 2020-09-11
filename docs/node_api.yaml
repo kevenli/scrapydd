@@ -128,6 +128,7 @@ components:
         name:
           type: string
           readOnly: true
+          example: nodes/*
         id:
           type: integer
           format: int64

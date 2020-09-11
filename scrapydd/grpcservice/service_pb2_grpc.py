@@ -45,11 +45,6 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobResponse.FromString,
         )
-    self.RegisterNode = channel.unary_unary(
-        '/NodeService/RegisterNode',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.RegisterNodeRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.FromString,
-        )
     self.CreateNodeSession = channel.unary_unary(
         '/NodeService/CreateNodeSession',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.SerializeToString,
@@ -109,13 +104,6 @@ class NodeServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
-  def RegisterNode(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
   def CreateNodeSession(self, request, context):
     # missing associated documentation comment in .proto file
     pass
@@ -162,11 +150,6 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.CompleteJob,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobResponse.SerializeToString,
-      ),
-      'RegisterNode': grpc.unary_unary_rpc_method_handler(
-          servicer.RegisterNode,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.RegisterNodeRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.SerializeToString,
       ),
       'CreateNodeSession': grpc.unary_unary_rpc_method_handler(
           servicer.CreateNodeSession,

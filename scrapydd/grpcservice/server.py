@@ -215,7 +215,7 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         session = Session()
         node_manager = self._node_manager
         response = service_pb2.Node()
-        node_key = request.node.node_key
+        node_key = request.node_key
         key = session.query(NodeKey).filter_by(key=node_key).first()
         if not key:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
