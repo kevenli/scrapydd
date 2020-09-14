@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='scrapydd/grpcservice/service.proto',
   package='',
   syntax='proto3',
-  serialized_pb=_b('\n\"scrapydd/grpcservice/service.proto\"j\n\x04Node\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\x03\x12\x14\n\x0c\x64isplay_name\x18\x03 \x01(\t\x12\x0c\n\x04tags\x18\x04 \x03(\t\x12\x11\n\tis_online\x18\x06 \x01(\x08\x12\x11\n\tclient_ip\x18\x07 \x01(\t\"8\n\x0bNodeSession\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\x03\x12\x0f\n\x07node_id\x18\x03 \x01(\x03\"?\n\x10HeartbeatRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x17\n\x0frunning_job_ids\x18\x02 \x03(\t\"D\n\x11HeartbeatResponse\x12\x14\n\x0ckill_job_ids\x18\x01 \x03(\t\x12\x19\n\x11new_job_available\x18\x02 \x01(\x08\"\'\n\x11GetNextJobRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse\">\n\x18\x43reateNodeSessionRequest\x12\"\n\x0cnode_session\x18\x02 \x01(\x0b\x32\x0c.NodeSession\":\n\x11\x43reateNodeRequest\x12\x13\n\x04node\x18\x02 \x01(\x0b\x32\x05.Node\x12\x10\n\x08node_key\x18\x03 \x01(\t2\xf4\x02\n\x0bNodeService\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponse\x12<\n\x11\x43reateNodeSession\x12\x19.CreateNodeSessionRequest\x1a\x0c.NodeSession\x12\'\n\nCreateNode\x12\x12.CreateNodeRequest\x1a\x05.Nodeb\x06proto3')
+  serialized_pb=_b('\n\"scrapydd/grpcservice/service.proto\"j\n\x04Node\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\x03\x12\x14\n\x0c\x64isplay_name\x18\x03 \x01(\t\x12\x0c\n\x04tags\x18\x04 \x03(\t\x12\x11\n\tis_online\x18\x06 \x01(\x08\x12\x11\n\tclient_ip\x18\x07 \x01(\t\"8\n\x0bNodeSession\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\x03\x12\x0f\n\x07node_id\x18\x03 \x01(\x03\"?\n\x10HeartbeatRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x17\n\x0frunning_job_ids\x18\x02 \x03(\t\"D\n\x11HeartbeatResponse\x12\x14\n\x0ckill_job_ids\x18\x01 \x03(\t\x12\x19\n\x11new_job_available\x18\x02 \x01(\x08\"\'\n\x11GetNextJobRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\"D\n\x12GetNextJobResponse\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06\x66igure\x18\x02 \x01(\t\x12\x0f\n\x07package\x18\x03 \x01(\x0c\"\x0f\n\rGetJobRequest\"\x10\n\x0eGetJobResponse\"\x12\n\x10GetJobEggRequest\"\x13\n\x11GetJobEggResponse\"P\n\x12\x43ompleteJobRequest\x12\r\n\x05jobId\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04logs\x18\x03 \x01(\x0c\x12\r\n\x05items\x18\x04 \x01(\x0c\"\x15\n\x13\x43ompleteJobResponse\">\n\x18\x43reateNodeSessionRequest\x12\"\n\x0cnode_session\x18\x02 \x01(\x0b\x32\x0c.NodeSession\":\n\x11\x43reateNodeRequest\x12\x13\n\x04node\x18\x02 \x01(\x0b\x32\x05.Node\x12\x10\n\x08node_key\x18\x03 \x01(\t\"D\n\x1bHeartbeatNodeSessionRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x17\n\x0frunning_job_ids\x18\x02 \x03(\t\"O\n\x1cHeartbeatNodeSessionResponse\x12\x14\n\x0ckill_job_ids\x18\x01 \x03(\t\x12\x19\n\x11new_job_available\x18\x02 \x01(\x08\x32\xc9\x03\n\x0bNodeService\x12\'\n\nCreateNode\x12\x12.CreateNodeRequest\x1a\x05.Node\x12<\n\x11\x43reateNodeSession\x12\x19.CreateNodeSessionRequest\x1a\x0c.NodeSession\x12S\n\x14HeartbeatNodeSession\x12\x1c.HeartbeatNodeSessionRequest\x1a\x1d.HeartbeatNodeSessionResponse\x12\x32\n\tHeartbeat\x12\x11.HeartbeatRequest\x1a\x12.HeartbeatResponse\x12\x35\n\nGetNextJob\x12\x12.GetNextJobRequest\x1a\x13.GetNextJobResponse\x12)\n\x06GetJob\x12\x0e.GetJobRequest\x1a\x0f.GetJobResponse\x12.\n\x06GetEgg\x12\x11.GetJobEggRequest\x1a\x11.GetJobEggRequest\x12\x38\n\x0b\x43ompleteJob\x12\x13.CompleteJobRequest\x1a\x14.CompleteJobResponseb\x06proto3')
 )
 
 
@@ -528,6 +528,82 @@ _CREATENODEREQUEST = _descriptor.Descriptor(
   serialized_end=753,
 )
 
+
+_HEARTBEATNODESESSIONREQUEST = _descriptor.Descriptor(
+  name='HeartbeatNodeSessionRequest',
+  full_name='HeartbeatNodeSessionRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='name', full_name='HeartbeatNodeSessionRequest.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='running_job_ids', full_name='HeartbeatNodeSessionRequest.running_job_ids', index=1,
+      number=2, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=755,
+  serialized_end=823,
+)
+
+
+_HEARTBEATNODESESSIONRESPONSE = _descriptor.Descriptor(
+  name='HeartbeatNodeSessionResponse',
+  full_name='HeartbeatNodeSessionResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='kill_job_ids', full_name='HeartbeatNodeSessionResponse.kill_job_ids', index=0,
+      number=1, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='new_job_available', full_name='HeartbeatNodeSessionResponse.new_job_available', index=1,
+      number=2, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=825,
+  serialized_end=904,
+)
+
 _CREATENODESESSIONREQUEST.fields_by_name['node_session'].message_type = _NODESESSION
 _CREATENODEREQUEST.fields_by_name['node'].message_type = _NODE
 DESCRIPTOR.message_types_by_name['Node'] = _NODE
@@ -544,6 +620,8 @@ DESCRIPTOR.message_types_by_name['CompleteJobRequest'] = _COMPLETEJOBREQUEST
 DESCRIPTOR.message_types_by_name['CompleteJobResponse'] = _COMPLETEJOBRESPONSE
 DESCRIPTOR.message_types_by_name['CreateNodeSessionRequest'] = _CREATENODESESSIONREQUEST
 DESCRIPTOR.message_types_by_name['CreateNodeRequest'] = _CREATENODEREQUEST
+DESCRIPTOR.message_types_by_name['HeartbeatNodeSessionRequest'] = _HEARTBEATNODESESSIONREQUEST
+DESCRIPTOR.message_types_by_name['HeartbeatNodeSessionResponse'] = _HEARTBEATNODESESSIONRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Node = _reflection.GeneratedProtocolMessageType('Node', (_message.Message,), dict(
@@ -644,6 +722,20 @@ CreateNodeRequest = _reflection.GeneratedProtocolMessageType('CreateNodeRequest'
   ))
 _sym_db.RegisterMessage(CreateNodeRequest)
 
+HeartbeatNodeSessionRequest = _reflection.GeneratedProtocolMessageType('HeartbeatNodeSessionRequest', (_message.Message,), dict(
+  DESCRIPTOR = _HEARTBEATNODESESSIONREQUEST,
+  __module__ = 'scrapydd.grpcservice.service_pb2'
+  # @@protoc_insertion_point(class_scope:HeartbeatNodeSessionRequest)
+  ))
+_sym_db.RegisterMessage(HeartbeatNodeSessionRequest)
+
+HeartbeatNodeSessionResponse = _reflection.GeneratedProtocolMessageType('HeartbeatNodeSessionResponse', (_message.Message,), dict(
+  DESCRIPTOR = _HEARTBEATNODESESSIONRESPONSE,
+  __module__ = 'scrapydd.grpcservice.service_pb2'
+  # @@protoc_insertion_point(class_scope:HeartbeatNodeSessionResponse)
+  ))
+_sym_db.RegisterMessage(HeartbeatNodeSessionResponse)
+
 
 
 _NODESERVICE = _descriptor.ServiceDescriptor(
@@ -652,13 +744,40 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=756,
-  serialized_end=1128,
+  serialized_start=907,
+  serialized_end=1364,
   methods=[
+  _descriptor.MethodDescriptor(
+    name='CreateNode',
+    full_name='NodeService.CreateNode',
+    index=0,
+    containing_service=None,
+    input_type=_CREATENODEREQUEST,
+    output_type=_NODE,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='CreateNodeSession',
+    full_name='NodeService.CreateNodeSession',
+    index=1,
+    containing_service=None,
+    input_type=_CREATENODESESSIONREQUEST,
+    output_type=_NODESESSION,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='HeartbeatNodeSession',
+    full_name='NodeService.HeartbeatNodeSession',
+    index=2,
+    containing_service=None,
+    input_type=_HEARTBEATNODESESSIONREQUEST,
+    output_type=_HEARTBEATNODESESSIONRESPONSE,
+    options=None,
+  ),
   _descriptor.MethodDescriptor(
     name='Heartbeat',
     full_name='NodeService.Heartbeat',
-    index=0,
+    index=3,
     containing_service=None,
     input_type=_HEARTBEATREQUEST,
     output_type=_HEARTBEATRESPONSE,
@@ -667,7 +786,7 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='GetNextJob',
     full_name='NodeService.GetNextJob',
-    index=1,
+    index=4,
     containing_service=None,
     input_type=_GETNEXTJOBREQUEST,
     output_type=_GETNEXTJOBRESPONSE,
@@ -676,7 +795,7 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='GetJob',
     full_name='NodeService.GetJob',
-    index=2,
+    index=5,
     containing_service=None,
     input_type=_GETJOBREQUEST,
     output_type=_GETJOBRESPONSE,
@@ -685,7 +804,7 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='GetEgg',
     full_name='NodeService.GetEgg',
-    index=3,
+    index=6,
     containing_service=None,
     input_type=_GETJOBEGGREQUEST,
     output_type=_GETJOBEGGREQUEST,
@@ -694,28 +813,10 @@ _NODESERVICE = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='CompleteJob',
     full_name='NodeService.CompleteJob',
-    index=4,
+    index=7,
     containing_service=None,
     input_type=_COMPLETEJOBREQUEST,
     output_type=_COMPLETEJOBRESPONSE,
-    options=None,
-  ),
-  _descriptor.MethodDescriptor(
-    name='CreateNodeSession',
-    full_name='NodeService.CreateNodeSession',
-    index=5,
-    containing_service=None,
-    input_type=_CREATENODESESSIONREQUEST,
-    output_type=_NODESESSION,
-    options=None,
-  ),
-  _descriptor.MethodDescriptor(
-    name='CreateNode',
-    full_name='NodeService.CreateNode',
-    index=6,
-    containing_service=None,
-    input_type=_CREATENODEREQUEST,
-    output_type=_NODE,
     options=None,
   ),
 ])

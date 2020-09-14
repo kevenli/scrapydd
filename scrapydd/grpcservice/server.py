@@ -3,6 +3,7 @@ import datetime
 from io import BytesIO
 import logging
 import os
+import re
 import sys
 
 import grpc
@@ -13,7 +14,8 @@ from .grpc_asyncio import AsyncioExecutor
 from ..nodes import NodeManager, NodeExpired, AnonymousNodeDisabled
 from .. import nodes
 from ..schedule import SchedulerManager
-from ..models import session_scope, SpiderSettings, SpiderExecutionQueue, Session
+from ..models import session_scope, SpiderSettings, SpiderExecutionQueue, \
+    Session
 from ..models import NodeKey, NodeSession
 from ..project import ProjectManager
 from ..workspace import DictSpiderSettings
@@ -85,13 +87,71 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
                 context.set_details('Session not found.')
                 return response
             node_id = node_session.node_id
-            logger.debug('heartbeat, node: %s, session: %s', node_id, node_session.id)
+            logger.debug('heartbeat, node: %s, session: %s', node_id,
+                         node_session.id)
             has_task = self._scheduler_manager.has_task(node_id)
             try:
-                self._node_manager.node_session_heartbeat(session, node_session.id)
+                self._node_manager.node_session_heartbeat(session,
+                                                          node_session.id)
                 running_job_ids = request.running_job_ids
-                killing_jobs = list(self._scheduler_manager.jobs_running(node_id,
-                     running_job_ids))
+                killing_jobs = list(
+                    self._scheduler_manager.jobs_running(node_id,
+                                                         running_job_ids))
+
+                response.new_job_available = has_task
+                for killing_job in killing_jobs:
+                    response.kill_job_ids.append(killing_job)
+            except NodeExpired:
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Node expired.')
+                return response
+            return response
+
+    async def HeartbeatNodeSession(self,
+                                   request: service_pb2.HeartbeatNodeSessionRequest,
+                                   context):
+        """
+
+        :param request:
+        :param context:
+        :return:
+
+
+            possible exceptions:
+                NodeSession not found (404 NOT_FOUND):
+                    The specified NodeSession according to the session_id
+                    parameter is not found.
+
+                Node not found (404 NOT_FOUND):
+                    A Node corresponding to the NodeSession is None, this may
+                    be caused by manually deleted by the admin user.
+
+                Token invalid (401 UNAUTHENTICATED):
+                    The token provided in Headers is invalid or is not
+                    correctly match the session or node.
+
+        """
+        with session_scope() as session:
+            resource_name = request.name
+            node_session_id = int(re.search(r'^nodeSessions/(\d+)$',
+                                            resource_name).group(1))
+            response = service_pb2.HeartbeatNodeSessionResponse()
+            node_session = session.query(NodeSession).get(node_session_id)
+            if node_session is None:
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Session not found.')
+                return response
+            node_id = node_session.node_id
+            logger.debug('heartbeat, node: %s, session: %s', node_id,
+                         node_session.id)
+            has_task = self._scheduler_manager.has_task(node_id)
+            try:
+                self._node_manager.node_session_heartbeat(session,
+                                                          node_session.id)
+                running_job_ids = request.running_job_ids
+                killing_jobs = list(
+                    self._scheduler_manager.jobs_running(node_id,
+                                                         running_job_ids))
 
                 response.new_job_available = has_task
                 for killing_job in killing_jobs:
@@ -108,7 +168,8 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         node_manager = self._node_manager
         with session_scope() as session:
             node_session = node_manager.get_node_session(session, session_id)
-            next_task = self._scheduler_manager.get_next_task(node_session.node_id)
+            next_task = self._scheduler_manager.get_next_task(
+                node_session.node_id)
             next_task = session.query(SpiderExecutionQueue).get(next_task.id)
 
             if not next_task:
@@ -185,7 +246,7 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             return response
 
         tags = request.node.tags
-        #tags = ','.join(tags) if tags else None
+        # tags = ','.join(tags) if tags else None
 
         remote_ip = context.peer()
         node = node_manager.create_node(remote_ip, tags=tags,
@@ -206,7 +267,7 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         response = service_pb2.NodeSession()
         with session_scope() as session:
             node_id = request.node_session.node_id
-            #token = request.token
+            # token = request.token
             # if token:
             #     try:
             #         node = self._node_manager.get_node_by_token(session, token)
@@ -248,7 +309,6 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             logger.info('Node %s logged in, session_id: %s',
                         node_session.node_id, node_session.id)
             return response
-
 
 
 def start(node_manager=None, scheduler_manager=None, project_manager=None):

@@ -15,6 +15,21 @@ class NodeServiceStub(object):
     Args:
       channel: A grpc.Channel.
     """
+    self.CreateNode = channel.unary_unary(
+        '/NodeService/CreateNode',
+        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeRequest.SerializeToString,
+        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.FromString,
+        )
+    self.CreateNodeSession = channel.unary_unary(
+        '/NodeService/CreateNodeSession',
+        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.SerializeToString,
+        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSession.FromString,
+        )
+    self.HeartbeatNodeSession = channel.unary_unary(
+        '/NodeService/HeartbeatNodeSession',
+        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionRequest.SerializeToString,
+        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionResponse.FromString,
+        )
     self.Heartbeat = channel.unary_unary(
         '/NodeService/Heartbeat',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatRequest.SerializeToString,
@@ -40,22 +55,33 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobResponse.FromString,
         )
-    self.CreateNodeSession = channel.unary_unary(
-        '/NodeService/CreateNodeSession',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSession.FromString,
-        )
-    self.CreateNode = channel.unary_unary(
-        '/NodeService/CreateNode',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.FromString,
-        )
 
 
 class NodeServiceServicer(object):
   """import "google/api/annotations.proto";
 
   """
+
+  def CreateNode(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
+  def CreateNodeSession(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
+  def HeartbeatNodeSession(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
 
   def Heartbeat(self, request, context):
     # missing associated documentation comment in .proto file
@@ -92,23 +118,24 @@ class NodeServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
-  def CreateNodeSession(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
-  def CreateNode(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
 
 def add_NodeServiceServicer_to_server(servicer, server):
   rpc_method_handlers = {
+      'CreateNode': grpc.unary_unary_rpc_method_handler(
+          servicer.CreateNode,
+          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeRequest.FromString,
+          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.SerializeToString,
+      ),
+      'CreateNodeSession': grpc.unary_unary_rpc_method_handler(
+          servicer.CreateNodeSession,
+          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.FromString,
+          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSession.SerializeToString,
+      ),
+      'HeartbeatNodeSession': grpc.unary_unary_rpc_method_handler(
+          servicer.HeartbeatNodeSession,
+          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionRequest.FromString,
+          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionResponse.SerializeToString,
+      ),
       'Heartbeat': grpc.unary_unary_rpc_method_handler(
           servicer.Heartbeat,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatRequest.FromString,
@@ -133,16 +160,6 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.CompleteJob,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobResponse.SerializeToString,
-      ),
-      'CreateNodeSession': grpc.unary_unary_rpc_method_handler(
-          servicer.CreateNodeSession,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeSessionRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSession.SerializeToString,
-      ),
-      'CreateNode': grpc.unary_unary_rpc_method_handler(
-          servicer.CreateNode,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CreateNodeRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.Node.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
