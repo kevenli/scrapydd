@@ -218,61 +218,13 @@ class Executor:
                                               self.heartbeat_interval)
         heartbeat_callback.start()
 
-
-        # init checktask period callback
-        # the new version use HEARTBEAT response to tell client whether there
-        # is new task on server queue
-        # so do not start this period method. But if server is an old version
-        # without that header info
-        # client sill need to poll GET_TASK.
-        self.checktask_callback = PeriodicCallback(self.check_task,
-                                                   self.checktask_interval)
-
         self.ioloop.start()
-
-    def check_header_new_task_on_server(self, headers):
-        try:
-            new_task_on_server = headers['X-DD-New-Task'] == 'True'
-            if new_task_on_server:
-                self.ioloop.call_later(0, self.check_task)
-        except KeyError:
-            # if response contains no 'DD-New-Task' header, it might
-            # be the old version server,
-            # so use the old GET_TASK pool mode
-            if not self.checktask_callback.is_running():
-                self.checktask_callback.start()
 
     @coroutine
     def send_heartbeat(self):
         if self.status == EXECUTOR_STATUS_OFFLINE:
             self.register_node()
             return
-        # url = urljoin(self.service_base, '/nodes/%d/heartbeat' % self.node_id)
-        # running_tasks = ','.join([task_executor.task.id for task_executor in
-        #                           self.task_slots.tasks()])
-        # request = HTTPRequest(url=url, method='POST', body='',
-        #                       headers={'X-DD-RunningJobs': running_tasks})
-        # try:
-        #     res = yield self.httpclient.fetch(request)
-        #     if 'X-DD-KillJobs' in res.headers:
-        #         LOGGER.info('received kill signal %s',
-        #                     res.headers['X-DD-KillJobs'])
-        #         for job_id in json.loads(res.headers['X-DD-KillJobs']):
-        #             task_to_kill = self.task_slots.get_task(job_id)
-        #             if task_to_kill:
-        #                 LOGGER.info('%s', task_to_kill)
-        #                 task_to_kill.kill()
-        #                 self.task_slots.remove_task(task_to_kill)
-        #     self.check_header_new_task_on_server(res.headers)
-        # except HTTPError as ex:
-        #     if ex.code == 400:
-        #         logging.warning('Node expired, register now.')
-        #         self.status = EXECUTOR_STATUS_OFFLINE
-        #         self.register_node()
-        # except URLError as ex:
-        #     logging.warning('Cannot connect to server. %s', ex)
-        # except Exception as ex:
-        #     logging.warning('Cannot connect to server. %s', ex)
         running_job_ids = [task_executor.task.id for task_executor in
                                    self.task_slots.tasks()]
         res = self.client.heartbeat(running_job_ids=running_job_ids)
@@ -288,29 +240,6 @@ class Executor:
             self.ioloop.call_later(0, self.check_task)
 
     def register_node(self):
-        # if self.custom_ssl_cert and \
-        #         self.service_base.startswith('https') and \
-        #         not os.path.exists('keys/ca.crt'):
-        #     httpclient = AsyncHTTPClient(force_instance=True)
-        #     cacertrequest = HTTPRequest(urljoin(self.service_base, 'ca.crt'),
-        #                                 validate_cert=False)
-        #     try:
-        #         cacertresponse = yield httpclient.fetch(cacertrequest)
-        #         if not os.path.exists('keys'):
-        #             os.mkdir('keys')
-        #         open('keys/ca.crt', 'wb').write(cacertresponse.body)
-        #     except HTTPError:
-        #         LOGGER.info('Custom ca cert retrieve failed.')
-        # try:
-        #
-        #     node_id = yield self.httpclient.node_online(self.tags)
-        #     self.status = EXECUTOR_STATUS_ONLINE
-        #     self.node_id = node_id
-        #     LOGGER.info('node %d registered', self.node_id)
-        # except URLError as ex:
-        #     logging.warning('Cannot connect to server, %s', ex)
-        # except socket.error as ex:
-        #     logging.warning('Cannot connect to server, %s', ex)
         self.client.login()
         self.status = EXECUTOR_STATUS_ONLINE
         self.node_id = self.client._node_id
