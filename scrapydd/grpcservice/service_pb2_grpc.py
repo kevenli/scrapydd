@@ -30,6 +30,11 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionResponse.FromString,
         )
+    self.GetNodeSessionJobEgg = channel.unary_stream(
+        '/NodeService/GetNodeSessionJobEgg',
+        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.SerializeToString,
+        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.DataChunk.FromString,
+        )
     self.Heartbeat = channel.unary_unary(
         '/NodeService/Heartbeat',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatRequest.SerializeToString,
@@ -77,6 +82,13 @@ class NodeServiceServicer(object):
     raise NotImplementedError('Method not implemented!')
 
   def HeartbeatNodeSession(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
+  def GetNodeSessionJobEgg(self, request, context):
     # missing associated documentation comment in .proto file
     pass
     context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -135,6 +147,11 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.HeartbeatNodeSession,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionResponse.SerializeToString,
+      ),
+      'GetNodeSessionJobEgg': grpc.unary_stream_rpc_method_handler(
+          servicer.GetNodeSessionJobEgg,
+          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.FromString,
+          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.DataChunk.SerializeToString,
       ),
       'Heartbeat': grpc.unary_unary_rpc_method_handler(
           servicer.Heartbeat,

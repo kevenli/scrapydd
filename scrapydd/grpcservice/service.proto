@@ -10,15 +10,14 @@ service NodeService {
     rpc HeartbeatNodeSession(HeartbeatNodeSessionRequest)
         returns (HeartbeatNodeSessionResponse);
 
+    rpc GetNodeSessionJobEgg(GetNodeSessionJobEggRequest)
+        returns (stream DataChunk);
+
     rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
     rpc GetNextJob(GetNextJobRequest) returns (GetNextJobResponse);
     rpc GetJob(GetJobRequest) returns (GetJobResponse);
     rpc GetEgg(GetJobEggRequest) returns (GetJobEggRequest);
     rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
-
-
-
-
 }
 
 message Node {
@@ -103,3 +102,10 @@ message HeartbeatNodeSessionResponse {
     bool new_job_available = 2;
 }
 
+message GetNodeSessionJobEggRequest{
+    string name = 1;
+}
+
+message DataChunk {
+    bytes data = 1;
+}

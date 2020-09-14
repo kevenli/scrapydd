@@ -267,21 +267,6 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
         response = service_pb2.NodeSession()
         with session_scope() as session:
             node_id = request.node_session.node_id
-            # token = request.token
-            # if token:
-            #     try:
-            #         node = self._node_manager.get_node_by_token(session, token)
-            #     except nodes.NodeKeyNotFoundException:
-            #         context.set_code(grpc.StatusCode.UNAUTHENTICATED)
-            #         context.set_details('Anonymous node is not allowed.')
-            #         return response
-            #
-            #     if node is None:
-            #         context.set_code(grpc.StatusCode.UNAUTHENTICATED)
-            #         context.set_details('Invalid token')
-            #         return response
-            #
-            #     node_id = node.id
             remote_ip = context.peer()
             node_manager = self._node_manager
             try:
@@ -309,6 +294,34 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             logger.info('Node %s logged in, session_id: %s',
                         node_session.node_id, node_session.id)
             return response
+
+    async def GetNodeSessionJobEgg(self, request, context):
+        resource_name = request.name
+        m = re.search(r'nodeSessions/(\d+)/jobs/(\w+)/egg', resource_name)
+        node_session_id = int(m.group(1))
+        job_id = m.group(2)
+        with session_scope() as session:
+            node_session = session.query(NodeSession).get(node_session_id)
+            job = session.query(SpiderExecutionQueue) \
+                .filter_by(id=job_id) \
+                .first()
+            if not job:
+                context.set_code(grpc.StatusCode.NOT_FOUND)
+                context.set_details('Job not found.')
+                return
+
+            if job.node_id != node_session.node_id:
+                context.set_code(grpc.StatusCode.NOT_FOUND)
+                context.set_details('Job not found.')
+                return
+
+            f_egg = self._project_manager.get_job_egg(session, job)
+            buffer_size = 8192
+            read_buffer = f_egg.read(buffer_size)
+            while read_buffer:
+                yield service_pb2.DataChunk(data=read_buffer)
+                read_buffer = f_egg.read(buffer_size)
+            f_egg.close()
 
 
 def start(node_manager=None, scheduler_manager=None, project_manager=None):

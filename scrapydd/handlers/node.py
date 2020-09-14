@@ -501,7 +501,7 @@ class NodeSessionListHandler(NodeApiBaseHandler):
     @node_authenticated
     def post(self):
         node = self.current_user
-        node_id = int(self.get_argument('node_id', 0))
+        node_id = int(self.get_argument('node_id') or 0)
         if node.id and node.id != node_id:
             raise HTTPError(400, 'invalid node_id')
         session = self.session
@@ -753,6 +753,7 @@ class NodeSessionJobEggHandler(NodeApiBaseHandler):
             raise tornado.web.HTTPError(404)
 
         f_egg = self.project_manager.get_job_egg(self.session, job)
+        self.set_header('content-type', 'application/octet-stream')
         self.write(f_egg.read())
 
 

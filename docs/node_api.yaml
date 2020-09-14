@@ -124,6 +124,29 @@ paths:
                       type: string
         401:
           description: Unauthenticated request
+  /nodeSessions/{node_session_id}/jobs/{job_id}/egg:
+    parameters:
+      - in: path
+        name: ndoe_session_id
+        schema:
+          type: integer
+          format: int64
+      - in: path
+        name: job_id
+        schema:
+          type: string
+    get:
+      description: Get NodeSession's job egg file
+      responses:
+        200:
+          description: The egg binary file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+
 components:
   schemas:
     Node:

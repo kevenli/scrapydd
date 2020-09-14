@@ -152,7 +152,7 @@ class NodeManager():
         :param node: [Node, int]
         :return: [int] node id
         """
-        if node is None:
+        if not node:
             return None
 
         if isinstance(node, Node):
