@@ -346,6 +346,7 @@ class NodeGrpcClient:
         try:
             response = self._node_stub.CreateNodeSession(request)
         except grpc.RpcError as ex:
+            logger.debug(ex)
             if ex.code() == grpc.StatusCode.UNAUTHENTICATED:
                 raise LoginFailedException()
             raise
@@ -358,13 +359,13 @@ class NodeGrpcClient:
         self._session_id = session_id
 
     def heartbeat(self, running_job_ids: None):
-        request = service_pb2.HeartbeatRequest()
-        request.session_id = str(self._session_id)
+        request = service_pb2.HeartbeatNodeSessionRequest()
+        request.name = 'nodeSessions/%s' % self._session_id
         if running_job_ids:
             for running_job_id in running_job_ids:
                 request.running_job_ids.append(running_job_id)
         try:
-            response = self._node_stub.Heartbeat(request)
+            response = self._node_stub.HeartbeatNodeSession(request)
         except grpc.RpcError as ex:
             if ex.code() in (grpc.StatusCode.UNAUTHENTICATED,
                              grpc.StatusCode.NOT_FOUND):
@@ -388,8 +389,19 @@ class NodeGrpcClient:
         task = SpiderTask()
         task.id = response.jobId
         task.figure = json.loads(response.figure)
-        task.package = BytesIO(response.package)
+        # task.package = BytesIO(response.package)
         return task
+
+    def get_job_egg(self, job_id):
+        request = service_pb2.GetNodeSessionJobEggRequest()
+        request.name = 'nodeSessions/%s/jobs/%s/egg' % (
+        self._session_id, job_id)
+        buffer = BytesIO()
+        for chunk in self._node_stub.GetNodeSessionJobEgg(request):
+            buffer.write(chunk.data)
+        buffer.seek(0)
+        logger.debug('download job egg complete.')
+        return buffer
 
     def complete_job(self, job_id, status='success', items_file=None,
                      logs_file=None):
