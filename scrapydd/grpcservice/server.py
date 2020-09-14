@@ -56,57 +56,6 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             if key == 'x-node-id':
                 return int(value)
 
-    async def Heartbeat(self, request: service_pb2.HeartbeatRequest, context):
-        """
-
-        :param request:
-        :param context:
-        :return:
-
-
-            possible exceptions:
-                NodeSession not found (404 NOT_FOUND):
-                    The specified NodeSession according to the session_id
-                    parameter is not found.
-
-                Node not found (404 NOT_FOUND):
-                    A Node corresponding to the NodeSession is None, this may
-                    be caused by manually deleted by the admin user.
-
-                Token invalid (401 UNAUTHENTICATED):
-                    The token provided in Headers is invalid or is not
-                    correctly match the session or node.
-
-        """
-        with session_scope() as session:
-            session_id = request.session_id
-            response = service_pb2.HeartbeatResponse()
-            node_session = session.query(NodeSession).get(session_id)
-            if node_session is None:
-                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
-                context.set_details('Session not found.')
-                return response
-            node_id = node_session.node_id
-            logger.debug('heartbeat, node: %s, session: %s', node_id,
-                         node_session.id)
-            has_task = self._scheduler_manager.has_task(node_id)
-            try:
-                self._node_manager.node_session_heartbeat(session,
-                                                          node_session.id)
-                running_job_ids = request.running_job_ids
-                killing_jobs = list(
-                    self._scheduler_manager.jobs_running(node_id,
-                                                         running_job_ids))
-
-                response.new_job_available = has_task
-                for killing_job in killing_jobs:
-                    response.kill_job_ids.append(killing_job)
-            except NodeExpired:
-                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
-                context.set_details('Node expired.')
-                return response
-            return response
-
     async def HeartbeatNodeSession(self,
                                    request: service_pb2.HeartbeatNodeSessionRequest,
                                    context):

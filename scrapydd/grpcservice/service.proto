@@ -13,10 +13,7 @@ service NodeService {
     rpc GetNodeSessionJobEgg(GetNodeSessionJobEggRequest)
         returns (stream DataChunk);
 
-    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
     rpc GetNextJob(GetNextJobRequest) returns (GetNextJobResponse);
-    rpc GetJob(GetJobRequest) returns (GetJobResponse);
-    rpc GetEgg(GetJobEggRequest) returns (GetJobEggRequest);
     rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
 }
 
@@ -35,16 +32,6 @@ message NodeSession {
     int64 node_id = 3;
 }
 
-message HeartbeatRequest{
-    string session_id = 1;
-    repeated string running_job_ids = 2;
-}
-
-message HeartbeatResponse{
-    repeated string kill_job_ids = 1;
-    bool new_job_available = 2;
-}
-
 message GetNextJobRequest {
     string session_id = 1;
 }
@@ -53,22 +40,6 @@ message GetNextJobResponse {
     string jobId = 1;
     string figure = 2;
     bytes package = 3;
-}
-
-message GetJobRequest {
-
-}
-
-message GetJobResponse {
-
-}
-
-message GetJobEggRequest{
-
-}
-
-message GetJobEggResponse{
-
 }
 
 message CompleteJobRequest{

@@ -649,6 +649,42 @@ class NodeSessionInstanceNextjobHandler(NodeApiBaseHandler):
         return self.write(json.dumps(response_data))
 
 
+class ObtainNodeSessionJobHandler(NodeApiBaseHandler):
+    @authenticated
+    def post(self, node_session_id):
+        node_session = self.get_node_session(node_session_id)
+        session = self.session
+        next_task = self.node_manager.node_get_next_job(session,
+                                                        node_session.node)
+        if not next_task:
+            return self.set_status(404, 'No job available.')
+
+        spider = session.query(Spider).get(next_task.spider_id)
+        if not spider:
+            LOGGER.error('Task %s has not spider, deleting.',
+                         next_task.id)
+            session.query(SpiderExecutionQueue) \
+                .filter_by(id=next_task.id) \
+                .delete()
+            return self.set_status(404, 'No job available.')
+
+        project = spider.project
+        if not project:
+            LOGGER.error('Task %s has not project, deleting.',
+                         next_task.id)
+            session.query(SpiderExecutionQueue) \
+                .filter_by(id=next_task.id) \
+                .delete()
+            return self.set_status(404, 'No job available.')
+
+        figure = self.project_manager.get_job_figure(session, next_task)
+        task = {
+            'task_id': next_task.id,
+            'figure': figure.to_dict(),
+        }
+        return self.send_json(task)
+
+
 class NodeSessionJobInstanceHandler(NodeApiBaseHandler):
     @authenticated
     def patch(self, node_session_id, job_id):
@@ -761,6 +797,7 @@ url_patterns = [
     ('/v1/nodeSessions', NodeSessionListHandler),
     (r'/v1/nodeSessions/(\w+):heartbeat', NodeSessionInstanceHeartbeatHandler),
     (r'/v1/nodeSessions/(\w+):nextjob', NodeSessionInstanceNextjobHandler),
+    (r'/v1/nodeSessions/(\w+)/jobs:obtain', ObtainNodeSessionJobHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)/egg', NodeSessionJobEggHandler),
     (r'/v1/nodes$', NodeCollectionHandler),

@@ -35,11 +35,6 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.DataChunk.FromString,
         )
-    self.Heartbeat = channel.unary_unary(
-        '/NodeService/Heartbeat',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatResponse.FromString,
-        )
     self.GetNextJob = channel.unary_unary(
         '/NodeService/GetNextJob',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobRequest.SerializeToString,
@@ -89,13 +84,6 @@ class NodeServiceServicer(object):
     raise NotImplementedError('Method not implemented!')
 
   def GetNodeSessionJobEgg(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
-  def Heartbeat(self, request, context):
     # missing associated documentation comment in .proto file
     pass
     context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -152,11 +140,6 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.GetNodeSessionJobEgg,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.DataChunk.SerializeToString,
-      ),
-      'Heartbeat': grpc.unary_unary_rpc_method_handler(
-          servicer.Heartbeat,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatResponse.SerializeToString,
       ),
       'GetNextJob': grpc.unary_unary_rpc_method_handler(
           servicer.GetNextJob,

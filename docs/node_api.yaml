@@ -124,19 +124,33 @@ paths:
                       type: string
         401:
           description: Unauthenticated request
+  /nodeSessions/{node_session_id}/jobs:obtain:
+    post:
+      operationId: ObtainNodeSessionJob
+      description: Pull a new job which current Node is qualified to run.
+      responses:
+        200:
+          description: new job obtained
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeSessionJob"
+        404:
+          description: Now job available
   /nodeSessions/{node_session_id}/jobs/{job_id}/egg:
-    parameters:
-      - in: path
-        name: ndoe_session_id
-        schema:
-          type: integer
-          format: int64
-      - in: path
-        name: job_id
-        schema:
-          type: string
     get:
+      operationId: GetNodeSessionJobEgg
       description: Get NodeSession's job egg file
+      parameters:
+        - in: path
+          name: node_session_id
+          schema:
+            type: integer
+            format: int64
+        - in: path
+          name: job_id
+          schema:
+            type: string
       responses:
         200:
           description: The egg binary file
@@ -189,5 +203,16 @@ components:
         node_id:
           type: integer
           format: int64
+    NodeSessionJob:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'nodeSessions/*/jobs/*'
+          readOnly: true
+        figure:
+          type: string
+          description: the job's figure in json format
+
 servers:
   - url: http://localhost:6800/v1
