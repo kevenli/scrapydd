@@ -114,7 +114,6 @@ class NodeRestClient:
     def login(self):
         url = urljoin(self._base_url, '/v1/nodeSessions')
         post_data = {
-            'tags': self._tags or [],
             'node_id': self._node_id
         }
         try:
@@ -306,6 +305,7 @@ class NodeGrpcClient:
         self._app_key = app_key
         self._app_secret = app_secret
         self._tags = tags
+        self._node_id = node_id
         host = urlparts.hostname
         port = urlparts.port
         logger.debug('node_id: %s', node_id)
@@ -331,7 +331,6 @@ class NodeGrpcClient:
         channel = grpc.intercept_channel(channel, self.interceptor)
         self._channel = channel
         self._node_stub = service_pb2_grpc.NodeServiceStub(channel)
-        self._node_id = None
 
     @property
     def node_id(self):
@@ -341,21 +340,18 @@ class NodeGrpcClient:
         pass
 
     def login(self):
-        request = service_pb2.LoginRequest()
-        if self._app_key:
-            request.token = self._app_key
-        if self._tags:
-            for tag in self._tags.split(','):
-                request.tags.append(tag)
+        request = service_pb2.CreateNodeSessionRequest()
+        if self._node_id:
+            request.node_session.node_id = self._node_id
         try:
-            response = self._node_stub.Login(request)
+            response = self._node_stub.CreateNodeSession(request)
         except grpc.RpcError as ex:
             if ex.code() == grpc.StatusCode.UNAUTHENTICATED:
                 raise LoginFailedException()
             raise
 
-        node_id = response.node_session.node.id
-        session_id = response.node_session.id
+        node_id = response.node_id
+        session_id = response.id
         logger.info('node_id %s logged in.', node_id)
 
         self._node_id = node_id
@@ -413,10 +409,9 @@ class NodeGrpcClient:
 
     def register_node(self, node_key):
         request = service_pb2.CreateNodeRequest()
-        request.node.node_key = node_key
-        if self._tags:
-            for tag in self._tags.split(','):
-                request.node.tags.append(tag)
+        request.node_key = node_key
+        for tag in self._tags or []:
+            request.node.tags.append(tag)
 
         res = self._node_stub.CreateNode(request)
         ret = {
@@ -456,7 +451,7 @@ def get_client(config, app_key=None, app_secret=None, node_id=None):
 
     if server_url_parts.scheme in ('grpc', 'grpcs'):
         client = NodeGrpcClient(server_url, tags=tags, app_key=app_key,
-                                app_secret=app_secret)
+                                app_secret=app_secret, node_id=node_id)
         return client
 
     raise Exception('Unsupported scheme: %s' % server_url_parts.scheme)

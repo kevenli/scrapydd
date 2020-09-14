@@ -15,11 +15,6 @@ class NodeServiceStub(object):
     Args:
       channel: A grpc.Channel.
     """
-    self.Login = channel.unary_unary(
-        '/NodeService/Login',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.LoginRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.LoginResponse.FromString,
-        )
     self.Heartbeat = channel.unary_unary(
         '/NodeService/Heartbeat',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatRequest.SerializeToString,
@@ -61,13 +56,6 @@ class NodeServiceServicer(object):
   """import "google/api/annotations.proto";
 
   """
-
-  def Login(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
 
   def Heartbeat(self, request, context):
     # missing associated documentation comment in .proto file
@@ -121,11 +109,6 @@ class NodeServiceServicer(object):
 
 def add_NodeServiceServicer_to_server(servicer, server):
   rpc_method_handlers = {
-      'Login': grpc.unary_unary_rpc_method_handler(
-          servicer.Login,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.LoginRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.LoginResponse.SerializeToString,
-      ),
       'Heartbeat': grpc.unary_unary_rpc_method_handler(
           servicer.Heartbeat,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatRequest.FromString,

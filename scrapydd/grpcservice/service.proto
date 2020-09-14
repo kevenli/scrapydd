@@ -3,7 +3,6 @@ syntax = "proto3";
 // import "google/api/annotations.proto";
 
 service NodeService {
-    rpc Login(LoginRequest) returns (LoginResponse);
     rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
     rpc GetNextJob(GetNextJobRequest) returns (GetNextJobResponse);
     rpc GetJob(GetJobRequest) returns (GetJobResponse);
@@ -13,11 +12,6 @@ service NodeService {
     rpc CreateNodeSession(CreateNodeSessionRequest) returns (NodeSession);
 
     rpc CreateNode(CreateNodeRequest) returns (Node);
-}
-
-message LoginRequest {
-    string token = 1;
-    repeated string tags = 2;
 }
 
 message Node {
@@ -33,10 +27,6 @@ message NodeSession {
     string name = 1;
     int64 id = 2;
     int64 node_id = 3;
-}
-
-message LoginResponse {
-    NodeSession node_session = 1;
 }
 
 message HeartbeatRequest{
