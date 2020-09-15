@@ -136,7 +136,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/NodeSessionJob"
         404:
-          description: Now job available
+          description: No job available
+        401:
+          description: Authentication failed or NodeSession is not existing.
   /nodeSessions/{node_session_id}/jobs/{job_id}/egg:
     get:
       operationId: GetNodeSessionJobEgg

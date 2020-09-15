@@ -10,6 +10,9 @@ service NodeService {
     rpc HeartbeatNodeSession(HeartbeatNodeSessionRequest)
         returns (HeartbeatNodeSessionResponse);
 
+    rpc ObtainNodeSessionJob(ObtainNodeSessionJobRequest)
+        returns (NodeSessionJob);
+
     rpc GetNodeSessionJobEgg(GetNodeSessionJobEggRequest)
         returns (stream DataChunk);
 
@@ -30,6 +33,16 @@ message NodeSession {
     string name = 1;
     int64 id = 2;
     int64 node_id = 3;
+}
+
+message ObtainNodeSessionJobRequest {
+    string name = 1;
+}
+
+message NodeSessionJob {
+    string name = 1;
+    string id = 2;
+    string figure = 3;
 }
 
 message GetNextJobRequest {

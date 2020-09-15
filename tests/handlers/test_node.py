@@ -608,6 +608,13 @@ class ObtainNodeSessionJobHandlerTest(NodeTest):
             res_data = json.loads(res.body)
             self.assertIsNotNone(res_data['name'])
 
+            # obtain one more
+            # this time, there is no job available, should return 404
+            res = self.fetch(
+                '/v1/nodeSessions/%s/jobs:obtain' % node_session.id,
+                method='POST', body='')
+            self.assertEqual(404, res.code)
+
             project_manager.delete_project(user.id, project.id)
 
 

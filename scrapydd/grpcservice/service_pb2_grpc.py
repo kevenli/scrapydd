@@ -30,6 +30,11 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionResponse.FromString,
         )
+    self.ObtainNodeSessionJob = channel.unary_unary(
+        '/NodeService/ObtainNodeSessionJob',
+        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.ObtainNodeSessionJobRequest.SerializeToString,
+        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSessionJob.FromString,
+        )
     self.GetNodeSessionJobEgg = channel.unary_stream(
         '/NodeService/GetNodeSessionJobEgg',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.SerializeToString,
@@ -39,16 +44,6 @@ class NodeServiceStub(object):
         '/NodeService/GetNextJob',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobResponse.FromString,
-        )
-    self.GetJob = channel.unary_unary(
-        '/NodeService/GetJob',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetJobRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetJobResponse.FromString,
-        )
-    self.GetEgg = channel.unary_unary(
-        '/NodeService/GetEgg',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetJobEggRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetJobEggRequest.FromString,
         )
     self.CompleteJob = channel.unary_unary(
         '/NodeService/CompleteJob',
@@ -83,6 +78,13 @@ class NodeServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def ObtainNodeSessionJob(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
   def GetNodeSessionJobEgg(self, request, context):
     # missing associated documentation comment in .proto file
     pass
@@ -91,20 +93,6 @@ class NodeServiceServicer(object):
     raise NotImplementedError('Method not implemented!')
 
   def GetNextJob(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
-  def GetJob(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
-  def GetEgg(self, request, context):
     # missing associated documentation comment in .proto file
     pass
     context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -136,6 +124,11 @@ def add_NodeServiceServicer_to_server(servicer, server):
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.HeartbeatNodeSessionResponse.SerializeToString,
       ),
+      'ObtainNodeSessionJob': grpc.unary_unary_rpc_method_handler(
+          servicer.ObtainNodeSessionJob,
+          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.ObtainNodeSessionJobRequest.FromString,
+          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.NodeSessionJob.SerializeToString,
+      ),
       'GetNodeSessionJobEgg': grpc.unary_stream_rpc_method_handler(
           servicer.GetNodeSessionJobEgg,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.FromString,
@@ -145,16 +138,6 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.GetNextJob,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobResponse.SerializeToString,
-      ),
-      'GetJob': grpc.unary_unary_rpc_method_handler(
-          servicer.GetJob,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetJobRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetJobResponse.SerializeToString,
-      ),
-      'GetEgg': grpc.unary_unary_rpc_method_handler(
-          servicer.GetEgg,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetJobEggRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetJobEggRequest.SerializeToString,
       ),
       'CompleteJob': grpc.unary_unary_rpc_method_handler(
           servicer.CompleteJob,
