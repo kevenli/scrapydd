@@ -18,7 +18,7 @@ from .workspace import RunnerFactory, DictSpiderSettings
 from .exceptions import ProcessFailed
 from .client import get_client, NoJobAvailable
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 TASK_STATUS_SUCCESS = 'success'
 TASK_STATUS_FAIL = 'fail'
@@ -122,7 +122,7 @@ class Executor:
                                                 config.getint('server_port'))
         self.service_base = server_base
         self.keep_job_files = config.getboolean('debug', False)
-        LOGGER.debug('keep_job_files %s', self.keep_job_files)
+        logger.debug('keep_job_files %s', self.keep_job_files)
 
         node_key = None
         secret_key = None
@@ -159,7 +159,7 @@ class Executor:
         for job_id in res['kill_job_ids'] or []:
             task_to_kill = self.task_slots.get_task(job_id)
             if task_to_kill:
-                LOGGER.info('%s', task_to_kill)
+                logger.info('%s', task_to_kill)
                 task_to_kill.kill()
                 self.task_slots.remove_task(task_to_kill)
 
@@ -182,9 +182,9 @@ class Executor:
             task = self.client.get_next_job()
             self.on_new_task_reach(task)
         except NoJobAvailable as ex:
-            LOGGER.warn('NoJobAvailable')
+            logger.warn('NoJobAvailable')
         except Exception as ex:
-            LOGGER.error(ex)
+            logger.error(ex)
 
     def execute_task(self, task):
         package_egg = self.client.get_job_egg(task.id)
@@ -244,7 +244,7 @@ class TaskExecutor:
     @gen.coroutine
     def execute(self):
         try:
-            LOGGER.info('start fetch spider egg.')
+            logger.info('start fetch spider egg.')
             runner = self._runner_factory.build(self.egg_downloader)
             self._runner = runner
             crawl_result = yield runner.crawl(self._spider_settings)
@@ -252,18 +252,18 @@ class TaskExecutor:
             self.output_file = crawl_result.crawl_logfile
             result = self.complete(0)
         except ProcessFailed as ex:
-            LOGGER.warning('Process Failed when executing task %s: %s',
+            logger.warning('Process Failed when executing task %s: %s',
                            self.task.id, ex)
             error_log = ex.message
             if ex.std_output:
-                LOGGER.warning(ex.std_output)
+                logger.warning(ex.std_output)
                 error_log += ex.std_output
             if ex.err_output:
-                LOGGER.warning(ex.err_output)
+                logger.warning(ex.err_output)
                 error_log += ex.err_output
             result = self.complete_with_error(error_log)
         except Exception as ex:
-            LOGGER.error('Error when executing task %s: %s', self.task.id, ex)
+            logger.error('Error when executing task %s: %s', self.task.id, ex)
             error_log = str(ex)
             result = self.complete_with_error(error_log)
         raise gen.Return(result)
@@ -277,7 +277,7 @@ class TaskExecutor:
         return self.result()
 
     def complete_with_error(self, error_message):
-        LOGGER.debug(error_message)
+        logger.debug(error_message)
         self._f_output.write(error_message)
         self._f_output.close()
         self.ret_code = 1
@@ -285,7 +285,7 @@ class TaskExecutor:
 
     def __del__(self):
         if not self.keep_files:
-            LOGGER.debug('delete task executor for task %s', self.task.id)
+            logger.debug('delete task executor for task %s', self.task.id)
             if self.workspace_dir and os.path.exists(self.workspace_dir):
                 shutil.rmtree(self.workspace_dir)
             if self._runner:
