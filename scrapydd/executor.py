@@ -249,27 +249,6 @@ class Executor:
             task_executor = self.execute_task(task)
             self.task_slots.put_task(task_executor)
 
-    @staticmethod
-    def parse_task_data(response_data):
-        task = SpiderTask()
-        task.id = response_data['data']['task']['task_id']
-        task.spider_id = response_data['data']['task']['spider_id']
-        task.project_name = response_data['data']['task']['project_name']
-        task.project_version = response_data['data']['task']['version']
-        task.spider_name = response_data['data']['task']['spider_name']
-        if 'extra_requirements' in response_data['data']['task'] and \
-                response_data['data']['task']['extra_requirements']:
-            task.extra_requirements = response_data['data']['task']['extra_requirements']
-        if 'spider_parameters' in response_data['data']['task']:
-            task.spider_parameters = response_data['data']['task'][
-                'spider_parameters']
-        else:
-            task.spider_parameters = {}
-        task.settings = response_data['data']
-        if 'figure' in response_data['data']['task']:
-            task.figure = response_data['data']['task']['figure']
-        return task
-
     @coroutine
     def get_next_task(self):
         try:
@@ -281,29 +260,13 @@ class Executor:
             LOGGER.error(ex)
 
     def execute_task(self, task):
-        egg_downloader = ProjectEggDownloader(service_base=self.service_base,
-                                              client=self.httpclient)
-        executor = TaskExecutor(task, egg_downloader=egg_downloader,
+        package_egg = self.client.get_job_egg(task.id)
+        executor = TaskExecutor(task, egg_downloader=package_egg,
                                 runner_factory=self.runner_factory,
                                 keep_files=self.keep_job_files)
-        pid = None
         future = executor.execute()
-        self.post_start_task(task, pid)
-        executor.on_subprocess_start = self.post_start_task
         self.ioloop.add_future(future, self.task_finished)
         return executor
-
-    @coroutine
-    def post_start_task(self, task, pid):
-        url = urljoin(self.service_base, '/jobs/%s/start' % task.id)
-        post_data = urlencode({'pid': pid or ''})
-        try:
-            request = HTTPRequest(url=url, method='POST', body=post_data)
-            yield self.httpclient.fetch(request)
-        except URLError as ex:
-            LOGGER.error('Error when post_task_task: %s', ex)
-        except HTTPError as ex:
-            LOGGER.error('Error when post_task_task: %s', ex)
 
     def complete_task(self, task_executor, status):
         """
@@ -313,69 +276,6 @@ class Executor:
                                  items_file=task_executor.items_file,
                                  logs_file=task_executor.output_file)
         self.task_slots.remove_task(task_executor)
-        # url = urljoin(self.service_base, '/executing/complete')
-        #
-        # log_file = open(task_executor.output_file, 'rb')
-        #
-        # post_data = {
-        #     'task_id': task_executor.task.id,
-        #     'status': status,
-        #     'log': log_file,
-        # }
-        #
-        # items_file = None
-        # if task_executor.items_file and \
-        #         os.path.exists(task_executor.items_file):
-        #     post_data['items'] = items_file = open(task_executor.items_file,
-        #                                            "rb")
-        #     if LOGGER.isEnabledFor(logging.DEBUG):
-        #         item_file_size = os.path.getsize(task_executor.items_file)
-        #         LOGGER.debug('item file size : %d', item_file_size)
-        # LOGGER.debug(post_data)
-        # datagen, headers = multipart_encode(post_data)
-        # headers['X-DD-Nodeid'] = str(self.node_id)
-        # body_producer = MultipartRequestBodyProducer(datagen)
-        # request = HTTPRequest(url, method='POST', headers=headers,
-        #                       body_producer=body_producer)
-        # client = self.httpclient
-        # future = client.fetch(request)
-        # self.ioloop.add_future(future, self.complete_task_done(task_executor,
-        #                                                        log_file,
-        #                                                        items_file))
-        # LOGGER.info('task %s finished', task_executor.task.id)
-
-    def complete_task_done(self, task_executor, log_file, items_file):
-        def complete_task_done_f(future):
-            """
-            The callback of complete job request, if socket error occurred,
-            retry commiting complete request in 10 seconds.
-            If request is completed successfully, remove task from slots.
-            Always close stream files.
-            @type future: Future
-            :return:
-            """
-            response = future.result()
-            LOGGER.debug(response)
-            if log_file:
-                log_file.close()
-            if items_file:
-                items_file.close()
-            if response.error and isinstance(response.error, socket.error):
-                status = TASK_STATUS_SUCCESS if task_executor.ret_code == 0 \
-                    else TASK_STATUS_FAIL
-                self.ioloop.call_later(10, self.complete_task, task_executor,
-                                       status)
-                LOGGER.warning('Socket error when completing job, retry in '
-                               '10 seconds.')
-                return
-
-            if response.error:
-                LOGGER.warning('Error when post task complete request: %s',
-                               response.error)
-            self.task_slots.remove_task(task_executor)
-            LOGGER.debug('complete_task_done')
-
-        return complete_task_done_f
 
     def task_finished(self, future):
         task_executor = future.result()
@@ -418,11 +318,8 @@ class TaskExecutor:
     def execute(self):
         try:
             LOGGER.info('start fetch spider egg.')
-            downloaded_egg = yield self.egg_downloader.download_egg_future(
-                self.task.id)
-            with open(downloaded_egg, 'rb') as egg_f:
-                runner = self._runner_factory.build(egg_f)
-                self._runner = runner
+            runner = self._runner_factory.build(self.egg_downloader)
+            self._runner = runner
             crawl_result = yield runner.crawl(self._spider_settings)
             self.items_file = crawl_result.items_file
             self.output_file = crawl_result.crawl_logfile
@@ -472,44 +369,3 @@ class TaskExecutor:
         if not self._f_output.closed:
             self._f_output.write("Received a kill command, stopping spider.")
         self._runner.kill()
-
-
-class ProjectEggDownloader:
-    def __init__(self, service_base, client=None):
-        self.download_path = None
-        self.service_base = service_base
-        if client is None:
-            client = AsyncHTTPClient()
-        self.client = client
-        self._fd = None
-
-    def download_egg_future(self, job_id):
-        ret_future = Future()
-
-        self.download_path = tempfile.mktemp()
-        self._fd = open(self.download_path, 'wb')
-
-        LOGGER.debug('begin download egg.')
-        egg_request_url = urljoin(self.service_base, '/jobs/%s/egg' % job_id)
-        request = HTTPRequest(egg_request_url,
-                              streaming_callback=self._handle_chunk)
-        client = self.client
-
-        def done_callback(future):
-            self._fd.close()
-            ex = future.exception()
-            if ex:
-                return ret_future.set_exception(ex)
-
-            return ret_future.set_result(self.download_path)
-
-        client.fetch(request).add_done_callback(done_callback)
-        return ret_future
-
-    def _handle_chunk(self, chunk):
-        self._fd.write(chunk)
-        self._fd.flush()
-
-    def __del__(self):
-        if os.path.exists(self.download_path):
-            os.remove(self.download_path)
