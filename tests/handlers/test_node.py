@@ -619,7 +619,7 @@ class ObtainNodeSessionJobHandlerTest(NodeTest):
             project_manager.delete_project(user.id, project.id)
 
 
-class CompoleteNodeSessionJobHandlerTest(NodeTest):
+class CompleteNodeSessionJobHandlerTest(NodeTest):
     def test_post(self):
         with session_scope() as session:
             user = self.get_user()

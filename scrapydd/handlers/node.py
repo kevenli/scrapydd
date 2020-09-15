@@ -777,7 +777,7 @@ class NodeSessionJobEggHandler(NodeApiBaseHandler):
         self.write(f_egg.read())
 
 
-class CompoleteNodeSessionJobHandler(NodeApiBaseHandler):
+class CompleteNodeSessionJobHandler(NodeApiBaseHandler):
     @authenticated
     def post(self, node_session_id, job_id):
         node_session_id = int(node_session_id)
@@ -831,7 +831,6 @@ class CompoleteNodeSessionJobHandler(NodeApiBaseHandler):
         except KeyError:
             pass
 
-
         job.status = status_int
         job.update_time = datetime.datetime.now()
         historical_job = scheduler_manager.job_finished(job,
@@ -850,7 +849,7 @@ url_patterns = [
     (r'/v1/nodeSessions/(\w+)/jobs:obtain', ObtainNodeSessionJobHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)/egg', NodeSessionJobEggHandler),
-    (r'/v1/nodeSessions/(\w+)/jobs/(\w+):complete', CompoleteNodeSessionJobHandler),
+    (r'/v1/nodeSessions/(\w+)/jobs/(\w+):complete', CompleteNodeSessionJobHandler),
     (r'/v1/nodes$', NodeCollectionHandler),
     (r'/v1/nodes/(\w+)$', NodeInstanceHandler),
 ]
