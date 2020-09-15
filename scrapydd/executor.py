@@ -13,9 +13,8 @@ from urllib.parse import urlparse
 from configparser import ConfigParser
 from threading import Thread
 from tornado.ioloop import IOLoop, PeriodicCallback
-from tornado.gen import coroutine
 from .config import AgentConfig
-from .workspace import RunnerFactory, DictSpiderSettings
+from .workspace import RunnerFactory, DictSpiderSettings, CrawlResult
 from .exceptions import ProcessFailed
 from .client import get_client, NoJobAvailable
 
@@ -149,7 +148,6 @@ class Executor:
 
         self.ioloop.start()
 
-    @coroutine
     def send_heartbeat(self):
         if self.status == EXECUTOR_STATUS_OFFLINE:
             self.register_node()
@@ -181,7 +179,6 @@ class Executor:
         thread = Thread(target=self.run_job, args=[executor])
         thread.start()
 
-    @coroutine
     def get_next_task(self):
         try:
             task = self.client.get_next_job()
