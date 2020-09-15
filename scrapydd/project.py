@@ -16,6 +16,10 @@ from .models import Package
 logger = logging.getLogger(__name__)
 
 
+class SpiderNameAlreadyExist(Exception):
+    pass
+
+
 class ProjectManager:
     def __init__(self, runner_factory,
                  project_storage_dir,
@@ -69,6 +73,18 @@ class ProjectManager:
         session.commit()
         session.refresh(project)
         return project
+
+    def create_spider(self, session, project, spider_name):
+        existing_spiders = session.query(Spider)\
+            .filter_by(project_id=project.id)
+        for existing_spider in existing_spiders:
+            if existing_spider.name == spider_name:
+                raise SpiderNameAlreadyExist()
+
+        spider = Spider(project=project, name=spider_name)
+        session.add(spider)
+        session.commit()
+        return spider
 
 
     async def upload_project_package(self, session, project, f_egg, version,
@@ -221,8 +237,6 @@ class ProjectManager:
                             project_name) -> Project:
         project = session.query(Project).filter_by(owner=user,
                                                    name=project_name).first()
-        if not project:
-            raise ProjectNotFound()
         return project
 
     def get_job_figure(self, session: Session,

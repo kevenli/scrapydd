@@ -679,8 +679,10 @@ class ObtainNodeSessionJobHandler(NodeApiBaseHandler):
 
         figure = self.project_manager.get_job_figure(session, next_task)
         task = {
-            'task_id': next_task.id,
-            'figure': figure.to_dict(),
+            'name': 'nodeSessions/%s/jobs/%s' % (node_session.id,
+                                                 next_task.id),
+            'id': next_task.id,
+            'figure': figure.to_json(),
         }
         return self.send_json(task)
 

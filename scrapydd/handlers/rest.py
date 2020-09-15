@@ -169,6 +169,8 @@ class DeleteProjectHandler(RestBaseHandler):
             project = project_manager.get_project_by_name(
                 session, self.current_user,
                 project_name)
+            if not project:
+                return self.set_status(404, 'project not found.')
 
             project_manager.delete_project(self.current_user.id, project.id)
 
