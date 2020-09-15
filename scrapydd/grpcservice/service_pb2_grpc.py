@@ -40,11 +40,6 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.DataChunk.FromString,
         )
-    self.GetNextJob = channel.unary_unary(
-        '/NodeService/GetNextJob',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobResponse.FromString,
-        )
     self.CompleteJob = channel.unary_unary(
         '/NodeService/CompleteJob',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobRequest.SerializeToString,
@@ -92,13 +87,6 @@ class NodeServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
-  def GetNextJob(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
   def CompleteJob(self, request, context):
     # missing associated documentation comment in .proto file
     pass
@@ -133,11 +121,6 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.GetNodeSessionJobEgg,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.DataChunk.SerializeToString,
-      ),
-      'GetNextJob': grpc.unary_unary_rpc_method_handler(
-          servicer.GetNextJob,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNextJobResponse.SerializeToString,
       ),
       'CompleteJob': grpc.unary_unary_rpc_method_handler(
           servicer.CompleteJob,

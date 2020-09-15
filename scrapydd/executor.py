@@ -25,7 +25,7 @@ from .exceptions import ProcessFailed
 from .security import generate_digest
 from .poster.encode import multipart_encode
 from .poster.streaminghttp import register_openers
-from .client import get_client
+from .client import get_client, NoJobAvailable
 
 LOGGER = logging.getLogger(__name__)
 
@@ -272,20 +272,13 @@ class Executor:
 
     @coroutine
     def get_next_task(self):
-        url = urljoin(self.service_base, '/executing/next_task')
-        post_data = urlencode({'node_id': self.node_id})
-        request = HTTPRequest(url=url, method='POST', body=post_data)
         try:
-            response = yield self.httpclient.fetch(request)
-            response_content = response.body
-            response_data = json.loads(response_content)
-            LOGGER.debug(url)
-            LOGGER.debug(response_content)
-            if response_data['data'] is not None:
-                task = Executor.parse_task_data(response_data)
-                self.on_new_task_reach(task)
-        except URLError:
-            LOGGER.warning('Cannot connect to server')
+            task = self.client.get_next_job()
+            self.on_new_task_reach(task)
+        except NoJobAvailable as ex:
+            LOGGER.warn('NoJobAvailable')
+        except Exception as ex:
+            LOGGER.error(ex)
 
     def execute_task(self, task):
         egg_downloader = ProjectEggDownloader(service_base=self.service_base,
