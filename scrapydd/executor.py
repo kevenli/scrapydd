@@ -309,36 +309,40 @@ class Executor:
         """
         @type task_executor: TaskExecutor
         """
-        url = urljoin(self.service_base, '/executing/complete')
-
-        log_file = open(task_executor.output_file, 'rb')
-
-        post_data = {
-            'task_id': task_executor.task.id,
-            'status': status,
-            'log': log_file,
-        }
-
-        items_file = None
-        if task_executor.items_file and \
-                os.path.exists(task_executor.items_file):
-            post_data['items'] = items_file = open(task_executor.items_file,
-                                                   "rb")
-            if LOGGER.isEnabledFor(logging.DEBUG):
-                item_file_size = os.path.getsize(task_executor.items_file)
-                LOGGER.debug('item file size : %d', item_file_size)
-        LOGGER.debug(post_data)
-        datagen, headers = multipart_encode(post_data)
-        headers['X-DD-Nodeid'] = str(self.node_id)
-        body_producer = MultipartRequestBodyProducer(datagen)
-        request = HTTPRequest(url, method='POST', headers=headers,
-                              body_producer=body_producer)
-        client = self.httpclient
-        future = client.fetch(request)
-        self.ioloop.add_future(future, self.complete_task_done(task_executor,
-                                                               log_file,
-                                                               items_file))
-        LOGGER.info('task %s finished', task_executor.task.id)
+        self.client.complete_job(task_executor.task.id, status,
+                                 items_file=task_executor.items_file,
+                                 logs_file=task_executor.output_file)
+        self.task_slots.remove_task(task_executor)
+        # url = urljoin(self.service_base, '/executing/complete')
+        #
+        # log_file = open(task_executor.output_file, 'rb')
+        #
+        # post_data = {
+        #     'task_id': task_executor.task.id,
+        #     'status': status,
+        #     'log': log_file,
+        # }
+        #
+        # items_file = None
+        # if task_executor.items_file and \
+        #         os.path.exists(task_executor.items_file):
+        #     post_data['items'] = items_file = open(task_executor.items_file,
+        #                                            "rb")
+        #     if LOGGER.isEnabledFor(logging.DEBUG):
+        #         item_file_size = os.path.getsize(task_executor.items_file)
+        #         LOGGER.debug('item file size : %d', item_file_size)
+        # LOGGER.debug(post_data)
+        # datagen, headers = multipart_encode(post_data)
+        # headers['X-DD-Nodeid'] = str(self.node_id)
+        # body_producer = MultipartRequestBodyProducer(datagen)
+        # request = HTTPRequest(url, method='POST', headers=headers,
+        #                       body_producer=body_producer)
+        # client = self.httpclient
+        # future = client.fetch(request)
+        # self.ioloop.add_future(future, self.complete_task_done(task_executor,
+        #                                                        log_file,
+        #                                                        items_file))
+        # LOGGER.info('task %s finished', task_executor.task.id)
 
     def complete_task_done(self, task_executor, log_file, items_file):
         def complete_task_done_f(future):

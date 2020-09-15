@@ -174,12 +174,11 @@ class NodeRestClient:
 
     def complete_job(self, job_id, status='success', items_file=None,
                      logs_file=None):
-        url = urljoin(self._base_url, '/v1/nodeSessions/%s/jobs/%s' % (
-        self._session_id, job_id))
+        url = urljoin(self._base_url,
+                      '/v1/nodeSessions/%s/jobs/%s:complete' % (
+                      self._session_id, job_id))
         post_data = {
-            'task_id': job_id,
             'status': status,
-
         }
         post_files = {}
         f_items = None
@@ -189,10 +188,10 @@ class NodeRestClient:
             post_files['items'] = f_items
         if logs_file:
             f_logs = open(logs_file, 'rb')
-            post_files['log'] = f_logs
+            post_files['logs'] = f_logs
         try:
-            response = self._session.patch(url, data=post_data,
-                                           files=post_files)
+            response = self._session.post(url, data=post_data,
+                                          files=post_files)
             response.raise_for_status()
         finally:
             if f_items:
@@ -403,8 +402,8 @@ class NodeGrpcClient:
 
     def complete_job(self, job_id, status='success', items_file=None,
                      logs_file=None):
-        request = service_pb2.CompleteJobRequest()
-        request.jobId = job_id
+        request = service_pb2.CompleteNodeSessionJobRequest()
+        request.name = 'nodeSessions/%s/jobs/%s' % (self._session_id, job_id)
         request.status = status
         if items_file:
             with open(items_file, 'rb') as f:
@@ -414,7 +413,7 @@ class NodeGrpcClient:
             with open(logs_file, 'rb') as f:
                 request.logs = f.read()
 
-        response = self._node_stub.CompleteJob(request)
+        response = self._node_stub.CompleteNodeSessionJob(request)
         return response
 
     def register_node(self, node_key):
