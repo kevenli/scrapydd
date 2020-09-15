@@ -16,6 +16,9 @@ service NodeService {
     rpc GetNodeSessionJobEgg(GetNodeSessionJobEggRequest)
         returns (stream DataChunk);
 
+    rpc CompleteNodeSessionJob(CompleteNodeSessionJobRequest)
+        returns (CompleteNodeSessionJobResponse);
+
     rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
 }
 
@@ -52,6 +55,17 @@ message CompleteJobRequest{
 }
 
 message CompleteJobResponse{
+
+}
+
+message CompleteNodeSessionJobRequest {
+    string name = 1;
+    string status = 2;
+    bytes logs = 3;
+    bytes items = 4;
+}
+
+message CompleteNodeSessionJobResponse {
 
 }
 

@@ -40,6 +40,11 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.DataChunk.FromString,
         )
+    self.CompleteNodeSessionJob = channel.unary_unary(
+        '/NodeService/CompleteNodeSessionJob',
+        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteNodeSessionJobRequest.SerializeToString,
+        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteNodeSessionJobResponse.FromString,
+        )
     self.CompleteJob = channel.unary_unary(
         '/NodeService/CompleteJob',
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobRequest.SerializeToString,
@@ -87,6 +92,13 @@ class NodeServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def CompleteNodeSessionJob(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
   def CompleteJob(self, request, context):
     # missing associated documentation comment in .proto file
     pass
@@ -121,6 +133,11 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.GetNodeSessionJobEgg,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.GetNodeSessionJobEggRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.DataChunk.SerializeToString,
+      ),
+      'CompleteNodeSessionJob': grpc.unary_unary_rpc_method_handler(
+          servicer.CompleteNodeSessionJob,
+          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteNodeSessionJobRequest.FromString,
+          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteNodeSessionJobResponse.SerializeToString,
       ),
       'CompleteJob': grpc.unary_unary_rpc_method_handler(
           servicer.CompleteJob,

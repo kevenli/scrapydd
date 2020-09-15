@@ -202,6 +202,59 @@ class NodeServicer(service_pb2_grpc.NodeServiceServicer):
             response_data = {'status': 'ok'}
             return response
 
+    async def CompleteNodeSessionJob(self, request, context):
+        resource_name = request.name
+        m = re.search(r'nodeSessions/(\d+)/jobs/(\w+)', resource_name)
+        node_session_id = int(m.group(1))
+        task_id = m.group(2)
+        status = request.status
+
+        response = service_pb2.CompleteNodeSessionJobResponse()
+        if status == 'success':
+            status_int = 2
+        elif status == 'fail':
+            status_int = 3
+        else:
+            logger.warning('invalid job status %s %s', node_id, status)
+            return response
+
+        with session_scope() as session:
+            node_session = session.query(NodeSession).get(node_session_id)
+            if not node_session:
+                context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+                context.set_details('Node session does not exist.')
+                return response
+
+            query = session.query(SpiderExecutionQueue) \
+                .filter(SpiderExecutionQueue.id == task_id,
+                        SpiderExecutionQueue.status.in_([1, 5]))
+
+            job = query.first()
+
+            if job is None:
+                context.set_code(grpc.StatusCode.NOT_FOUND)
+                context.set_details('job not found.')
+                return response
+
+            log_stream = None
+            if request.logs:
+                logger.debug('logs file length %s', len(request.logs))
+                log_stream = BytesIO(request.logs)
+
+            items_stream = None
+            if request.items:
+                logger.debug('items file length %s', len(request.items))
+                items_stream = BytesIO(request.items)
+
+            job.status = status_int
+            job.update_time = datetime.datetime.now()
+            historical_job = self._scheduler_manager.job_finished(job,
+                                                                  log_stream,
+                                                                  items_stream)
+            session.close()
+            logger.info('Job %s completed.', task_id)
+            return response
+
     async def CreateNode(self, request, context):
         session = Session()
         node_manager = self._node_manager
