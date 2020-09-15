@@ -28,10 +28,6 @@ class NodeTest(AppTest):
         self.assertEqual(200, response.code)
         return json.loads(response.body)['id']
 
-    @property
-    def node_manager(self) -> NodeManager:
-        return self._app.settings.get('node_manager')
-
 class NodeSecureTest(NodeTest):
     def setUp(self):
         super(NodeSecureTest, self).setUp()
@@ -592,6 +588,7 @@ class ObtainNodeSessionJobHandlerTest(NodeTest):
             user = self.get_user()
             project_manager = self.project_manager
             scheduler_manager = self.scheduler_manager
+            node_manager = self._app.settings.get('node_manager')
             project_name = 'ObtainNodeSessionJobHandlerTest'
             exist_project = project_manager.get_project_by_name(
                 session, user, project_name)
@@ -601,7 +598,7 @@ class ObtainNodeSessionJobHandlerTest(NodeTest):
             project = project_manager.create_project(session,
                                                           user,
                                                           project_name)
-            node_session = self.node_manager.create_node_session(session)
+            node_session = node_manager.create_node_session(session)
             spider = project_manager.create_spider(session, project, 'test')
             new_job = scheduler_manager.add_spider_task(session, spider)
 
