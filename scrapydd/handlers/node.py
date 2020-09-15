@@ -790,7 +790,7 @@ class CompleteNodeSessionJobHandler(NodeApiBaseHandler):
         elif status == 'fail':
             status_int = 3
         else:
-            self.set_status(401, 'Invalid argument: status.')
+            self.set_status(400, 'Invalid argument: status.')
             return
 
         session = self.session

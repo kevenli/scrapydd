@@ -4,15 +4,16 @@ This module is used by agent to execute spider task.
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
+import asyncio
 import os
 import logging
 import tempfile
 import shutil
 from urllib.parse import urlparse
 from configparser import ConfigParser
+from threading import Thread
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.gen import coroutine
-from tornado import gen
 from .config import AgentConfig
 from .workspace import RunnerFactory, DictSpiderSettings
 from .exceptions import ProcessFailed
@@ -171,10 +172,14 @@ class Executor:
         self.status = EXECUTOR_STATUS_ONLINE
         self.node_id = self.client._node_id
 
-    def on_new_task_reach(self, task):
-        if task is not None:
-            task_executor = self.execute_task(task)
-            self.task_slots.put_task(task_executor)
+    def on_new_task_reach(self, job):
+        package = job.package
+        if not package:
+            package = self.client.get_job_egg(job.id)
+        executor = TaskExecutor(job, package, self.runner_factory)
+        self.task_slots.put_task(executor)
+        thread = Thread(target=self.run_job, args=[executor])
+        thread.start()
 
     @coroutine
     def get_next_task(self):
@@ -195,13 +200,25 @@ class Executor:
         self.ioloop.add_future(future, self.task_finished)
         return executor
 
-    def complete_task(self, task_executor, status):
+    def run_job(self, executor):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        logger.info('start run job %s', executor.task.id)
+        result = loop.run_until_complete(executor.execute())
+        try:
+            self.complete_task(executor, result)
+        except Exception as ex:
+            logger.error(ex)
+            self.task_slots.remove_task(executor)
+
+    def complete_task(self, task_executor, result):
         """
         @type task_executor: TaskExecutor
         """
+        status = 'success' if result.ret_code == 0 else 'fail'
         self.client.complete_job(task_executor.task.id, status,
-                                 items_file=task_executor.items_file,
-                                 logs_file=task_executor.output_file)
+                                 items_file=result.items_file,
+                                 logs_file=result.crawl_logfile)
         self.task_slots.remove_task(task_executor)
 
     def task_finished(self, future):
@@ -241,16 +258,15 @@ class TaskExecutor:
         self.keep_files = keep_files
         self._runner = None
 
-    @gen.coroutine
-    def execute(self):
+    async def execute(self):
         try:
             logger.info('start fetch spider egg.')
             runner = self._runner_factory.build(self.egg_downloader)
             self._runner = runner
-            crawl_result = yield runner.crawl(self._spider_settings)
+            crawl_result = await runner.crawl(self._spider_settings)
             self.items_file = crawl_result.items_file
             self.output_file = crawl_result.crawl_logfile
-            result = self.complete(0)
+            return crawl_result
         except ProcessFailed as ex:
             logger.warning('Process Failed when executing task %s: %s',
                            self.task.id, ex)
@@ -261,12 +277,17 @@ class TaskExecutor:
             if ex.err_output:
                 logger.warning(ex.err_output)
                 error_log += ex.err_output
-            result = self.complete_with_error(error_log)
+            self.complete_with_error(error_log)
+            crawl_result = CrawlResult(1, runner=self)
+            crawl_result.crawl_logfile = self.output_file
+            return crawl_result
         except Exception as ex:
             logger.error('Error when executing task %s: %s', self.task.id, ex)
             error_log = str(ex)
             result = self.complete_with_error(error_log)
-        raise gen.Return(result)
+            crawl_result = CrawlResult(1, runner=self)
+            crawl_result.crawl_logfile = self.output_file
+            return crawl_result
 
     def result(self):
         return self
@@ -284,6 +305,7 @@ class TaskExecutor:
         return self.result()
 
     def __del__(self):
+        self._f_output.close()
         if not self.keep_files:
             logger.debug('delete task executor for task %s', self.task.id)
             if self.workspace_dir and os.path.exists(self.workspace_dir):
