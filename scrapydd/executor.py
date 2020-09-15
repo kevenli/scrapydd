@@ -4,18 +4,17 @@ This module is used by agent to execute spider task.
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
-import json
 import os
 import logging
 import tempfile
 import shutil
-from six.moves.urllib.parse import urlparse, urljoin, urlencode
-from six.moves.configparser import ConfigParser
+from urllib.parse import urlparse
+from configparser import ConfigParser
 from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.gen import coroutine
 from tornado import gen
 from .config import AgentConfig
-from .workspace import RunnerFactory, SpiderSetting, DictSpiderSettings
+from .workspace import RunnerFactory, DictSpiderSettings
 from .exceptions import ProcessFailed
 from .client import get_client, NoJobAvailable
 
