@@ -148,28 +148,20 @@ class NodeRestClient:
 
     def get_next_job(self):
         url = urljoin(self._base_url,
-                      '/v1/nodeSessions/%s:nextjob' % self._session_id)
+                      '/v1/nodeSessions/%s/jobs:obtain' % self._session_id)
         response = self._session.post(url, data={'node_id': self._node_id})
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as ex:
+            if ex.response.status_code == 404:
+                raise NoJobAvailable()
+            if ex.response.status_code == 401:
+                raise NodeExpiredException()
+            raise
         response_data = response.json()
         task = SpiderTask()
-        task.id = response_data['data']['task']['task_id']
-        task.spider_id = response_data['data']['task']['spider_id']
-        task.project_name = response_data['data']['task']['project_name']
-        task.project_version = response_data['data']['task']['version']
-        task.spider_name = response_data['data']['task']['spider_name']
-        if 'extra_requirements' in response_data['data']['task'] and \
-                response_data['data']['task']['extra_requirements']:
-            task.extra_requirements = response_data['data']['task'][
-                'extra_requirements']
-        if 'spider_parameters' in response_data['data']['task']:
-            task.spider_parameters = response_data['data']['task'][
-                'spider_parameters']
-        else:
-            task.spider_parameters = {}
-        task.settings = response_data['data']
-        if 'figure' in response_data['data']['task']:
-            task.figure = response_data['data']['task']['figure']
+        task.id = response_data['id']
+        task.figure = json.loads(response_data['figure'])
         return task
 
     def get_job_egg(self, job_id):
@@ -242,6 +234,10 @@ class LoginFailedException(Exception):
 
     def __str__(self):
         return 'LoginFailedException: %s' % self.message
+
+
+class NoJobAvailable(Exception):
+    pass
 
 
 class _ClientCallDetails(
@@ -380,16 +376,18 @@ class NodeGrpcClient:
         return res_data
 
     def get_next_job(self):
-        request = service_pb2.GetNextJobRequest()
-        request.session_id = str(self._session_id)
-        response = self._node_stub.GetNextJob(request)
-        if not response.jobId:
-            return None
+        request = service_pb2.ObtainNodeSessionJobRequest()
+        request.name = 'nodeSessions/%s/jobs' % self._session_id
+        try:
+            response = self._node_stub.ObtainNodeSessionJob(request)
+        except grpc.RpcError as ex:
+            if ex.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoJobAvailable()
+            raise
 
         task = SpiderTask()
-        task.id = response.jobId
+        task.id = response.id
         task.figure = json.loads(response.figure)
-        # task.package = BytesIO(response.package)
         return task
 
     def get_job_egg(self, job_id):
