@@ -161,8 +161,42 @@ paths:
               schema:
                 type: string
                 format: binary
-
-
+  /nodeSessions/node_session_id/jobs/{job_id}:complete:
+    post:
+      operationId: CompoleteNodeSessionJob
+      description: Complete a job
+      parameters:
+        - in: path
+          name: node_session_id
+          schema:
+            type: integer
+            format: int64
+        - in: path
+          name: job_id
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [success, fail]
+                logs:
+                  type: string
+                  format: binary
+                items:
+                  type: string
+                  format: binary
+      responses:
+        200:
+          description: Success
+        404:
+          description: job not found.
+        401:
+          description: Node session not authenticated, may be expired.
 components:
   schemas:
     Node:

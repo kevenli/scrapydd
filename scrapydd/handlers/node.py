@@ -777,6 +777,72 @@ class NodeSessionJobEggHandler(NodeApiBaseHandler):
         self.write(f_egg.read())
 
 
+class CompoleteNodeSessionJobHandler(NodeApiBaseHandler):
+    @authenticated
+    def post(self, node_session_id, job_id):
+        node_session_id = int(node_session_id)
+        scheduler_manager = self.settings.get('scheduler_manager')
+        status = self.get_body_argument('status')
+
+        task_id = job_id
+        if status == 'success':
+            status_int = 2
+        elif status == 'fail':
+            status_int = 3
+        else:
+            self.set_status(401, 'Invalid argument: status.')
+            return
+
+        session = self.session
+        node_session = self.node_manager.get_node_session(self.session,
+                                                          node_session_id,
+                                                          self.current_user)
+        if not node_session:
+            return self.set_status(401, 'Node session not found.')
+        node_id = node_session.node_id
+        query = session.query(SpiderExecutionQueue) \
+            .filter(SpiderExecutionQueue.id == task_id,
+                    SpiderExecutionQueue.status.in_([1, 5]))
+        # be compatible with old agent version
+        if node_id:
+            query = query.filter(SpiderExecutionQueue.node_id == node_id)
+        else:
+            LOGGER.warning('Agent has not specified node id in '
+                           'complete request, client address: %s.',
+                           self.request.remote_ip)
+        job = query.first()
+
+        if job is None:
+            self.set_status(404, 'Job not found.')
+            session.close()
+            return
+        log_stream = BytesIO()
+        try:
+            logs_file = self.request.files['logs'][0]
+            log_stream = BytesIO(logs_file['body'])
+            log_stream.seek(0)
+        except KeyError:
+            pass
+        items_stream = BytesIO()
+        try:
+            items_file = self.request.files['items'][0]
+            items_stream = BytesIO(items_file['body'])
+            items_stream.seek(0)
+        except KeyError:
+            pass
+
+
+        job.status = status_int
+        job.update_time = datetime.datetime.now()
+        historical_job = scheduler_manager.job_finished(job,
+                                                             log_stream,
+                                                             items_stream)
+        session.close()
+        LOGGER.info('Job %s completed.', task_id)
+        response_data = {'status': 'ok'}
+        self.write(json.dumps(response_data))
+
+
 url_patterns = [
     ('/v1/nodeSessions', NodeSessionListHandler),
     (r'/v1/nodeSessions/(\w+):heartbeat', NodeSessionInstanceHeartbeatHandler),
@@ -784,6 +850,7 @@ url_patterns = [
     (r'/v1/nodeSessions/(\w+)/jobs:obtain', ObtainNodeSessionJobHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)', NodeSessionJobInstanceHandler),
     (r'/v1/nodeSessions/(\w+)/jobs/(\w+)/egg', NodeSessionJobEggHandler),
+    (r'/v1/nodeSessions/(\w+)/jobs/(\w+):complete', CompoleteNodeSessionJobHandler),
     (r'/v1/nodes$', NodeCollectionHandler),
     (r'/v1/nodes/(\w+)$', NodeInstanceHandler),
 ]

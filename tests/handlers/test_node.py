@@ -619,3 +619,39 @@ class ObtainNodeSessionJobHandlerTest(NodeTest):
             project_manager.delete_project(user.id, project.id)
 
 
+class CompoleteNodeSessionJobHandlerTest(NodeTest):
+    def test_post(self):
+        with session_scope() as session:
+            user = self.get_user()
+            project_manager = self.project_manager
+            scheduler_manager = self.scheduler_manager
+            node_manager = self._app.settings.get('node_manager')
+            project_name = 'CompoleteNodeSessionJobHandlerTest'
+            exist_project = project_manager.get_project_by_name(
+                session, user, project_name)
+            if exist_project:
+                project_manager.delete_project(user.id, exist_project.id)
+                session.expunge(exist_project)
+
+            project = project_manager.create_project(session,
+                                                          user,
+                                                          project_name)
+            node_session = node_manager.create_node_session(session)
+            spider = project_manager.create_spider(session, project, 'test')
+            new_job = scheduler_manager.add_spider_task(session, spider)
+
+            res = self.fetch('/v1/nodeSessions/%s/jobs:obtain' % node_session.id,
+                             method='POST', body='')
+            self.assertEqual(200, res.code)
+            res_data = json.loads(res.body)
+            self.assertIsNotNone(res_data['name'])
+            job_id = res_data['id']
+
+            complete_data = {'status': 'success'}
+            complete_res = self.fetch('/v1/nodeSessions/%s/jobs/%s:complete' %
+                                      (node_session.id, job_id),
+                                      method='POST',
+                                      body=urlencode(complete_data))
+            self.assertEqual(200, complete_res.code)
+
+            project_manager.delete_project(user.id, project.id)
