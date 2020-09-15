@@ -7,24 +7,16 @@ This module is used by agent to execute spider task.
 import json
 import os
 import logging
-import socket
 import tempfile
 import shutil
 from six.moves.urllib.parse import urlparse, urljoin, urlencode
-from six.moves.urllib.error import URLError
 from six.moves.configparser import ConfigParser
 from tornado.ioloop import IOLoop, PeriodicCallback
-from tornado.concurrent import Future
 from tornado.gen import coroutine
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError
 from tornado import gen
 from .config import AgentConfig
-from .stream import MultipartRequestBodyProducer
 from .workspace import RunnerFactory, SpiderSetting, DictSpiderSettings
 from .exceptions import ProcessFailed
-from .security import generate_digest
-from .poster.encode import multipart_encode
-from .poster.streaminghttp import register_openers
 from .client import get_client, NoJobAvailable
 
 LOGGER = logging.getLogger(__name__)
@@ -34,49 +26,6 @@ TASK_STATUS_FAIL = 'fail'
 
 EXECUTOR_STATUS_OFFLINE = 0
 EXECUTOR_STATUS_ONLINE = 1
-
-register_openers()
-
-
-class NodeAsyncHTTPClient:
-    def __init__(self, service_base, io_loop=None, force_instance=False,
-                 **kwargs):
-        self.service_base = service_base
-        self.key = kwargs.pop('key', None)
-        self.secret_key = kwargs.pop('secret_key', None)
-        self.node_id = None
-        if io_loop is None:
-            io_loop = IOLoop.current()
-        self.inner_client = AsyncHTTPClient(force_instance=force_instance,
-                                            **kwargs)
-
-    def fetch(self, request):
-        if not isinstance(request, HTTPRequest):
-            request = HTTPRequest(url=request)
-        if self.key and self.secret_key:
-            parsed_url = urlparse(request.url)
-            path = parsed_url.path
-            query = parsed_url.query
-            method = request.method
-            body = request.body or b''
-            digest = generate_digest(self.secret_key, method, path, query,
-                                     body)
-            authorization_header = '%s %s %s' % ('HMAC', self.key, digest)
-            request.headers['Authorization'] = authorization_header
-        if self.node_id:
-            request.headers['X-Dd-Nodeid'] = str(self.node_id)
-
-        return self.inner_client.fetch(request)
-
-    @coroutine
-    def node_online(self, tags):
-        url = urljoin(self.service_base, '/nodes')
-        register_postdata = urlencode({'tags': tags})
-        request = HTTPRequest(url=url, method='POST', body=register_postdata)
-
-        response = yield self.fetch(request)
-        self.node_id = json.loads(response.body)['id']
-        raise gen.Return(self.node_id)
 
 
 class SpiderTask:
@@ -173,23 +122,8 @@ class Executor:
                 server_base = 'http://%s:%d' % (server_base,
                                                 config.getint('server_port'))
         self.service_base = server_base
-        client_cert = config.get('client_cert') or None
-        client_key = config.get('client_key') or None
         self.keep_job_files = config.getboolean('debug', False)
         LOGGER.debug('keep_job_files %s', self.keep_job_files)
-
-        httpclient_defaults = {
-            'request_timeout': config.getfloat('request_timeout', 60)
-        }
-        if client_cert:
-            httpclient_defaults['client_cert'] = client_cert
-        if client_key:
-            httpclient_defaults['client_key'] = client_key
-        if os.path.exists('keys/ca.crt'):
-            self.custom_ssl_cert = True
-            httpclient_defaults['ca_certs'] = 'keys/ca.crt'
-            httpclient_defaults['validate_cert'] = True
-        LOGGER.debug(httpclient_defaults)
 
         node_key = None
         secret_key = None
@@ -200,11 +134,6 @@ class Executor:
             node_key = parser.get('agent', 'node_key')
             secret_key = parser.get('agent', 'secret_key')
             node_id = int(parser.get('agent', 'node_id'))
-
-        self.httpclient = NodeAsyncHTTPClient(self.service_base,
-                                              key=node_key,
-                                              secret_key=secret_key,
-                                              defaults=httpclient_defaults)
         self.client = get_client(config,
                                  app_key=node_key,
                                  app_secret=secret_key,
@@ -242,7 +171,6 @@ class Executor:
         self.client.login()
         self.status = EXECUTOR_STATUS_ONLINE
         self.node_id = self.client._node_id
-        self.httpclient.node_id = self.node_id
 
     def on_new_task_reach(self, task):
         if task is not None:
