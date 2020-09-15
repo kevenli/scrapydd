@@ -659,24 +659,6 @@ class ObtainNodeSessionJobHandler(NodeApiBaseHandler):
         if not next_task:
             return self.set_status(404, 'No job available.')
 
-        spider = session.query(Spider).get(next_task.spider_id)
-        if not spider:
-            LOGGER.error('Task %s has not spider, deleting.',
-                         next_task.id)
-            session.query(SpiderExecutionQueue) \
-                .filter_by(id=next_task.id) \
-                .delete()
-            return self.set_status(404, 'No job available.')
-
-        project = spider.project
-        if not project:
-            LOGGER.error('Task %s has not project, deleting.',
-                         next_task.id)
-            session.query(SpiderExecutionQueue) \
-                .filter_by(id=next_task.id) \
-                .delete()
-            return self.set_status(404, 'No job available.')
-
         figure = self.project_manager.get_job_figure(session, next_task)
         task = {
             'name': 'nodeSessions/%s/jobs/%s' % (node_session.id,

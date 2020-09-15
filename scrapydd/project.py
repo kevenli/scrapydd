@@ -71,7 +71,6 @@ class ProjectManager:
         project.storage_version = self.default_project_storage_version
         session.add(project)
         session.commit()
-        session.refresh(project)
         return project
 
     def create_spider(self, session, project, spider_name):

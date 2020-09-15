@@ -594,6 +594,7 @@ class ObtainNodeSessionJobHandlerTest(NodeTest):
                 session, user, project_name)
             if exist_project:
                 project_manager.delete_project(user.id, exist_project.id)
+                session.expunge(exist_project)
 
             project = project_manager.create_project(session,
                                                           user,
