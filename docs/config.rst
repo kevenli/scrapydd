@@ -40,8 +40,13 @@ Default: ``false``.
 
 enable_authentication
 ~~~~~~~~~~~~~~~~~~~~~
-Whether enable authentication, once this option is on, user need to login to make operation.
-Default: ``true``
+Whether enable authentication, once this option is on, user need to login to
+operate and node can only be used after NodeRegistration_.
+If you are deploying the system on internet, it's STRONGLY RECOMMENDED that
+you turn this to ``true``.
+
+Default: ``false``
+
 
 https_port
 ~~~~~~~~~~~
