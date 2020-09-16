@@ -5,9 +5,8 @@ from scrapydd.grpcservice import service_pb2 as scrapydd_dot_grpcservice_dot_ser
 
 
 class NodeServiceStub(object):
-  """import "google/api/annotations.proto";
-
-  """
+  # missing associated documentation comment in .proto file
+  pass
 
   def __init__(self, channel):
     """Constructor.
@@ -45,17 +44,11 @@ class NodeServiceStub(object):
         request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteNodeSessionJobRequest.SerializeToString,
         response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteNodeSessionJobResponse.FromString,
         )
-    self.CompleteJob = channel.unary_unary(
-        '/NodeService/CompleteJob',
-        request_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobRequest.SerializeToString,
-        response_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobResponse.FromString,
-        )
 
 
 class NodeServiceServicer(object):
-  """import "google/api/annotations.proto";
-
-  """
+  # missing associated documentation comment in .proto file
+  pass
 
   def CreateNode(self, request, context):
     # missing associated documentation comment in .proto file
@@ -99,13 +92,6 @@ class NodeServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
-  def CompleteJob(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
-
 
 def add_NodeServiceServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -138,11 +124,6 @@ def add_NodeServiceServicer_to_server(servicer, server):
           servicer.CompleteNodeSessionJob,
           request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteNodeSessionJobRequest.FromString,
           response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteNodeSessionJobResponse.SerializeToString,
-      ),
-      'CompleteJob': grpc.unary_unary_rpc_method_handler(
-          servicer.CompleteJob,
-          request_deserializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobRequest.FromString,
-          response_serializer=scrapydd_dot_grpcservice_dot_service__pb2.CompleteJobResponse.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

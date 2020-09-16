@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-// import "google/api/annotations.proto";
-
 service NodeService {
     rpc CreateNode(CreateNodeRequest) returns (Node);
 
@@ -18,8 +16,6 @@ service NodeService {
 
     rpc CompleteNodeSessionJob(CompleteNodeSessionJobRequest)
         returns (CompleteNodeSessionJobResponse);
-
-    rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
 }
 
 message Node {
@@ -45,17 +41,6 @@ message NodeSessionJob {
     string name = 1;
     string id = 2;
     string figure = 3;
-}
-
-message CompleteJobRequest{
-    string jobId = 1;
-    string status = 2;
-    bytes logs = 3;
-    bytes items = 4;
-}
-
-message CompleteJobResponse{
-
 }
 
 message CompleteNodeSessionJobRequest {
