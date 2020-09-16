@@ -15,6 +15,7 @@ from .security import authenticated_request
 from tornado.httpclient import HTTPClient, HTTPError
 import json
 from six.moves.configparser import SafeConfigParser
+from .client import get_client
 
 logger = logging.getLogger(__name__)
 
@@ -111,20 +112,9 @@ def run_register():
     key_secret = input('Please input node key_secret:')
     config = AgentConfig()
     server_base = config.get('server')
-    if urlparse(server_base).scheme == '':
-        if config.getint('server_https_port'):
-            server_base = 'https://%s:%d' % (server_base, config.getint('server_https_port'))
-        else:
-            server_base = 'http://%s:%d' % (server_base, config.getint('server_port'))
-
-    register_url = urljoin(server_base, '/nodes/register')
-    post_data = {'node_key':key}
-    request = authenticated_request(url=register_url, method="POST", app_key=key, app_secret=key_secret,
-                                    body=urlencode(post_data))
-    client = HTTPClient()
+    client = get_client(config, app_key=key, app_secret=key_secret)
     try:
-        response = client.fetch(request)
-        response_data = json.loads(response.body)
+        response_data = client.register_node(key)
         if not os.path.exists('conf'):
             os.makedirs('conf')
         with open('conf/node.conf', 'w') as f:

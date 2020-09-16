@@ -109,7 +109,7 @@ class NodeRestClient:
                                  json=post_data)
         res.raise_for_status()
         res_data = res.json()
-        return res_data['id']
+        return res_data
 
     def login(self):
         url = urljoin(self._base_url, '/v1/nodeSessions')
