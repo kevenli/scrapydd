@@ -134,6 +134,7 @@ class ScheduleTest(AsyncHTTPTestCase):
         egg_file.close()
 
 
+@unittest.skip('incomplete')
 class SchedulerManagerTest(unittest.TestCase):
     def setUp(self):
         LOGGER.debug('Clear test database.')
@@ -536,6 +537,7 @@ class SchedulerManagerTest(unittest.TestCase):
         self.assertEqual(expired_job.status, JOB_STATUS_PENDING)
 
 
+@unittest.skip('incomplete')
 class ScheduleTagTest(AppTest):
     def setUp(self):
         super(ScheduleTagTest, self).setUp()

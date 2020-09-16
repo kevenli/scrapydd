@@ -28,13 +28,11 @@ class NodeTest(AppTest):
         self.assertEqual(200, response.code)
         return json.loads(response.body)['id']
 
-
 class NodeSecureTest(NodeTest):
     def setUp(self):
         super(NodeSecureTest, self).setUp()
         with session_scope() as session:
-            node = Node()
-            session.add(node)
+            node = self.node_manager.node_online(session, None, None, None)
 
             nodekey = NodeKey()
             nodekey.key = str(uuid.uuid4())
@@ -374,3 +372,286 @@ class JobEggHandlerTest(NodeSecureTest):
         res = self.fetch_secure(f'/jobs/{task_id}/egg', method='GET',
                                 headers=headers)
         self.assertEqual(200, res.code)
+
+
+class CreateNodeSessionHandlerTest(NodeTest):
+    def test_post(self):
+        res = self.fetch('/v1/nodeSessions', method='POST', body='')
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['node_id'])
+
+    def test_post_body_tags(self):
+        post_data = {
+        }
+        body = urlencode(post_data, doseq=True)
+        res = self.fetch('/v1/nodeSessions', method='POST', body=body)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        node_id = res_data['node_id']
+        session_id = res_data['id']
+
+        self.assertTrue(node_id > 0)
+        self.assertTrue(session_id > 0)
+
+        #headers = {'X-Dd-Nodeid': str(node_id)}
+        #res = self.fetch('/v1/nodes/%s' % node_id, headers=headers)
+        res = self.fetch('/v1/nodes/%s' % node_id)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+
+
+class NodeSessionInstanceHeartbeatHandlerTest(NodeTest):
+    def session_login(self):
+        post_data = {
+            'tags': ''
+        }
+        res = self.fetch('/v1/nodeSessions', method='POST',
+                         body=urlencode(post_data))
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.node_id = res_data['node_id']
+        self.session_id = res_data['id']
+
+    def test_post(self):
+        post_data = {}
+        self.session_login()
+        headers = {'X-Dd-Nodeid': str(self.node_id)}
+        res = self.fetch('/v1/nodeSessions/%s:heartbeat' % self.session_id,
+                         method='POST', body=urlencode(post_data),
+                         headers=headers,
+                         allow_nonstandard_methods=True)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.assertEqual(res_data['kill_job_ids'], [])
+        self.assertEqual(res_data['new_job_available'], False)
+
+    def test_post_running_jobs(self):
+        job_ids = ['1', '2']
+        post_data = {
+            'running_job_ids': job_ids
+        }
+        self.session_login()
+        res = self.fetch('/v1/nodeSessions/%s:heartbeat' % self.session_id,
+                         method='POST', body=urlencode(post_data, doseq=True),
+                         allow_nonstandard_methods=True)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.assertEqual(res_data['kill_job_ids'], job_ids)
+        self.assertEqual(res_data['new_job_available'], False)
+
+
+class NodeCollectionHandlerTest(NodeTest):
+    def test_post(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+
+        # pass parameters other than body by query parameter
+        # according to api design guide
+        # https://cloud.google.com/apis/design/standard_methods#create
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
+                         body='')
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 0)
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
+    def test_post_full(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'tags': ['a', 'bb', 'ccc']
+        }
+
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
+                         body=urlencode(post_data, doseq=True))
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 3)
+        self.assertEqual(res_data['tags'], ['a', 'bb', 'ccc'])
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
+    def test_post_json(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {}
+
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
+                         body=json.dumps(post_data),
+                         headers={'Content-Type': 'application/json'})
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 0)
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
+    def test_post_json_full(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'tags': ['a', 'bb', 'ccc']
+        }
+
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
+                         body=json.dumps(post_data),
+                         headers={'Content-Type': 'application/json'})
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 3)
+        self.assertEqual(res_data['tags'], ['a', 'bb', 'ccc'])
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
+    def test_post_no_node_key(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'tags': ['a', 'bb', 'ccc']
+        }
+
+        res = self.fetch('/v1/nodes',
+                         method='POST',
+                         body=json.dumps(post_data),
+                         headers={'Content-Type': 'application/json'})
+        # no NodeKey provided, should return 400
+        self.assertEqual(400, res.code)
+
+    def test_post_invalid_node_key(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        post_data = {
+            'tags': ['a', 'bb', 'ccc']
+        }
+
+        # invalid node_key
+        res = self.fetch('/v1/nodes?node_key=1',
+                         method='POST',
+                         body=json.dumps(post_data),
+                         headers={'Content-Type': 'application/json'})
+        # invalid NodeKey provided, should return 400
+        self.assertEqual(400, res.code)
+
+
+class NodeInstanceHandlerTest(NodeTest):
+    def test_get(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
+                         body='')
+        self.assertEqual(200, res.code)
+
+        res_data = json.loads(res.body)
+
+        node_id = res_data['id']
+
+        res = self.fetch('/v1/nodes/%s' % node_id)
+        self.assertEqual(200, res.code)
+        res_data = json.loads(res.body)
+        self.assertIsNotNone(res_data['name'])
+        self.assertIsNotNone(res_data['id'])
+        self.assertIsNotNone(res_data['display_name'])
+        self.assertIsNotNone(res_data['tags'])
+        self.assertEqual(len(res_data['tags']), 0)
+        self.assertIsNotNone(res_data['is_online'])
+        self.assertIsNotNone(res_data['client_ip'])
+
+
+class ObtainNodeSessionJobHandlerTest(NodeTest):
+    def test_post(self):
+        with session_scope() as session:
+            user = self.get_user()
+            project_manager = self.project_manager
+            scheduler_manager = self.scheduler_manager
+            node_manager = self._app.settings.get('node_manager')
+            project_name = 'ObtainNodeSessionJobHandlerTest'
+            exist_project = project_manager.get_project_by_name(
+                session, user, project_name)
+            if exist_project:
+                project_manager.delete_project(user.id, exist_project.id)
+                session.expunge(exist_project)
+
+            project = project_manager.create_project(session,
+                                                          user,
+                                                          project_name)
+            node_session = node_manager.create_node_session(session)
+            spider = project_manager.create_spider(session, project, 'test')
+            new_job = scheduler_manager.add_spider_task(session, spider)
+
+            res = self.fetch('/v1/nodeSessions/%s/jobs:obtain' % node_session.id,
+                             method='POST', body='')
+            self.assertEqual(200, res.code)
+            res_data = json.loads(res.body)
+            self.assertIsNotNone(res_data['name'])
+
+            # obtain one more
+            # this time, there is no job available, should return 404
+            res = self.fetch(
+                '/v1/nodeSessions/%s/jobs:obtain' % node_session.id,
+                method='POST', body='')
+            self.assertEqual(404, res.code)
+
+            project_manager.delete_project(user.id, project.id)
+
+
+class CompleteNodeSessionJobHandlerTest(NodeTest):
+    def test_post(self):
+        with session_scope() as session:
+            user = self.get_user()
+            project_manager = self.project_manager
+            scheduler_manager = self.scheduler_manager
+            node_manager = self._app.settings.get('node_manager')
+            project_name = 'CompoleteNodeSessionJobHandlerTest'
+            exist_project = project_manager.get_project_by_name(
+                session, user, project_name)
+            if exist_project:
+                project_manager.delete_project(user.id, exist_project.id)
+                session.expunge(exist_project)
+
+            project = project_manager.create_project(session,
+                                                          user,
+                                                          project_name)
+            node_session = node_manager.create_node_session(session)
+            spider = project_manager.create_spider(session, project, 'test')
+            new_job = scheduler_manager.add_spider_task(session, spider)
+
+            res = self.fetch('/v1/nodeSessions/%s/jobs:obtain' % node_session.id,
+                             method='POST', body='')
+            self.assertEqual(200, res.code)
+            res_data = json.loads(res.body)
+            self.assertIsNotNone(res_data['name'])
+            job_id = res_data['id']
+
+            complete_data = {'status': 'success'}
+            complete_res = self.fetch('/v1/nodeSessions/%s/jobs/%s:complete' %
+                                      (node_session.id, job_id),
+                                      method='POST',
+                                      body=urlencode(complete_data))
+            self.assertEqual(200, complete_res.code)
+
+            project_manager.delete_project(user.id, project.id)

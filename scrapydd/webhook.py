@@ -206,7 +206,7 @@ class WebhookDaemon():
         self.current_job = None
         self.storage = DatabaseWebhookJobStateStorage()
         self.poll_next_job_callback.start()
-        self.webhook_memory_limit = config.getint('webhook_memory_limit')
+        self.webhook_memory_limit = config.getint('webhook_memory_limit', 0)
         self.spider_setting_loader = spider_setting_loader
         self.job_manager = job_manager
         job_manager.attach_job_observer(self)

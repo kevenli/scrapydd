@@ -220,7 +220,6 @@ class SchedulerManager():
             executing.settings = json.dumps(settings)
         session.add(executing)
         session.commit()
-        session.refresh(executing)
         return executing
 
     def add_task(self, project_name, spider_name, settings=None):
@@ -366,8 +365,11 @@ order by a.fire_time
             spider_max_concurrency = 1
             spider_concurrency = session.query(
                 func.count(SpiderExecutionQueue.id)
-            )\
-            .filter(SpiderExecutionQueue.status == JOB_STATUS_RUNNING) \
+            ) \
+            .filter(
+                SpiderExecutionQueue.status == JOB_STATUS_RUNNING,
+                SpiderExecutionQueue.spider_id == job.spider_id,
+            ) \
             .scalar() or 0
             if spider_concurrency >= spider_max_concurrency:
                 continue
@@ -494,7 +496,7 @@ order by a.fire_time
 
         if items_file:
             items_file.seek(0)
-            project_storage.put_job_data(job, log_file, items_file)
+        project_storage.put_job_data(job, log_file, items_file)
 
         session.delete(job)
         session.add(historical_job)

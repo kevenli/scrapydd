@@ -48,9 +48,12 @@ from .handlers.node import NodesHandler, ExecuteNextHandler
 from .handlers.node import ExecuteCompleteHandler, NodeHeartbeatHandler
 from .handlers.node import JobStartHandler, RegisterNodeHandler, JobEggHandler
 from .handlers import webui
+from .handlers import node as node_handlers
 from .storage import ProjectStorage
 from .scripts.upgrade_filestorage import upgrade as upgrade_project_storage
 from .scripts.upgrade_projectpackage import upgrade as upgrade_project_package
+from .handlers.api import apply as api_apply
+from .grpcservice.server import start as start_grpc_server
 
 LOGGER = logging.getLogger(__name__)
 
@@ -527,7 +530,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         'spider_url': webui.spider_url
     }
 
-    return tornado.web.Application([
+    application = tornado.web.Application([
         (r"/", webui.MainHandler),
         (r'/signin', SigninHandler),
         (r'/logout', LogoutHandler),
@@ -571,6 +574,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
 
         (r'/admin$', admin.AdminHomeHandler),
         (r'^/admin/nodes$', admin.AdminNodesHandler),
+        (r'^/admin/nodes/(\w+)/delete$', admin.AdminNodesDeleteHandler),
         (r'^/admin/spiderplugins$', admin.AdminPluginsHandler),
         (r'^/admin/users$', admin.AdminUsersHandler),
         (r'^/admin/users/disable$', admin.AdminDisableUserAjaxHandler),
@@ -592,7 +596,7 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
           'scheduler_manager': scheduler_manager}),
         (r'/nodes', NodesHandler, {'node_manager': node_manager}),
         (r'/nodes/register', RegisterNodeHandler),
-
+        #(r'/v1/nodes/(\w+)', node_handlers.GetNodeHandler),
         (r'/nodes/(\d+)/heartbeat', NodeHeartbeatHandler,
          {'node_manager': node_manager,
           'scheduler_manager': scheduler_manager}),
@@ -605,14 +609,18 @@ def make_app(scheduler_manager, node_manager, webhook_daemon=None,
         (r'/ca.crt', CACertHandler),
         (r'/static/(.*)', tornado.web.StaticFileHandler,
          {'path': os.path.join(os.path.dirname(__file__), 'static')}),
-    ], **settings)
+    ] + node_handlers.url_patterns, **settings)
+
+    api_apply(application)
+
+    return application
 
 
 def check_and_gen_ssl_keys(config):
     server_name = config.get('server_name')
     if not server_name:
         raise Exception('Must specify a server name')
-    ssl_gen = SSLCertificateGenerator()
+    ssl_gen = SSLCertificateGenerator('keys')
     try:
         ssl_gen.get_ca_key()
         ssl_gen.get_ca_cert()
@@ -668,14 +676,15 @@ def start_server(argv=None):
     if task_id is not None and config.get('cluster_bind_address'):
         cluster_node = ClusterNode(task_id, config)
         cluster_sync_obj = cluster_node.sync_obj
-
+    enable_authentication = config.getboolean('enable_authentication')
     scheduler = build_scheduler()
     scheduler_manager = SchedulerManager(config=config,
                                          syncobj=cluster_sync_obj,
                                          scheduler=scheduler)
     scheduler_manager.init()
 
-    node_manager = NodeManager(scheduler_manager)
+    node_manager = NodeManager(scheduler_manager,
+                               enable_authentication=enable_authentication)
     node_manager.init()
 
     webhook_daemon = WebhookDaemon(config, SpiderSettingLoader(), scheduler_manager)
@@ -683,9 +692,14 @@ def start_server(argv=None):
 
     runner_factory = RunnerFactory(config)
 
+    project_storage_dir = config.get('project_storage_dir')
+    default_project_storage_version = config.getint(
+        'default_project_storage_version')
     spider_plugin_manager = SpiderPluginManager()
+    project_manager = ProjectManager(runner_factory, project_storage_dir,
+                                     scheduler_manager,
+                                     default_project_storage_version)
 
-    enable_authentication = config.getboolean('enable_authentication')
     secret_key = config.get('secret_key')
     app = make_app(scheduler_manager, node_manager, webhook_daemon,
                    debug=is_debug,
@@ -693,17 +707,18 @@ def start_server(argv=None):
                    secret_key=secret_key,
                    enable_node_registration=config.getboolean(
                        'enable_node_registration', False),
-                   project_storage_dir=config.get('project_storage_dir'),
+                   project_storage_dir=project_storage_dir,
                    default_project_storage_version=config.getint(
                        'default_project_storage_version'),
                    runner_factory=runner_factory,
-                   spider_plugin_manager=spider_plugin_manager)
+                   spider_plugin_manager=spider_plugin_manager,
+                   project_manager=project_manager)
 
     server = tornado.httpserver.HTTPServer(app)
     server.add_sockets(sockets)
 
+    check_and_gen_ssl_keys(config)
     if https_port:
-        check_and_gen_ssl_keys(config)
         if config.getboolean('client_validation'):
             ssl_ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         else:
@@ -716,10 +731,18 @@ def start_server(argv=None):
         httpsserver = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
         httpsserver.add_sockets(https_sockets)
         LOGGER.info('starting https server on %s:%s', bind_address, https_port)
-
     ioloop = tornado.ioloop.IOLoop.current()
-    scheduler.start()
-    ioloop.start()
+
+    try:
+        grpc_server = start_grpc_server(node_manager,
+                                        scheduler_manager,
+                                        project_manager)
+
+        scheduler.start()
+        ioloop.start()
+    except KeyboardInterrupt:
+        grpc_server.stop(True)
+        ioloop.stop()
 
 
 def run(argv=None):

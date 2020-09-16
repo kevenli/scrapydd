@@ -82,6 +82,7 @@ class ProjectStorage:
         if log_file:
             log_file.seek(0)
             with open(log_file_path, 'wb+') as f_log:
+                logger.debug('logs file saved to %s', log_file_path)
                 copyfileobj(log_file, f_log)
 
         items_file_path = self.storage_provider.get_job_item_path(job)

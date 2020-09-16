@@ -10,12 +10,14 @@ import enum
 
 from sqlalchemy import create_engine, schema, Column, desc
 from sqlalchemy.types import Integer, String, DateTime, Text, Boolean, Enum
+from sqlalchemy.types import BigInteger
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy import UniqueConstraint
+from sqlalchemy_utils import ScalarListType
 from migrate.versioning.api import version_control, upgrade
 from migrate.exceptions import DatabaseAlreadyControlledError
 
@@ -146,7 +148,7 @@ class SpiderExecutionQueue(Base):
     spider_name = Column(String(length=50))
     fire_time = Column(DateTime)
     start_time = Column(DateTime)
-    node_id = Column(Integer)
+    node_id = Column(BigInteger)
     status = Column(Integer, ForeignKey('job_status.id'), default=0)
     status_obj = relationship('JobStatus')
     update_time = Column(DateTime)
@@ -158,12 +160,13 @@ class SpiderExecutionQueue(Base):
 class Node(Base):
     __tablename__ = 'nodes'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    name = Column(String(length=30), nullable=True)
     client_ip = Column(String(length=50))
     create_time = Column(DateTime)
     last_heartbeat = Column(DateTime)
     isalive = Column(Integer)
-    tags = Column(String(length=200))
+    tags = Column(ScalarListType())
     is_deleted = Column(Boolean, default=False)
     node_key_id = Column(Integer, ForeignKey('node_keys.id'))
 
@@ -175,8 +178,17 @@ class NodeKey(Base):
     key = Column(String(length=50), unique=True, nullable=False)
     secret_key = Column(String(length=50), nullable=False)
     is_deleted = Column(Boolean, default=False)
-    used_node_id = Column(Integer)
+    used_node_id = Column(BigInteger)
     create_at = Column(DateTime, nullable=False)
+
+
+class NodeSession(Base):
+    __tablename__ = 'nodesessions'
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    node_id = Column(BigInteger, ForeignKey('nodes.id'), nullable=False)
+    node = relationship('Node')
+    create_at = Column(DateTime, nullable=False)
+    last_heartbeat = Column(DateTime, nullable=False)
 
 
 class HistoricalJob(Base):

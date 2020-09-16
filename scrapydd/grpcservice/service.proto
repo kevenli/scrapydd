@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+service NodeService {
+    rpc CreateNode(CreateNodeRequest) returns (Node);
+
+    rpc CreateNodeSession(CreateNodeSessionRequest) returns (NodeSession);
+
+    rpc HeartbeatNodeSession(HeartbeatNodeSessionRequest)
+        returns (HeartbeatNodeSessionResponse);
+
+    rpc ObtainNodeSessionJob(ObtainNodeSessionJobRequest)
+        returns (NodeSessionJob);
+
+    rpc GetNodeSessionJobEgg(GetNodeSessionJobEggRequest)
+        returns (stream DataChunk);
+
+    rpc CompleteNodeSessionJob(CompleteNodeSessionJobRequest)
+        returns (CompleteNodeSessionJobResponse);
+}
+
+message Node {
+    string name = 1;
+    int64 id = 2;
+    string display_name = 3;
+    repeated string tags = 4;
+    bool is_online = 6;
+    string client_ip = 7;
+}
+
+message NodeSession {
+    string name = 1;
+    int64 id = 2;
+    int64 node_id = 3;
+}
+
+message ObtainNodeSessionJobRequest {
+    string name = 1;
+}
+
+message NodeSessionJob {
+    string name = 1;
+    string id = 2;
+    string figure = 3;
+}
+
+message CompleteNodeSessionJobRequest {
+    string name = 1;
+    string status = 2;
+    bytes logs = 3;
+    bytes items = 4;
+}
+
+message CompleteNodeSessionJobResponse {
+
+}
+
+message CreateNodeSessionRequest{
+    NodeSession node_session = 2;
+}
+
+message CreateNodeRequest {
+//    string parent = 1;
+    Node node = 2;
+    string node_key = 3;
+}
+
+message HeartbeatNodeSessionRequest {
+    string name = 1;
+    repeated string running_job_ids = 2;
+}
+
+message HeartbeatNodeSessionResponse {
+    repeated string kill_job_ids = 1;
+    bool new_job_available = 2;
+}
+
+message GetNodeSessionJobEggRequest{
+    string name = 1;
+}
+
+message DataChunk {
+    bytes data = 1;
+}

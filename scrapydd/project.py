@@ -16,6 +16,10 @@ from .models import Package
 logger = logging.getLogger(__name__)
 
 
+class SpiderNameAlreadyExist(Exception):
+    pass
+
+
 class ProjectManager:
     def __init__(self, runner_factory,
                  project_storage_dir,
@@ -48,20 +52,38 @@ class ProjectManager:
                                                     auto_populate_spiders=True)
             return ret
 
-    def create_project(self, session, user, project_name):
+    def create_project(self, session, user_id, project_name,
+                       return_existing=False):
+        if hasattr(user_id, 'id'):
+            user_id = user_id.id
         existing_project = session.query(Project)\
-            .filter_by(owner=user, name=project_name).first()
+            .filter_by(owner_id=user_id, name=project_name).first()
+
+        if existing_project and return_existing:
+            return existing_project
+
         if existing_project:
             raise ProjectAlreadyExists()
 
         project = Project()
-        project.owner = user
+        project.owner_id = user_id
         project.name = project_name
         project.storage_version = self.default_project_storage_version
         session.add(project)
         session.commit()
-        session.refresh(project)
         return project
+
+    def create_spider(self, session, project, spider_name):
+        existing_spiders = session.query(Spider)\
+            .filter_by(project_id=project.id)
+        for existing_spider in existing_spiders:
+            if existing_spider.name == spider_name:
+                raise SpiderNameAlreadyExist()
+
+        spider = Spider(project=project, name=spider_name)
+        session.add(spider)
+        session.commit()
+        return spider
 
 
     async def upload_project_package(self, session, project, f_egg, version,
@@ -214,8 +236,6 @@ class ProjectManager:
                             project_name) -> Project:
         project = session.query(Project).filter_by(owner=user,
                                                    name=project_name).first()
-        if not project:
-            raise ProjectNotFound()
         return project
 
     def get_job_figure(self, session: Session,
