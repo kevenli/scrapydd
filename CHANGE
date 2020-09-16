@@ -1,3 +1,19 @@
+v0.7.5:
+
+* docker image change to debian-python3.8 base image
+* add grpc and restapi for node/server communication.
+* add client module support both rest and grpc client, remove old asynchttp client
+* add openapi doc.
+* modify node register / login process.
+* admin can delete node on webui.
+* add node name field, will auto-populate with random name when creating.
+* node.id change to bigint type, use twitter snowflake algorithm to generate new value.
+* restructure some manager, receive a session parameter to give better control of caller.
+* (Important) enable_authentication default value change to false.
+* fix keys generating issue.
+* fix jobs are not schedule concurrently across spiders ( a global counter).
+
+
 v0.7.4:
 
 bug fixes:
