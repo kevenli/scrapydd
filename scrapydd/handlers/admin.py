@@ -16,7 +16,7 @@ class AdminNodesHandler(AppBaseHandler):
         if not self.current_user or not self.current_user.is_admin:
             return self.set_status(403, reason="No permission")
         with session_scope() as session:
-            nodes = list(session.query(Node).filter(or_(Node.node_key_id.isnot(None),Node.is_deleted.is_(False))))
+            nodes = session.query(Node).filter(Node.is_deleted.is_(False))
             usable_key = self._get_new_node_key()
             self.render('admin/nodes.html', nodes=nodes, usable_key=usable_key)
 
@@ -45,18 +45,17 @@ class AdminNodesHandler(AppBaseHandler):
 
 
 class AdminNodesDeleteHandler(AppBaseHandler):
+    @authenticated
     def post(self, node_id):
         if not self.current_user or not self.current_user.is_admin:
             return self.set_status(403, "No permission")
-        session = self.session
-        node = session.query(Node).get(node_id)
-        if not node:
-            return HTTPError(404, 'node not found')
 
-        node.is_deleted = True
-        node.isalive = False
-        session.add(node)
-        session.commit()
+        session = self.session
+        node_manager = self.node_manager
+        try:
+            node_manager.delete_node(session, node_id)
+        except ObjectNotFoundException:
+            self.set_status(404, 'Node not found.')
 
 
 class AdminHomeHandler(AppBaseHandler):

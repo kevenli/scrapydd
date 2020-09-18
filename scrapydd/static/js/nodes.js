@@ -11,6 +11,7 @@ function deleteNode(nodeId) {
     headers: {'X-XSRFToken': xsrf},
     success: function () {
       alert('Node deleted.');
+      location.reload();
     }
   });
 }
@@ -19,6 +20,7 @@ $(function(){
   $("#table-nodes tr td.td-operations .btnDelete").click(function(){
     var nodeId = $(this).parents('tr').attr('data-node-id');
     deleteNode(nodeId);
+    return false;
   });
 });
 

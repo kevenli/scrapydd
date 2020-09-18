@@ -32,6 +32,12 @@ Session = sessionmaker(bind=engine, expire_on_commit=False)
 _Session = None
 
 
+class ObjectNotFoundException(Exception):
+    """
+    Raise when expecting an existing object but not found.
+    """
+
+
 class User(Base):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True)

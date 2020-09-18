@@ -1,9 +1,13 @@
-from tests.base import AppTest, SecureAppTest
-from scrapydd.models import session_scope, NodeKey
 import datetime
 import logging
+import json
+from urllib.parse import urlencode
+from tests.base import AppTest, SecureAppTest
+from scrapydd.models import session_scope, NodeKey
+
 
 logger = logging.getLogger(__name__)
+
 
 class AdminNodesHandlerTest(AppTest):
     def test_get(self):
@@ -85,3 +89,30 @@ class AdminHomeHandlerTest(SecureAppTest):
     def test_get_no_auth(self):
         response = self.fetch('/admin/nodes', follow_redirects=False)
         self.assertEqual(302, response.code)
+
+
+class AdminNodesDeleteHandlerTest(SecureAppTest):
+    def generate_new_node_key(self):
+        new_key = self._app.settings.get('node_manager').create_node_key()
+        return new_key
+
+    def register_node(self, new_key):
+        res = self.fetch('/v1/nodes' + '?node_key=' + new_key.key,
+                         method='POST',
+                         body='')
+        res_data = json.loads(res.body)
+        return res_data
+
+    def test_post_delete_permanent_node(self):
+        new_key = self.generate_new_node_key()
+        node = self.register_node(new_key)
+
+        post_data = {'_xsrf': 'dummy'}
+        headers = self.populate_cookie_header({})
+        headers['Cookie'] = headers['Cookie'] + ';_xsrf=dummy'.encode()
+        node_id = node['id']
+        res = self.fetch(method='POST',
+                         path='/admin/nodes/%s/delete' % node_id,
+                         body=urlencode(post_data),
+                         headers=headers)
+        self.assertEqual(200, res.code)

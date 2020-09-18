@@ -14,6 +14,7 @@ from scrapydd.security import CookieAuthenticationProvider, HmacAuthorize
 from scrapydd.security import BasicAuthentication
 from scrapydd.exceptions import ProjectNotFound, SpiderNotFound
 from scrapydd.project import ProjectManager
+from ..nodes import NodeManager
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,6 +78,10 @@ class AppBaseHandler(tornado.web.RequestHandler):
             self._session.commit()
             self._session.close()
             self._session = None
+
+    @property
+    def node_manager(self) -> NodeManager:
+        return self.application.settings.get('node_manager')
 
 
 class RestJsonEncoder(json.JSONEncoder):

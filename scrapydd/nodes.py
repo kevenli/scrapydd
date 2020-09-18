@@ -66,6 +66,16 @@ class NodeManager():
 
         logger.debug('node manager poll')
 
+    def delete_node(self, session, node_id):
+        node = session.query(Node).get(node_id)
+        if not node:
+            raise ObjectNotFound()
+
+        node.is_deleted = True
+        node.isalive = False
+        session.add(node)
+        session.commit()
+
     def heartbeat(self, node_id):
         try:
             session = Session()
@@ -91,6 +101,7 @@ class NodeManager():
             node.isalive = True
             node.tags = tags
             node.node_key_id = key_id
+            node.is_deleted = False
             if not name:
                 name = namegenerator.gen()
             node.name = name
