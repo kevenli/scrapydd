@@ -634,9 +634,13 @@ class DockerRunner(object):
                  '--logfile',
                  'crawl.log'
                  ]
+        # increase shm_size size to fix selenium running issue.
+        # https://stackoverflow.com/questions/30210362/how-to-increase-the-size-of-the-dev-shm-in-docker-container#:~:text=You%20can%20modify%20shm%20size,The%20default%20is%2064MB.&text=If%20you're%20using%20docker,size%20when%20running%20or%20your_service.
 
         container = self._client.containers.create(self.image, pargs,
                                                    detach=True,
+                                                   privileged=True,
+                                                   shm_size='2gb',
                                                    working_dir='/spider_run')
         self._put_file(container, 'spider.json', spider_json_buffer)
         self._put_egg(container)
