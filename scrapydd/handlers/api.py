@@ -2,6 +2,7 @@ import json
 import logging
 from tornado.web import Application, MissingArgumentError, authenticated
 from .base import RestBaseHandler
+from ..project import ProjectAlreadyExists
 
 
 logger = logging.getLogger(__name__)
@@ -61,14 +62,16 @@ class ProjectsHandler(ApiHandler):
             project_name = self.get_argument('name')
         except MissingArgumentError:
             return self.write_error(400, errmsg='Parameter name required.')
-        project = self.project_manager.create_project(self.session,
-                                                      self.current_user,
-                                                      project_name,
-                                                      return_existing=True)
+        try:
+            project = self.project_manager.create_project(self.session,
+                                                          self.current_user,
+                                                          project_name)
 
-        self.response['id'] = project.id
-        self.response['name'] = project.name
-        self.write_json()
+            self.response['id'] = project.id
+            self.response['name'] = project.name
+            self.write_json()
+        except ProjectAlreadyExists:
+            return self.set_status(409, 'project already exists')
 
 
 def apply(app: Application):

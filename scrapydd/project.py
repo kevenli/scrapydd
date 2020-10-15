@@ -1,6 +1,6 @@
 from datetime import datetime
 import logging
-from typing import List
+from typing import List, Union
 import time
 import hashlib
 from scrapydd.models import session_scope, ProjectPackage, Project, Spider, \
@@ -52,15 +52,13 @@ class ProjectManager:
                                                     auto_populate_spiders=True)
             return ret
 
-    def create_project(self, session, user_id, project_name,
-                       return_existing=False):
-        if hasattr(user_id, 'id'):
-            user_id = user_id.id
+    def create_project(self, session, owner: Union[User, int], project_name):
+        if hasattr(owner, 'id'):
+            user_id = owner.id
+        else:
+            user_id = owner
         existing_project = session.query(Project)\
             .filter_by(owner_id=user_id, name=project_name).first()
-
-        if existing_project and return_existing:
-            return existing_project
 
         if existing_project:
             raise ProjectAlreadyExists()
