@@ -2,7 +2,7 @@ apscheduler==3.6.3
 Automat==0.8.0
 chardet==3.0.4
 docker==4.2.2
-requests==2.20.0
+requests==2.31.0
 pysyncobj>=0.2.3
 subprocess32==3.5.4
 scrapy>=2.0,<3.0
