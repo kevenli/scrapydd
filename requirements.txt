@@ -11,7 +11,7 @@ six==1.15.0
 sqlalchemy==1.3.18
 sqlalchemy-migrate==0.13.0
 sqlalchemy-utils
-tornado==6.0.4
+tornado==6.3.2
 virtualenv>=20.0
 w3lib==1.22.0
 pyaml==20.4.0
