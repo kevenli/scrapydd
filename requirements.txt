@@ -17,5 +17,5 @@ w3lib==1.22.0
 pyaml==20.4.0
 pymysql==0.10.0
 namegenerator==1.0.6
-grpcio==1.31.0
+grpcio==1.53.0
 grpcio-tools==1.31.0
